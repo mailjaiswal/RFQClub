@@ -26,3 +26,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+.vercel
+
+# agent-skill artifacts (installed by the Vercel Neon integration; not app code)
+.agents/
+.claude/
+skills-lock.json

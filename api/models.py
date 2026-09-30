@@ -2,7 +2,7 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 from sqlalchemy import (
-    String, Integer, Float, Boolean, DateTime, Text, JSON, ForeignKey, UniqueConstraint, func,
+    String, Integer, BigInteger, Float, Boolean, DateTime, Text, JSON, ForeignKey, UniqueConstraint, func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -97,7 +97,7 @@ class Bid(Base):
     exception_flag: Mapped[bool] = mapped_column(Boolean, default=False)
     exception_note: Mapped[str] = mapped_column(Text, default="")
     notes: Mapped[str] = mapped_column(Text, default="")
-    tlc_cents: Mapped[int] = mapped_column(Integer, default=0)  # total landed cost, cents
+    tlc_cents: Mapped[int] = mapped_column(BigInteger, default=0)  # total landed cost, cents (can exceed 32-bit)
     source: Mapped[str] = mapped_column(String, default="web")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 

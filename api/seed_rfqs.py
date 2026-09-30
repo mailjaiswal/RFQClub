@@ -28,10 +28,27 @@ SEED_JSON = Path(__file__).with_name("seed_data") / "rfqs.json"
 
 
 def _clear_rfqs(session):
-    session.query(models.Bid).delete()
-    session.query(models.Award).delete()
+    # Child-first: award references both bid and rfq, save_item references rfq,
+    # bid references rfq. SQLite ignores FKs so the old order passed locally,
+    # but Postgres enforces them — this order is required there.
     session.query(models.SaveItem).delete()
+    session.query(models.Award).delete()
+    session.query(models.Bid).delete()
     session.query(models.Rfq).delete()
+    session.commit()
+
+
+def _sync_sequences(session):
+    """RFQs are seeded with explicit ids, which leaves the Postgres identity
+    sequence behind (next insert collides with id=1). Advance it past the max.
+    No-op on SQLite, where rowid already tracks the max."""
+    if session.get_bind().dialect.name != "postgresql":
+        return
+    from sqlalchemy import text
+    session.execute(text(
+        "SELECT setval(pg_get_serial_sequence('rfq','id'), "
+        "(SELECT COALESCE(MAX(id), 1) FROM rfq))"
+    ))
     session.commit()
 
 
@@ -102,6 +119,7 @@ def _seed_from_json(session) -> int:
         session.add(rfq)
         count += 1
     session.commit()
+    _sync_sequences(session)
     return count
 
 
@@ -166,6 +184,7 @@ def _seed_from_workbook(session) -> int:
         session.add(rfq)
         count += 1
     session.commit()
+    _sync_sequences(session)
     return count
 
 
