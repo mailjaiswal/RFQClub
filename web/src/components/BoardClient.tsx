@@ -1,10 +1,12 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import LedgerRow, { tagKey } from "@/components/LedgerRow";
+import RfqTile from "@/components/RfqTile";
 import { toggleSave, type BoardResponse, type RfqCard } from "@/lib/api";
 
 type Sort = "deadline" | "value" | "bidcount";
 type View = "all" | "saved" | "myrfqs" | "mybids";
+type Mode = "cards" | "list";
 
 // Sector legend: the mock's board bar shows these five chips.
 const LEGEND: { key: string; label: string; color: string }[] = [
@@ -34,6 +36,7 @@ export default function BoardClient({
   const [openTotal, setOpenTotal] = useState(initial.open_total);
   const [sector, setSector] = useState("");
   const [sort, setSort] = useState<Sort>("deadline");
+  const [mode, setMode] = useState<Mode>("cards");
   const [activeTag, setActiveTag] = useState<{ key: string; label: string } | null>(null);
 
   // Board publishes live counts (open + saved) to the left rail. Child effects
@@ -103,6 +106,10 @@ export default function BoardClient({
           <span>{activeTag?.label}</span>
           <button aria-label="Clear filter" onClick={() => setActiveTag(null)}>✕</button>
         </span>
+        <span className="laytog" role="group" aria-label="Board layout">
+          <button className={mode === "cards" ? "on" : ""} aria-pressed={mode === "cards"} onClick={() => setMode("cards")}>Cards</button>
+          <button className={mode === "list" ? "on" : ""} aria-pressed={mode === "list"} onClick={() => setMode("list")}>List</button>
+        </span>
         <span className="ap-sort">
           Closing soon ▾{" "}
           <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="Sort board">
@@ -128,6 +135,18 @@ export default function BoardClient({
         <div className="ap-empty" style={{ display: "block" }}>
           No open RFQs match this tag.
           <button type="button" onClick={() => setActiveTag(null)}>Clear filter</button>
+        </div>
+      ) : mode === "cards" ? (
+        <div className="ap-grid">
+          {filtered.map((rfq) => (
+            <RfqTile
+              key={rfq.id}
+              rfq={rfq}
+              activeTagKey={activeTag?.key ?? null}
+              onTag={onTag}
+              onToggleSave={onToggleSave}
+            />
+          ))}
         </div>
       ) : (
         filtered.map((rfq) => (

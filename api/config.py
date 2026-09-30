@@ -20,7 +20,10 @@ DATA_DIR = API_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{(DATA_DIR / 'data.db').as_posix()}")
-CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",") if o.strip()]
+CORS_ORIGINS = [o.strip() for o in os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001",
+).split(",") if o.strip()]
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 ALLOWED_CHAT_IDS = {int(x) for x in os.getenv("ALLOWED_CHAT_IDS", "").replace(",", " ").split() if x.lstrip("-").isdigit()}

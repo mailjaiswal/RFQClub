@@ -112,6 +112,12 @@ export default async function RfqDetailPage({ params }: { params: Promise<{ id: 
                 </p>
               </div>
 
+              {bidsMeta && bidsMeta.count > 0 && (
+                <Link href={`/rfq/${rfq.id}/compare`} className="btn-outline" style={{ display: "block", textAlign: "center", marginTop: 16 }}>
+                  Compare bids ({bidsMeta.count}) →
+                </Link>
+              )}
+
               <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid #E4E1DA" }}>
                 <div className="lbl">Buyer</div>
                 <div style={{ fontSize: 13, marginTop: 6, fontWeight: 600 }}>Verified buyer · name withheld</div>

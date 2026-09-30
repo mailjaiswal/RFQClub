@@ -81,6 +81,8 @@
 .app .ap-nav a{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:transparent;border-radius:999px;padding:6px 11px;font-size:12.5px;font-weight:500;color:#54555C;text-decoration:none;cursor:pointer}
 .app .ap-nav a svg{width:15px;height:15px;stroke:#8A857A;fill:none;stroke-width:1.8}
 .app .ap-nav a:hover{background:#EFEBE0;color:#1D1C19}
+.app .ap-nav a.on{background:#EFEBE0;color:#1D1C19;font-weight:700}
+.app .ap-nav a.on svg{stroke:#1D1C19;stroke-width:2.2}
 .app .ap-lbl.grp{margin-top:16px}
 .app .ap-tag{cursor:pointer}
 .app .ap-tag:hover{filter:brightness(.95)}
@@ -122,6 +124,19 @@
 .app .ap-una span{font-size:10px;color:#8A857A}
 .app .ap-out{align-self:stretch;text-align:center;border:1px solid #E4E1DA;background:transparent;border-radius:999px;padding:5px 10px;font-size:10.5px;font-weight:600;color:#54555C;cursor:pointer;font-family:inherit}
 .app .ap-out:hover{border-color:#B23A2B;color:#B23A2B}
+/* ---------- board card grid (cards view) ---------- */
+.app .ap-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;padding:18px 22px}
+@media (max-width:780px){.app .ap-grid{grid-template-columns:1fr}}
+.app .ap-card{background:#fff;border:1px solid #E4E1DA;border-radius:14px;padding:15px 16px 14px;display:flex;flex-direction:column;gap:9px;transition:.15s}
+.app .ap-card:hover{border-color:#C9C4B8;box-shadow:0 1px 0 #E4E1DA}
+.app .apc-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.app .ap-card .ap-spec,.app .ap-card .ap-tags,.app .ap-card .ap-meta{margin-top:0}
+.app .apc-foot{margin-top:auto;padding-top:12px;border-top:1px solid #E4E1DA;display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+.app .apc-val{text-align:left}
+/* cards/list toggle */
+.app .laytog{display:inline-flex;border:1px solid #E4E1DA;border-radius:999px;overflow:hidden;background:#fff}
+.app .laytog button{border:none;background:transparent;font-family:var(--font-jetbrains),monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;padding:5px 12px;cursor:pointer;color:#54555C;font-weight:600}
+.app .laytog button.on{background:#1D1C19;color:#fff}
 /* buyer-console banner (My RFQs / My bids, present but not built this phase) */
 .app .ap-banner{margin:14px 22px 0;padding:12px 14px;border:1px dashed #C9C4B8;border-radius:12px;background:#EFEBE0;color:#54555C;font-size:12px;display:flex;align-items:center;gap:10px}
 .app .ap-banner b{color:#1D1C19}
@@ -180,6 +195,8 @@
 .app.dark .ap-meta b{color:#b9b6ad}
 .app.dark .ap-nav a{color:#b9b6ad}
 .app.dark .ap-nav a:hover{background:#232329;color:#fff}
+.app.dark .ap-nav a.on{background:#232329;color:#fff;font-weight:700}
+.app.dark .ap-nav a.on svg{stroke:#fff;stroke-width:2.2}
 .app.dark .ap-tag.more{background:#1a1a1f;color:#8f8c85}
 .app.dark .ap-tag.active{outline-color:#fff}
 .app.dark .ap-filter{background:#ECEAE3;color:#141416}
@@ -188,6 +205,12 @@
 .app.dark .ap-banner{background:#1b1b1f;border-color:#3a3a42;color:#b9b6ad}
 .app.dark .ap-banner b{color:#fff}
 .app.dark .ap-banner a{border-color:#ECEAE3;color:#ECEAE3}
+.app.dark .ap-card{background:#1b1b1f;border-color:#26262c}
+.app.dark .ap-card:hover{border-color:#3a3a42;box-shadow:0 1px 0 #26262c}
+.app.dark .apc-foot{border-top-color:#26262c}
+.app.dark .laytog{background:#1b1b1f;border-color:#2f2f37}
+.app.dark .laytog button{color:#b9b6ad}
+.app.dark .laytog button.on{background:#ECEAE3;color:#141416}
 /* tour overlay (global, not scoped to .app) */
 .tour-hl{position:absolute;z-index:1000;border-radius:12px;box-shadow:0 0 0 9999px rgba(18,16,12,.62);outline:2px solid #2E7D46;pointer-events:none;transition:top .25s,left .25s,width .25s,height .25s;display:none}
 .tour-tip{position:absolute;z-index:1001;width:320px;background:#fff;border-radius:16px;padding:18px;box-shadow:0 24px 60px -18px rgba(0,0,0,.5);display:none}

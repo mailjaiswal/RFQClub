@@ -152,7 +152,11 @@ _DEMO_BID = [
 ]
 
 
-def seed_demo_bids(session, n_rfqs: int = 3):
+def seed_demo_bids(session, n_rfqs: int | None = None):
+    """Give every RFQ whose workbook bid_count is >0 that many REAL blinded
+    bids (capped at the 5-shop routing cap), rotating which demo supplier wins
+    so comparisons vary. bid_count is then set to the number actually created,
+    so the board never advertises bids that the compare screen can't show."""
     session.query(models.Supplier).delete()
     session.commit()
     sups = []
@@ -162,12 +166,22 @@ def seed_demo_bids(session, n_rfqs: int = 3):
         sups.append(sup)
     session.commit()
 
-    rfqs = session.query(models.Rfq).order_by(models.Rfq.id).limit(n_rfqs).all()
+    q = session.query(models.Rfq).order_by(models.Rfq.id)
+    if n_rfqs:
+        q = q.limit(n_rfqs)
+    rfqs = q.all()
     letters = "ABCDE"
-    for rfq in rfqs:
+    covered = 0
+    for j, rfq in enumerate(rfqs):
+        k = max(0, min(int(rfq.bid_count or 0), len(sups)))
+        if k == 0:
+            rfq.bid_count = 0
+            continue
         unit0 = rfq.budget_low or ((rfq.est_total / rfq.qty) if (rfq.est_total and rfq.qty) else 9800)
-        for i, s in enumerate(sups):
-            factor, tooling, freight, lead, terms, exc = _DEMO_BID[i]
+        for i in range(k):
+            sidx = (j + i) % len(sups)  # rotate so different shops win per RFQ
+            s = sups[sidx]
+            factor, tooling, freight, lead, terms, exc = _DEMO_BID[sidx]
             bid = models.Bid(
                 rfq_id=rfq.id, supplier_id=s.id, bidder_code=letters[i],
                 unit_price=round(unit0 * factor, 2), tooling=tooling, freight=freight,
@@ -177,8 +191,10 @@ def seed_demo_bids(session, n_rfqs: int = 3):
             )
             bid.tlc_cents = bid.compute_tlc_cents(rfq.qty)
             session.add(bid)
+        rfq.bid_count = k
+        covered += 1
     session.commit()
-    return len(rfqs)
+    return covered
 
 
 def main():

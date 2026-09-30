@@ -72,9 +72,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 <svg viewBox="0 0 24 24"><path d="M3 5h18M3 12h18M3 19h18" /></svg>All open
                 <span className="cnt">{counts.open}</span>
               </button>
-              <button className={onBoard && view === "myrfqs" ? "on" : ""} onClick={() => goView("myrfqs")}>
+              <Link href="/my-rfqs" className={pathname === "/my-rfqs" ? "on" : ""}>
                 <svg viewBox="0 0 24 24"><path d="M14 3v5h5M6 3h9l5 5v13H6z" /></svg>My RFQs
-              </button>
+              </Link>
               <button className={onBoard && view === "mybids" ? "on" : ""} onClick={() => goView("mybids")}>
                 <svg viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z" /></svg>My bids
               </button>
