@@ -26,6 +26,7 @@ from schemas import BidCreate, RfqCreate, AwardIn
 app = FastAPI(title="RFQClub API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware, allow_origins=config.CORS_ORIGINS,
+    allow_origin_regex=config.CORS_ORIGIN_REGEX or None,
     allow_methods=["*"], allow_headers=["*"],
 )
 app.include_router(auth_router)

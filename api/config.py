@@ -24,6 +24,14 @@ CORS_ORIGINS = [o.strip() for o in os.getenv(
     "CORS_ORIGINS",
     "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001",
 ).split(",") if o.strip()]
+# Broad, deployment-proof origin allowlist so browser mutations work without
+# hand-editing env on every host: any Vercel/Render app + local dev. We use
+# Bearer tokens (not cookies), so no allow_credentials and this stays safe for
+# the demo. Override/extend via CORS_ORIGIN_REGEX if you lock it down later.
+CORS_ORIGIN_REGEX = os.getenv(
+    "CORS_ORIGIN_REGEX",
+    r"^(https://[\w.-]+\.vercel\.app|https://[\w.-]+\.onrender\.com|http://localhost:\d+|http://127\.0\.0\.1:\d+)$",
+).strip()
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 ALLOWED_CHAT_IDS = {int(x) for x in os.getenv("ALLOWED_CHAT_IDS", "").replace(",", " ").split() if x.lstrip("-").isdigit()}
