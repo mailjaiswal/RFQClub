@@ -32,6 +32,18 @@ Key endpoints:
 - `GET /api/rfqs/{id}/bids` — **blinded** comparison (identity hidden until award)
 - `POST /api/rfqs/{id}/bid` — supplier landed-cost bid (server recomputes TLC, enforces routing cap)
 - `POST /api/rfqs/{id}/award` — award a bid; reveals the winner's name
+- `POST /api/rfqs/{id}/save` — toggle the watchlist flag (per-user when signed in)
+- `POST /api/auth/otp/request` · `POST /api/auth/otp/verify` — email-OTP sign-in (stateless HMAC bearer token)
+- `GET /api/auth/me` · `GET /api/auth/my/rfqs` · `GET /api/auth/my/bids` — session + per-user lists
+
+### Auth model
+Sign-in is a mock **email-OTP**: request a code, verify, get a stateless
+HMAC-SHA256 bearer token (`email|role|exp`). Because the web (Vercel) and API
+(Render) are different sites, we send the token as an `Authorization: Bearer`
+header (not a cookie), so the CORS allowlist — see `CORS_ORIGIN_REGEX` in
+`api/config.py` — governs which browser origins may mutate. `OTP_MODE=dev`
+returns the code on-screen (`dev_code`) so the flow is demoable without a real
+mailer.
 
 Ingestion is human-gated: the Telegram bot (`ingest_bot.py`) parses messy text
 with `rfq_parser.py` (+ optional `llm_structurer.py`) into `pending_draft`
@@ -50,3 +62,19 @@ npm run dev                           # http://localhost:3000
 Tokens, fonts (Fraunces / Hanken Grotesk / JetBrains Mono), the 7-sector colour
 palette, a global light/dark theme (`next-themes`) and a Cmd-K command palette
 are ported from `design-concepts.html`.
+
+## Deployment (live)
+| Layer | Where | Notes |
+| --- | --- | --- |
+| Web (Next.js) | `https://rfqclub-web.vercel.app` | Vercel project `swaniki/rfqclub-web`. Build env `NEXT_PUBLIC_API_BASE` points at the API. |
+| API (FastAPI) | `https://rfqclub-api.onrender.com` | Render web service from this repo's `api/` (blueprint: `api/render.yaml`). |
+| Database | Neon Postgres | Provisioned via the **Vercel Neon integration**; seeded on first boot. |
+
+- The API auto-seeds the board on startup when the RFQ table is empty
+  (`bootstrap.ensure_seeded` reads the committed `api/seed_data/rfqs.json`
+  snapshot, so no workbook is needed in the deploy). `POST /api/admin/seed`
+  re-runs it and is guarded by `AUTH_SECRET`.
+- Required Render env: `DATABASE_URL` (Neon pooled URL — `postgresql://` is
+  normalised to the `psycopg3` driver in `api/db.py`), `AUTH_SECRET` (token
+  signing key), and optionally `OTP_MODE=dev`.
+- Set `DATABASE_URL` to empty/omit it to fall back to local SQLite.
