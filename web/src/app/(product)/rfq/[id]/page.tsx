@@ -17,6 +17,9 @@ export default async function RfqDetailPage({ params }: { params: Promise<{ id: 
   }
   const base = rfq.sector.base;
   const bidSlots = Array.from({ length: rfq.routing_cap });
+  const awardedBid = bidsMeta?.revealed
+    ? bidsMeta.bids.find((b) => b.bid_id === bidsMeta.awarded_bid_id)
+    : undefined;
 
   return (
     <>
@@ -91,7 +94,11 @@ export default async function RfqDetailPage({ params }: { params: Promise<{ id: 
               <div className="mono" style={{ fontSize: 24, fontWeight: 600, color: base, margin: "6px 0" }}>
                 {rfq.budget.range_display}
               </div>
-              {rfq.is_open ? (
+              {awardedBid ? (
+                <div className="chip" style={{ width: "100%", justifyContent: "center", color: "#2E7D46", borderColor: "rgba(46,125,70,.4)", background: "rgba(46,125,70,.08)" }}>
+                  🏆 Awarded · {awardedBid.revealed_name || awardedBid.code}
+                </div>
+              ) : rfq.is_open ? (
                 <Link href={`/bid/${rfq.id}`} className="btn-dark" id="t-bid" style={{ display: "block", textAlign: "center" }}>
                   Submit a bid →
                 </Link>

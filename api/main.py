@@ -236,6 +236,7 @@ def list_bids(rfq_id: int, db: Session = Depends(db.get_db)):
         "cap": rfq.routing_cap,
         "locked": len(items) >= rfq.routing_cap,
         "revealed": revealed,
+        "awarded_bid_id": award.bid_id if award else None,
         "bids": items,
     }
 
@@ -279,6 +280,8 @@ def create_bid(rfq_id: int, payload: BidCreate, db: Session = Depends(db.get_db)
         raise HTTPException(404, "RFQ not found")
     if not util.is_open(rfq.closes_at):
         raise HTTPException(410, "RFQ has closed")
+    if rfq.status == "awarded" or _award_of(db, rfq_id):
+        raise HTTPException(410, "This RFQ has been awarded — bidding is closed")
     existing = db.query(func.count(models.Bid.id)).filter(models.Bid.rfq_id == rfq_id).scalar()
     if existing >= rfq.routing_cap:
         raise HTTPException(409, f"Routing cap reached ({rfq.routing_cap} bids) — RFQ locked")

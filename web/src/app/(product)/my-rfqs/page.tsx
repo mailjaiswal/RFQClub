@@ -16,12 +16,15 @@ function statusOf(r: RfqCard): Status {
 export default async function MyRfqsPage() {
   let items: RfqCard[] = [];
   try {
-    const board = await getBoard();
-    // Representative "your posts" set: live board RFQs that have bids, most-active first.
-    items = board.items
-      .filter((r) => r.bid_count > 0)
-      .sort((a, b) => b.bid_count - a.bid_count)
-      .slice(0, 10);
+    // Awarded RFQs leave the published board — fetch them too so decisions stay visible.
+    const [board, awarded] = await Promise.all([
+      getBoard(),
+      getBoard({ status: "awarded" }).catch(() => null),
+    ]);
+    const active = board.items.filter((r) => r.bid_count > 0).sort((a, b) => b.bid_count - a.bid_count);
+    const done = awarded ? awarded.items.sort((a, b) => b.id - a.id) : [];
+    // Representative "your posts" set: awarded first, then most-active bids.
+    items = [...done, ...active].slice(0, 10);
   } catch {
     items = [];
   }

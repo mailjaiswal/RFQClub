@@ -75,6 +75,7 @@ def seed_rfqs(session):
         return r[i] if i is not None and i < len(r) else None
 
     session.query(models.Bid).delete()
+    session.query(models.Award).delete()
     session.query(models.Rfq).delete()
     session.commit()
 

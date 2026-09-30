@@ -90,7 +90,36 @@
 .app .cmp-bar{position:sticky;bottom:0;display:flex;align-items:center;gap:16px;padding:12px 22px;background:#fff;border-top:1px solid #E4E1DA;z-index:5}
 .app .cmp-barinfo{font-size:12.5px;color:#54555C}
 .app .cmp-barinfo b{color:#1D1C19}
-.app .cmp-award{margin-left:auto;background:#2A2C33;color:#fff;border:none;border-radius:999px;padding:10px 20px;font-size:13px;font-weight:600;font-family:inherit;opacity:.45;cursor:not-allowed}
+.app .cmp-award{margin-left:auto;background:#2A2C33;color:#fff;border:none;border-radius:999px;padding:10px 20px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:.15s}
+.app .cmp-award:hover{background:#1D1C19}
+.app .cmp-award:disabled{opacity:.45;cursor:not-allowed}
+/* awarded states */
+.app .cmp-blind.done{color:#2E7D46;font-weight:600}
+.app .cmp-card.won{border-color:#B77A1B;box-shadow:0 0 0 2px rgba(183,122,27,.16)}
+.app .cmp-card.lost{opacity:.6}
+.app .cmp-ribbon.awrd{background:#B77A1B}
+.app .cmp-wonic{font-size:16px;line-height:1}
+.app .cmp-notsel{display:inline-block;align-self:flex-start;font-family:var(--font-jetbrains),monospace;font-size:9px;letter-spacing:.4px;text-transform:uppercase;color:#8A857A;border:1px dashed #D9D4C7;border-radius:999px;padding:3px 8px;margin:0 0 8px}
+.app .cmp-bar.awrd{background:#F2F8F3;border-top-color:rgba(46,125,70,.35)}
+.app .cmp-bar.awrd .cmp-barinfo b{color:#2E7D46}
+.app .cmp-change{margin-left:auto;border:1px solid #2E7D46;color:#2E7D46;background:transparent;border-radius:999px;padding:9px 16px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
+.app .cmp-change:hover{background:rgba(46,125,70,.1)}
+.app .cmp-err{font-size:12px;color:#B23A2B;font-weight:600}
+/* award confirm modal */
+.app .cmp-modal-wrap{position:fixed;inset:0;background:rgba(18,16,12,.55);z-index:1200;display:flex;align-items:center;justify-content:center;padding:20px}
+.app .cmp-modal{width:min(430px,100%);background:#fff;border-radius:16px;padding:22px 22px 18px;box-shadow:0 24px 60px -18px rgba(0,0,0,.5)}
+.app .cmp-modal .k{font-family:var(--font-jetbrains),monospace;font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:#B77A1B;margin-bottom:8px}
+.app .cmp-modal h3{font-family:var(--font-fraunces),serif;font-weight:600;font-size:19px;letter-spacing:-.3px;margin:0 0 8px}
+.app .cmp-modal p{font-size:13px;line-height:1.55;color:#54555C;margin:0 0 14px}
+.app .cmp-modal-sum{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.app .cmp-modal-sum span{font-family:var(--font-jetbrains),monospace;font-size:10.5px;background:#F6F4EF;border:1px solid #E4E1DA;border-radius:999px;padding:4px 10px;color:#54555C}
+.app .cmp-modal .row{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:6px}
+.app .cmp-modal .skip{border:none;background:transparent;color:#8A857A;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.app .cmp-modal .skip:hover{color:#1D1C19}
+.app .cmp-modal .nx{border:none;border-radius:999px;background:#B77A1B;color:#fff;padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.app .cmp-modal .nx:hover{background:#9A6414}
+.app .cmp-modal .nx:disabled{opacity:.55;cursor:not-allowed}
+.app .cmp-modal .cmp-err{margin-bottom:10px}
 /* compare dark */
 .app.dark .cmp-title h1{color:#F2F0E9}
 .app.dark .cmp-count,.app.dark .cmp-name{color:#ECEAE3}
@@ -106,6 +135,22 @@
 .app.dark .cmp-barinfo{color:#b9b6ad}
 .app.dark .cmp-barinfo b{color:#fff}
 .app.dark .cmp-award{background:#ECEAE3;color:#141416}
+.app.dark .cmp-card.won{border-color:#D6A24E;box-shadow:0 0 0 2px rgba(214,162,78,.22)}
+.app.dark .cmp-blind.done{color:#3ECF7A}
+.app.dark .cmp-notsel{color:#8A857A;border-color:#3a3a42}
+.app.dark .cmp-bar.awrd{background:#16241A;border-top-color:rgba(62,207,122,.3)}
+.app.dark .cmp-bar.awrd .cmp-barinfo b{color:#3ECF7A}
+.app.dark .cmp-change{border-color:#3ECF7A;color:#3ECF7A;background:transparent}
+.app.dark .cmp-change:hover{background:rgba(62,207,122,.12)}
+.app.dark .cmp-modal{background:#1b1b1f;color:#ECEAE3}
+.app.dark .cmp-modal h3{color:#F2F0E9}
+.app.dark .cmp-modal p{color:#b9b6ad}
+.app.dark .cmp-modal-sum span{background:#141416;border-color:#2f2f37;color:#b9b6ad}
+.app.dark .cmp-modal .skip{color:#8A857A}
+.app.dark .cmp-modal .skip:hover{color:#fff}
+.app.dark .cmp-modal .nx{background:#B77A1B}
+/* winner index colour */
+.app .cmp-card.won .cmp-bidcode{color:#B77A1B}
 /* ---------- My RFQs buyer console ---------- */
 .app .mr-head h1{font-family:var(--font-fraunces),serif;font-weight:600;font-size:23px;letter-spacing:-.4px;margin:0 0 4px}
 .app .mr-head p{font-size:13px;color:var(--subtle);margin:0}

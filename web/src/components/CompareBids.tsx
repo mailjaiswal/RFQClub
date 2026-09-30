@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import type { BlindedBid, BidsResponse } from "@/lib/api";
+import { awardBid, getBids, type BlindedBid, type BidsResponse } from "@/lib/api";
 
 // Backend returns ribbon as a machine key; map to display label + colour.
 const RIBBON: Record<string, { label: string; color: string; bg: string }> = {
@@ -39,11 +39,22 @@ function rationale(b: BlindedBid, minTlc: number, minLead: number | null): strin
 }
 
 export default function CompareBids({ data }: { data: BidsResponse }) {
-  const rfq = data.rfq;
-  const bids = data.bids;
+  const [resp, setResp] = useState<BidsResponse>(data);
+  const rfq = resp.rfq;
+  const bids = resp.bids;
   const [sort, setSort] = useState<Sort>("landed");
   const [shortlist, setShortlist] = useState<Set<number>>(new Set());
   const [selected, setSelected] = useState<number | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [changing, setChanging] = useState(false); // "Change award" → re-open selection
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const awardedId = resp.revealed ? resp.awarded_bid_id ?? null : null;
+  const awarded = awardedId != null && !changing;
+  const winner = awardedId != null ? bids.find((b) => b.bid_id === awardedId) : undefined;
+  // Selection UI is live before an award, and again while explicitly re-awarding.
+  const picking = bids.length > 0 && (awardedId == null || changing);
 
   const { minTlc, minLead } = useMemo(() => {
     const qualified = bids.filter((b) => !b.exception_flag);
@@ -61,12 +72,28 @@ export default function CompareBids({ data }: { data: BidsResponse }) {
     return c;
   }, [bids, sort, rfq.qty]);
 
+  const selBid = ordered.find((b) => b.bid_id === selected);
+
   function toggleShortlist(id: number) {
     setShortlist((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  }
+
+  async function doAward() {
+    if (selected == null || busy) return;
+    setBusy(true); setError(null);
+    try {
+      await awardBid(rfq.id, selected);
+      setResp(await getBids(rfq.id)); // re-fetch: winner identity now revealed
+      setConfirmOpen(false); setChanging(false); setSelected(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Award failed — try again.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -91,7 +118,11 @@ export default function CompareBids({ data }: { data: BidsResponse }) {
           <div className="cmp-trust">
             <div className="cmp-count"><b>{bids.length}</b> of ≤{rfq.routing_cap} bids</div>
             <span className="cmp-lock">🔒 Comparison locked · suppliers cannot see each other's prices</span>
-            <span className="cmp-blind">Identities stay hidden (Bid A–E) until you award</span>
+            {awardedId != null ? (
+              <span className="cmp-blind done">🏆 Awarded — unsuccessful suppliers stay blinded</span>
+            ) : (
+              <span className="cmp-blind">Identities stay hidden (Bid A–E) until you award</span>
+            )}
           </div>
         </div>
 
@@ -114,19 +145,26 @@ export default function CompareBids({ data }: { data: BidsResponse }) {
 
             <div className="cmp-scroll">
               {ordered.map((b) => {
-                const rb = b.ribbon ? RIBBON[b.ribbon] : null;
+                const isWinner = b.bid_id === awardedId;
+                const isLost = awardedId != null && !isWinner;
+                const rb = isWinner ? null : b.ribbon ? RIBBON[b.ribbon] : null;
                 const pu = perUnitLanded(b, rfq.qty);
                 const isSel = selected === b.bid_id;
                 const isShort = shortlist.has(b.bid_id);
                 return (
-                  <article key={b.bid_id} className={`cmp-card${isSel ? " sel" : ""}${b.exception_flag ? " exc" : ""}`}>
+                  <article key={b.bid_id} className={`cmp-card${isSel ? " sel" : ""}${b.exception_flag ? " exc" : ""}${isWinner ? " won" : ""}${isLost ? " lost" : ""}`}>
+                    {isWinner && <span className="cmp-ribbon awrd">🏆 Awarded</span>}
                     {rb && <span className="cmp-ribbon" style={{ background: rb.bg }}>{rb.label}</span>}
 
                     <div className="cmp-bid">
                       <span className="cmp-bidcode">{b.code}</span>
-                      <label className="cmp-pick" title="Select to award">
-                        <input type="radio" name="award" checked={isSel} onChange={() => setSelected(b.bid_id)} />
-                      </label>
+                      {picking ? (
+                        <label className="cmp-pick" title="Select to award">
+                          <input type="radio" name="award" checked={isSel} onChange={() => setSelected(b.bid_id)} />
+                        </label>
+                      ) : isWinner ? (
+                        <span className="cmp-wonic" title="Current award">🏆</span>
+                      ) : null}
                     </div>
 
                     <div className="cmp-tlc">
@@ -137,9 +175,10 @@ export default function CompareBids({ data }: { data: BidsResponse }) {
                     <div className="cmp-ai">{rationale(b, minTlc, minLead)}</div>
 
                     <div className="cmp-hdr">
-                      <span className="cmp-name">Verified supplier</span>
+                      <span className="cmp-name">{isWinner && b.revealed_name ? b.revealed_name : "Verified supplier"}</span>
                       <span className="cmp-loc">{b.hub_city || "—"}{b.distance_km != null ? ` · ${b.distance_km} km` : ""}</span>
                     </div>
+                    {isLost && <span className="cmp-notsel">Not selected · identity stays hidden</span>}
                     {b.verified && <span className="cmp-badge">✓ KYC verified</span>}
 
                     <div className="cmp-rows">
@@ -179,12 +218,55 @@ export default function CompareBids({ data }: { data: BidsResponse }) {
       </div>
 
       {bids.length > 0 && (
-        <div className="cmp-bar">
-          <span className="cmp-barinfo">
-            {selected ? <>Award ready — <b>{ordered.find((b) => b.bid_id === selected)?.code}</b> selected</> : <>Select a bid to award</>}
-            {shortlist.size > 0 && <> · {shortlist.size} shortlisted</>}
-          </span>
-          <button className="cmp-award" disabled title="Award flow coming soon">Confirm award</button>
+        <div className={`cmp-bar${awardedId != null && !changing ? " awrd" : ""}`}>
+          {awardedId != null && !changing ? (
+            <>
+              <span className="cmp-barinfo">
+                🏆 Awarded to <b>{winner?.revealed_name || winner?.code || "the selected supplier"}</b>
+                {winner ? <> · {winner.tlc_display}{winner.lead_weeks != null ? ` · ${winner.lead_weeks} weeks` : ""}</> : null}
+              </span>
+              <button className="cmp-change" onClick={() => { setChanging(true); setError(null); }}>Change award</button>
+            </>
+          ) : (
+            <>
+              <span className="cmp-barinfo">
+                {changing ? <>Re-awarding — <b>pick a new winner</b> (current: {winner?.code})</> :
+                  selected ? <>Award ready — <b>{selBid?.code}</b> · {selBid?.tlc_display} landed</> : <>Select a bid to award</>}
+                {shortlist.size > 0 && <> · {shortlist.size} shortlisted</>}
+              </span>
+              {error && <span className="cmp-err">⚠ {error}</span>}
+              <button
+                className="cmp-award"
+                disabled={selected == null || selected === awardedId || busy}
+                onClick={() => { setError(null); setConfirmOpen(true); }}
+              >
+                {busy ? "Awarding…" : changing ? "Confirm re-award" : "Confirm award"}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {confirmOpen && selBid && (
+        <div className="cmp-modal-wrap" onClick={() => !busy && setConfirmOpen(false)}>
+          <div className="cmp-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="k">Confirm award · {rfq.code}</div>
+            <h3>Award {selBid.code} — {selBid.tlc_display} landed?</h3>
+            <p>
+              {selBid.revealed_name ? selBid.revealed_name : "The winning supplier's"} identity will be revealed to you,
+              the RFQ closes for new bids, and the other bidders stay blinded. You can change the award later.
+            </p>
+            <div className="cmp-modal-sum">
+              <span>{selBid.code} · {selBid.tlc_display}</span>
+              <span>{selBid.lead_weeks != null ? `${selBid.lead_weeks} weeks lead` : "Lead time not set"}</span>
+              <span>{selBid.payment_terms || "Terms per quote"}</span>
+            </div>
+            {error && <div className="cmp-err">⚠ {error}</div>}
+            <div className="row">
+              <button className="skip" onClick={() => setConfirmOpen(false)} disabled={busy}>Cancel</button>
+              <button className="nx" onClick={doAward} disabled={busy}>{busy ? "Awarding…" : "Yes, award it"}</button>
+            </div>
+          </div>
         </div>
       )}
     </>

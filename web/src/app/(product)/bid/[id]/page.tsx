@@ -1,18 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getRfq } from "@/lib/api";
+import { getRfq, getBids } from "@/lib/api";
 import BidForm from "@/components/BidForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function BidPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  let rfq;
+  let rfq, bidsMeta;
   try {
     rfq = await getRfq(id);
+    bidsMeta = await getBids(id).catch(() => null);
   } catch {
     notFound();
   }
+  const awarded = !!bidsMeta?.revealed;
 
   return (
     <>
@@ -32,7 +34,12 @@ export default async function BidPage({ params }: { params: Promise<{ id: string
         </div>
 
         <div style={{ marginTop: 16 }}>
-          {rfq.is_open ? (
+          {awarded ? (
+            <div className="card" style={{ textAlign: "center", padding: 32, marginTop: 0 }}>
+              <div className="chip" style={{ width: "fit-content", margin: "0 auto", color: "#2E7D46", borderColor: "rgba(46,125,70,.4)", background: "rgba(46,125,70,.08)" }}>🏆 This RFQ has been awarded</div>
+              <p className="muted" style={{ marginTop: 10 }}>The buyer has selected a supplier — bidding is closed.</p>
+            </div>
+          ) : rfq.is_open ? (
             <BidForm rfq={rfq} />
           ) : (
             <div className="card" style={{ textAlign: "center", padding: 32, marginTop: 0 }}>

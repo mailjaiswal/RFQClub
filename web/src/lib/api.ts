@@ -93,6 +93,7 @@ export interface BidsResponse {
   cap: number;
   locked: boolean;
   revealed: boolean;
+  awarded_bid_id?: number | null;
   bids: BlindedBid[];
 }
 
@@ -136,6 +137,7 @@ export interface BoardParams {
   sector?: string;
   q?: string;
   sort?: "deadline" | "value" | "bidcount";
+  status?: string;
 }
 
 export function getBoard(params: BoardParams = {}): Promise<BoardResponse> {
@@ -143,6 +145,7 @@ export function getBoard(params: BoardParams = {}): Promise<BoardResponse> {
   if (params.sector) usp.set("sector", params.sector);
   if (params.q) usp.set("q", params.q);
   if (params.sort) usp.set("sort", params.sort);
+  if (params.status) usp.set("status", params.status);
   const qs = usp.toString();
   return req<BoardResponse>(`/api/rfqs${qs ? `?${qs}` : ""}`);
 }
@@ -161,6 +164,10 @@ export function submitBid(id: number | string, payload: BidPayload): Promise<{ o
 
 export function toggleSave(id: number | string): Promise<{ ok: boolean; saved: boolean }> {
   return req(`/api/rfqs/${id}/save`, { method: "POST" });
+}
+
+export function awardBid(id: number | string, bid_id: number): Promise<{ ok: boolean; rfq_id: number; awarded_bid_id: number; revealed_name: string; tlc_display: string }> {
+  return req(`/api/rfqs/${id}/award`, { method: "POST", body: JSON.stringify({ bid_id }) });
 }
 
 // ---- Profile (representative supplier record; block-based panels) ----
