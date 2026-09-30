@@ -1,0 +1,50 @@
+/* ============================================================
+   Detail + Bid sub-views living inside the App Shell.
+   Not a standalone mock screen — styled to sit natively in the
+   `.app` board column using the same Warm Paper × Swiss tokens.
+   ============================================================ */
+.app .ap-subbar{display:flex;align-items:center;gap:12px;padding:14px 22px;border-bottom:1px solid #E4E1DA;position:sticky;top:0;background:#F5F3EC;z-index:4}
+.app .ap-back{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-jetbrains),monospace;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#54555C;cursor:pointer}
+.app .ap-back:hover{color:#1D1C19}
+.app .ap-subbar .code{font-family:var(--font-jetbrains),monospace;font-size:11px;color:#8A857A}
+.app .ap-detail{max-width:1000px;margin:0 auto;padding:22px}
+.app .ap-band{display:flex;align-items:center;gap:10px;color:#fff;padding:10px 18px;border-radius:14px 14px 0 0}
+.app .ap-band .ap-sec{margin:0;color:rgba(255,255,255,.92)}
+.app .ap-band .ap-sec i{background:rgba(255,255,255,.92)}
+.app .ap-hero{border:1px solid #E4E1DA;border-radius:14px;background:#fff;overflow:hidden}
+.app .ap-hero .body{padding:20px}
+.app .ap-hero h1{font-family:var(--font-fraunces),serif;font-weight:600;font-size:24px;letter-spacing:-.5px;margin:0}
+.app .dgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px 28px;margin-top:16px}
+@media(max-width:640px){.app .dgrid{grid-template-columns:1fr}}
+.app .dgrid .dk{font-size:12.5px;color:#8A857A}
+.app .dgrid .dv{font-size:13px;font-weight:600;text-align:right}
+.app .dgrid .drow{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px dashed #E4E1DA}
+.app .dgrid .drow:last-child{border-bottom:none}
+.app .card{border:1px solid #E4E1DA;border-radius:14px;background:#fff;padding:18px;margin-top:16px}
+.app .card.saffron{border-color:#EF7A2B}
+.app .lbl{font-family:var(--font-jetbrains),monospace;font-size:9px;letter-spacing:1.4px;text-transform:uppercase;color:#8A857A}
+.app .meter{display:flex;gap:4px;margin-top:8px}
+.app .meter i{flex:1;height:8px;border-radius:4px;background:#E4E1DA}
+.app .meter i.on{background:#1D1C19}
+.app .aside{position:sticky;top:76px}
+.app .aside .btn{width:100%;justify-content:center}
+.app .dwrap{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start}
+@media(max-width:860px){.app .dwrap{grid-template-columns:1fr}}
+.app .btn-dark{background:#2A2C33;color:#fff;border-radius:999px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:inherit}
+.app .btn-dark:hover{background:#1D1C19}
+.app .btn-outline{border:1px solid #E4E1DA;background:transparent;color:#1D1C19;border-radius:999px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.app .btn-outline:hover{border-color:#1D1C19}
+/* dark */
+.app.dark .ap-subbar{background:#141416;border-bottom-color:#26262c}
+.app.dark .ap-back{color:#b9b6ad}
+.app.dark .ap-back:hover{color:#fff}
+.app.dark .ap-hero,.app.dark .card{background:#1b1b1f;border-color:#26262c}
+.app.dark .ap-hero h1,.app.dark .dgrid .dv{color:#F2F0E9}
+.app.dark .dgrid .dk{color:#8f8c85}
+.app.dark .dgrid .drow{border-bottom-color:#26262c}
+.app.dark .meter i{background:#26262c}
+.app.dark .meter i.on{background:#ECEAE3}
+.app.dark .btn-dark{background:#ECEAE3;color:#141416}
+.app.dark .btn-dark:hover{background:#fff}
+.app.dark .btn-outline{border-color:#3a3a42;color:#ECEAE3}
+.app.dark .btn-outline:hover{border-color:#ECEAE3}

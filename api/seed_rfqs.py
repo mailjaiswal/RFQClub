@@ -16,7 +16,38 @@ import config
 import db
 import models
 import rfq_parser
+import rfq_tags
 from sectors import classify
+
+
+def _norm(s) -> str:
+    import re
+    return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+
+
+def _hub_lookup() -> dict:
+    """normalized company -> Hub / City, from the All Contacts sheet.
+
+    Best-effort proxy only: a matched supplier resolves to its contacts city when
+    present, otherwise it stays unset (never fabricated). """
+    wb = openpyxl.load_workbook(config.SOURCE_XLSX, read_only=True, data_only=True)
+    ws = wb["All Contacts"]
+    rows = ws.iter_rows(values_only=True)
+    header = [str(h).strip() if h is not None else "" for h in next(rows)]
+    try:
+        ci = header.index("Company")
+        hi = header.index("Hub / City")
+    except ValueError:
+        return {}
+    out: dict = {}
+    for r in rows:
+        if not r or ci >= len(r) or hi >= len(r):
+            continue
+        key = _norm(r[ci])
+        city = str(r[hi]).strip() if r[hi] is not None else ""
+        if key and city and city.lower() not in ("none", "") and key not in out:
+            out[key] = city
+    return out
 
 
 def _to_days(raw) -> int | None:
@@ -47,6 +78,7 @@ def seed_rfqs(session):
     session.query(models.Rfq).delete()
     session.commit()
 
+    hubs = _hub_lookup()
     now = datetime.now(timezone.utc)
     count = 0
     for r in rows[1:]:
@@ -55,14 +87,17 @@ def seed_rfqs(session):
         title = str(get(r, "RFQ Title")).strip()
         process = str(get(r, "Process") or "").strip()
         material = str(get(r, "Material / Grade") or "").strip()
+        spec_notes = str(get(r, "Spec Notes") or "").strip()
+        matched = str(get(r, "Matched Supplier Co (in contacts)") or "").strip()
         days = _to_days(get(r, "Closes In"))
         try:
             rid = int(get(r, "#"))
         except Exception:
             rid = None
+        sector_key = classify(process, title, material)
         rfq = models.Rfq(
             title=title,
-            sector_key=classify(process, title, material),
+            sector_key=sector_key,
             process=process,
             material=material,
             qty=get(r, "Qty"),
@@ -79,11 +114,15 @@ def seed_rfqs(session):
             routing_cap=5,
             status="published",
             issuer_name=str(get(r, "Issuer (Buyer)") or "").strip(),
-            matched_supplier=str(get(r, "Matched Supplier Co (in contacts)") or "").strip(),
-            spec_notes=str(get(r, "Spec Notes") or "").strip(),
+            matched_supplier=matched,
+            spec_notes=spec_notes,
+            tags=rfq_tags.derive_tags(process, material, title, spec_notes, sector_key),
+            hub_city=hubs.get(_norm(matched), "") if matched else "",
         )
         if rid is not None:
             rfq.id = rid
+        # stagger created_at so "posted N days ago" is real and varies per row
+        rfq.created_at = now - timedelta(days=(rfq.id or count) % 12)
         session.add(rfq)
         count += 1
     session.commit()

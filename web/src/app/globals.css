@@ -1,3 +1,8 @@
+@import "../styles/app-shell.css";
+@import "../styles/detail.css";
+@import "../styles/demo.css";
+@import "../styles/profile.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

@@ -36,6 +36,29 @@ def main():
     card = board["items"][0]
     print("sample card:", card["code"], card["title"][:40], card["sector"]["label"], card["budget"]["range_display"], card["urgency"])
 
+    # rich fields served by the mock recreation
+    for k in ("tags", "hub_city", "saved", "posted_days_ago"):
+        assert k in card, f"missing card field: {k}"
+    assert isinstance(card["tags"], list), "tags must be a list"
+    if card["tags"]:
+        assert "label" in card["tags"][0] and "kind" in card["tags"][0]
+    print("  tags:", [t["label"] for t in card["tags"]], "| hub:", repr(card["hub_city"]),
+          "| posted:", card["posted_days_ago"], "| saved:", card["saved"])
+
+    # save toggle flips the flag back and forth
+    r = client.post("/api/rfqs/1/save"); assert r.status_code == 200
+    first = r.json()["saved"]
+    r = client.post("/api/rfqs/1/save"); assert r.status_code == 200
+    assert r.json()["saved"] != first, "save toggle did not flip"
+    print("save toggle ->", first, "then", r.json()["saved"])
+
+    # profile fixture
+    r = client.get("/api/profile"); assert r.status_code == 200
+    prof = r.json()
+    assert isinstance(prof["percent"], int), "percent must be int"
+    assert "tabs" in prof and "panels" in prof and len(prof["tabs"]) == 8
+    print(f"profile percent={prof['percent']} tabs={len(prof['tabs'])} panels={len(prof['panels'])}")
+
     # sector filter
     r = client.get("/api/rfqs", params={"sector": "cnc"}); assert r.status_code == 200
     print("cnc filter ->", r.json()["count"], "items")

@@ -66,6 +66,9 @@ class Rfq(Base):
     issuer_name: Mapped[str] = mapped_column(String, default="")  # hidden from public API
     matched_supplier: Mapped[str] = mapped_column(String, default="")
     spec_notes: Mapped[str] = mapped_column(Text, default="")
+    tags: Mapped[list] = mapped_column(JSON, default=list)  # [{label, kind}] kind in process/material/cert/sector
+    hub_city: Mapped[str] = mapped_column(String, default="")  # best-effort proxy; "" when not resolved
+    saved: Mapped[bool] = mapped_column(Boolean, default=False)  # global demo watchlist flag (pre-auth)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     buyer: Mapped["Buyer"] = relationship()

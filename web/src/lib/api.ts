@@ -14,6 +14,11 @@ export interface Budget {
   per_unit: string;
 }
 
+export interface RfqTag {
+  label: string;
+  kind: string; // sector | process | material | cert
+}
+
 export interface RfqCard {
   id: number;
   code: string;
@@ -32,6 +37,10 @@ export interface RfqCard {
   bid_count: number;
   routing_cap: number;
   status: string;
+  tags: RfqTag[];
+  hub_city: string;
+  saved: boolean;
+  posted_days_ago: number | null;
 }
 
 export interface RfqDetail extends RfqCard {
@@ -148,4 +157,55 @@ export function getBids(id: number | string): Promise<BidsResponse> {
 
 export function submitBid(id: number | string, payload: BidPayload): Promise<{ ok: boolean; bid_id: number; bidder_code: string; tlc_rupees: number; tlc_display: string }> {
   return req(`/api/rfqs/${id}/bid`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function toggleSave(id: number | string): Promise<{ ok: boolean; saved: boolean }> {
+  return req(`/api/rfqs/${id}/save`, { method: "POST" });
+}
+
+// ---- Profile (representative supplier record; block-based panels) ----
+// Loosely typed to mirror api/profile_data.py — the client renders generically
+// from block.type, so unknown extra fields are tolerated.
+export interface ProfileField {
+  label: string;
+  value?: string;
+  kind?: string; // input | select | textarea | password | disabled | phone
+  hint?: string;
+  req?: boolean;
+  full?: boolean;
+  placeholder?: string;
+  options?: string[];
+  prefix?: string;
+}
+
+export interface ProfileBlock {
+  type: string;
+  label?: string;
+  full?: boolean;
+  note?: string;
+  fields?: ProfileField[];
+  items?: Record<string, unknown>[];
+  cols?: string[];
+  rows?: Record<string, unknown>[][];
+  stats?: { num: string; label: string }[];
+  rows_v?: unknown[];
+}
+
+export interface ProfilePanel {
+  title: string;
+  sub: string;
+  blocks: ProfileBlock[];
+}
+
+export interface Profile {
+  identity: { logo: string; name: string; since: string; badge: string };
+  percent: number;
+  strength_note: string;
+  missing: { label: string; pct: string; tab: string }[];
+  tabs: { id: string; label: string; icon: string; count?: number }[];
+  panels: Record<string, ProfilePanel>;
+}
+
+export function getProfile(): Promise<Profile> {
+  return req<Profile>("/api/profile");
 }

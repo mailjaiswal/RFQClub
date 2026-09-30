@@ -1,6 +1,7 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 
 type Command = { id: string; label: string; hint?: string; group: string; run: () => void };
 
@@ -12,17 +13,29 @@ export function CommandProvider({ children }: { children: React.ReactNode }) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const router = useRouter();
+  const { resolvedTheme, setTheme } = useTheme();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const go = useCallback((path: string) => () => { setShow(false); router.push(path); }, [router]);
 
   const commands = useMemo<Command[]>(
     () => [
-      { id: "board", label: "Open RFQ board", hint: "/", group: "Go", run: go("/") },
+      { id: "board", label: "Board · All open", hint: "/", group: "Go", run: go("/") },
+      { id: "saved", label: "Saved RFQs", hint: "/?view=saved", group: "Go", run: go("/?view=saved") },
+      { id: "myrfqs", label: "My RFQs", hint: "/?view=myrfqs", group: "Go", run: go("/?view=myrfqs") },
+      { id: "mybids", label: "My bids", hint: "/?view=mybids", group: "Go", run: go("/?view=mybids") },
       { id: "hiw", label: "How it works", hint: "/how-it-works", group: "Go", run: go("/how-it-works") },
-      { id: "post", label: "Post an RFQ (concierge)", hint: "/how-it-works#post", group: "Actions", run: go("/how-it-works") },
+      { id: "profile", label: "My profile", hint: "/profile", group: "Go", run: go("/profile") },
+      { id: "post", label: "Post an RFQ (concierge)", hint: "/how-it-works", group: "Actions", run: go("/how-it-works") },
+      {
+        id: "theme",
+        label: resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode",
+        hint: "theme",
+        group: "Actions",
+        run: () => { setShow(false); setTheme(resolvedTheme === "dark" ? "light" : "dark"); },
+      },
     ],
-    [go],
+    [go, resolvedTheme, setTheme],
   );
 
   const filtered = useMemo(() => {

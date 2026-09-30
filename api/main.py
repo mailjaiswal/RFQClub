@@ -18,6 +18,7 @@ import db
 import models
 import sectors
 import util
+import profile_data
 from schemas import BidCreate, RfqCreate, AwardIn
 
 app = FastAPI(title="RFQClub API", version="0.1.0")
@@ -55,6 +56,15 @@ def _budget(rfq: models.Rfq) -> dict:
     }
 
 
+def _posted_days(created_at: datetime | None) -> int | None:
+    if not created_at:
+        return None
+    now = datetime.now(timezone.utc)
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+    return max(0, (now - created_at).days)
+
+
 def _card(rfq: models.Rfq) -> dict:
     return {
         "id": rfq.id,
@@ -74,6 +84,10 @@ def _card(rfq: models.Rfq) -> dict:
         "bid_count": rfq.bid_count or 0,
         "routing_cap": rfq.routing_cap,
         "status": rfq.status,
+        "tags": rfq.tags or [],
+        "hub_city": rfq.hub_city or "",
+        "saved": bool(rfq.saved),
+        "posted_days_ago": _posted_days(rfq.created_at),
     }
 
 
@@ -134,6 +148,12 @@ def health():
 @app.get("/api/sectors")
 def get_sectors():
     return sectors.SECTORS
+
+
+@app.get("/api/profile")
+def get_profile():
+    """Representative supplier profile (single demo record, pre-auth)."""
+    return profile_data.PROFILE
 
 
 @app.get("/api/rfqs")
@@ -241,6 +261,17 @@ def admin_bids(rfq_id: int, db: Session = Depends(db.get_db)):
 
 
 # ---------- write endpoints ----------
+@app.post("/api/rfqs/{rfq_id}/save")
+def toggle_save(rfq_id: int, db: Session = Depends(db.get_db)):
+    """Toggle the watchlist flag on an RFQ. Global demo flag (no auth yet)."""
+    rfq = db.get(models.Rfq, rfq_id)
+    if not rfq:
+        raise HTTPException(404, "RFQ not found")
+    rfq.saved = not bool(rfq.saved)
+    db.commit()
+    return {"ok": True, "saved": rfq.saved}
+
+
 @app.post("/api/rfqs/{rfq_id}/bid", status_code=201)
 def create_bid(rfq_id: int, payload: BidCreate, db: Session = Depends(db.get_db)):
     rfq = db.get(models.Rfq, rfq_id)
