@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 import config
 import db
+import bootstrap
 import models
 import sectors
 import util
@@ -33,6 +34,8 @@ app.include_router(auth_router)
 @app.on_event("startup")
 def _startup():
     db.init_db()
+    # Fresh hosted DB (Neon) boots empty — rebuild the demo board once.
+    bootstrap.ensure_seeded()
 
 
 # ---------- serialization ----------
@@ -152,6 +155,15 @@ def _award_of(db: Session, rfq_id: int):
 @app.get("/api/health")
 def health():
     return {"ok": True, "time": datetime.now(timezone.utc).isoformat()}
+
+
+@app.post("/api/admin/seed")
+def admin_seed(key: str = Query("")):
+    """Idempotent seed trigger for deploy smoke checks — runs the same
+    empty-table bootstrap as startup. Guarded by the AUTH_SECRET admin key."""
+    if not key or key != config.AUTH_SECRET:
+        raise HTTPException(status_code=403, detail="bad admin key")
+    return {"ok": True, "seeded": bootstrap.ensure_seeded()}
 
 
 @app.get("/api/sectors")

@@ -1,0 +1,2941 @@
+[
+ {
+  "id": 1,
+  "title": "5-axis machined 6061-T6 aluminium heat sinks — 16,000 pcs",
+  "sector_key": "cnc",
+  "process": "5-axis machined",
+  "material": "6061-T6 aluminium",
+  "qty": 16000.0,
+  "unit": "pc",
+  "budget_low": 240.0,
+  "budget_high": 280.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 4160000.0,
+  "closes_in_days": 3,
+  "bid_count": 5,
+  "description": "5-axis machined 6061-T6 aluminium heat sinks — 16,000 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Prashant Umbrani",
+  "matched_supplier": "Craft and Technik Industries",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "5-axis machined",
+    "kind": "process"
+   },
+   {
+    "label": "6061-T6",
+    "kind": "material"
+   },
+   {
+    "label": "aluminium",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Pune",
+  "created_ago_days": 1,
+  "closes_in_from_now": 2.9964
+ },
+ {
+  "id": 2,
+  "title": "Pillar-Mounted 360° Motorized Slewing Jib Crane (2-Ton SWL, 5m Arm Outreach)",
+  "sector_key": "plant",
+  "process": "pillar-mounted",
+  "material": "Seamless Tubular Steel Column & Heavy ISMB/Box Boom with Electric Hoist",
+  "qty": 3.0,
+  "unit": "set",
+  "budget_low": 750000.0,
+  "budget_high": 1200000.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 2925000.0,
+  "closes_in_days": 23,
+  "bid_count": 5,
+  "description": "Pillar-Mounted 360° Motorized Slewing Jib Crane (2-Ton SWL, 5m Arm Outreach)",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Yashwant Gunjal",
+  "matched_supplier": "Trimurti Enterprises",
+  "spec_notes": "IS:6547 Class II compliance, arm deflection < L/500 at SWL",
+  "tags": [
+   {
+    "label": "Plant & Machinery / Raw Mat",
+    "kind": "sector"
+   },
+   {
+    "label": "pillar-mounted",
+    "kind": "process"
+   },
+   {
+    "label": "Seamless",
+    "kind": "material"
+   },
+   {
+    "label": "Tubular",
+    "kind": "material"
+   },
+   {
+    "label": "IS:6547",
+    "kind": "cert"
+   }
+  ],
+  "hub_city": "Pune (Bhosari)",
+  "created_ago_days": 2,
+  "closes_in_from_now": 22.9964
+ },
+ {
+  "id": 3,
+  "title": "Broached and hobbed 20MnCr5 spur gears — 1,400 pcs",
+  "sector_key": "auto",
+  "process": "broached and hobbed",
+  "material": "20MnCr5",
+  "qty": 1400.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 43,
+  "bid_count": 5,
+  "description": "Broached and hobbed 20MnCr5 spur gears — 1,400 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Thomas Meaden",
+  "matched_supplier": "Meaden Precision Machined Products Co.",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "Automotive Parts",
+    "kind": "sector"
+   },
+   {
+    "label": "broached and hobbed",
+    "kind": "process"
+   },
+   {
+    "label": "20MnCr5",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Burr Ridge, Illinois",
+  "created_ago_days": 3,
+  "closes_in_from_now": 42.9964
+ },
+ {
+  "id": 4,
+  "title": "CNC machined hydraulic manifolds — 2,500 pcs",
+  "sector_key": "cnc",
+  "process": "cnc machined",
+  "material": "aluminium 6082",
+  "qty": 2500.0,
+  "unit": "pc",
+  "budget_low": 1350.0,
+  "budget_high": 1750.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 3875000.0,
+  "closes_in_days": 35,
+  "bid_count": 5,
+  "description": "CNC machined hydraulic manifolds — 2,500 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Sarabjit Singh",
+  "matched_supplier": "Gurman Machine Tools Private Limited",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc machined",
+    "kind": "process"
+   },
+   {
+    "label": "aluminium",
+    "kind": "material"
+   },
+   {
+    "label": "6082",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Ludhiana",
+  "created_ago_days": 4,
+  "closes_in_from_now": 34.9964
+ },
+ {
+  "id": 5,
+  "title": "CNC turning centers, surface grinder & captive machine shop package",
+  "sector_key": "cnc",
+  "process": "cnc turning centers",
+  "material": "Machine Tools",
+  "qty": 1.0,
+  "unit": "package",
+  "budget_low": 8000000.0,
+  "budget_high": 15000000.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 11500000.0,
+  "closes_in_days": 5,
+  "bid_count": 5,
+  "description": "CNC turning centers, surface grinder & captive machine shop package",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Adam Vicary",
+  "matched_supplier": "Castings P.L.C.",
+  "spec_notes": "Heavy interrupted cuts on grey and SG iron castings",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc turning centers",
+    "kind": "process"
+   },
+   {
+    "label": "Machine",
+    "kind": "material"
+   },
+   {
+    "label": "Tools",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Brownhills (Walsall)",
+  "created_ago_days": 5,
+  "closes_in_from_now": 4.9964
+ },
+ {
+  "id": 6,
+  "title": "Precision ground SUJ2 bearing races — 11,500 pcs",
+  "sector_key": "cnc",
+  "process": "precision ground",
+  "material": "SUJ2",
+  "qty": 11500.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 26,
+  "bid_count": 5,
+  "description": "Precision ground SUJ2 bearing races — 11,500 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Atharva Pache",
+  "matched_supplier": "",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "precision ground",
+    "kind": "process"
+   },
+   {
+    "label": "SUJ2",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 6,
+  "closes_in_from_now": 25.9964
+ },
+ {
+  "id": 7,
+  "title": "CNC-machined heavy flanges and mounting plates (EN8/EN24) — 410 pcs",
+  "sector_key": "plant",
+  "process": "cnc-machined",
+  "material": "EN8 / EN24 (carbon and alloy steel)",
+  "qty": 410.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 60,
+  "bid_count": 0,
+  "description": "CNC-machined heavy flanges and mounting plates (EN8/EN24) — 410 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Jukka Hurmansalo",
+  "matched_supplier": "",
+  "spec_notes": "+/- 0.05 mm",
+  "tags": [
+   {
+    "label": "Plant & Machinery / Raw Mat",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc-machined",
+    "kind": "process"
+   },
+   {
+    "label": "EN8",
+    "kind": "material"
+   },
+   {
+    "label": "EN24",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 7,
+  "closes_in_from_now": 59.9964
+ },
+ {
+  "id": 8,
+  "title": "Double-girder EOT cranes and pick-and-carry hydraulic mobile crane for machine shop",
+  "sector_key": "plant",
+  "process": "double-girder",
+  "material": "IS-2062 fabricated girders + crane electrics",
+  "qty": 1.0,
+  "unit": "lot",
+  "budget_low": 5000000.0,
+  "budget_high": 11000000.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 8000000.0,
+  "closes_in_days": 30,
+  "bid_count": 5,
+  "description": "Double-girder EOT cranes and pick-and-carry hydraulic mobile crane for machine shop",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Prakash Patel",
+  "matched_supplier": "Micron Engineering",
+  "spec_notes": "IS 807 / IS 3177, class M6; load test to 125% SWL",
+  "tags": [
+   {
+    "label": "Plant & Machinery / Raw Mat",
+    "kind": "sector"
+   },
+   {
+    "label": "double-girder",
+    "kind": "process"
+   },
+   {
+    "label": "IS-2062",
+    "kind": "material"
+   },
+   {
+    "label": "fabricated",
+    "kind": "material"
+   },
+   {
+    "label": "IS 807",
+    "kind": "cert"
+   }
+  ],
+  "hub_city": "Ahmedabad (Ramol)",
+  "created_ago_days": 8,
+  "closes_in_from_now": 29.9964
+ },
+ {
+  "id": 9,
+  "title": "CNC machined SS316 valve bodies — 1,200 pcs",
+  "sector_key": "tools",
+  "process": "cnc machined",
+  "material": "SS316",
+  "qty": 1200.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 7,
+  "bid_count": 5,
+  "description": "CNC machined SS316 valve bodies — 1,200 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Prakash Patel",
+  "matched_supplier": "Micron Engineering",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "Tools & Fixtures",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc machined",
+    "kind": "process"
+   },
+   {
+    "label": "SS316",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Ahmedabad (Ramol)",
+  "created_ago_days": 9,
+  "closes_in_from_now": 6.9964
+ },
+ {
+  "id": 10,
+  "title": "CNC machined hydraulic manifolds — 750 pcs",
+  "sector_key": "cnc",
+  "process": "cnc machined",
+  "material": "aluminium 6082",
+  "qty": 750.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 17,
+  "bid_count": 5,
+  "description": "CNC machined hydraulic manifolds — 750 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Dennis Victor Cooke",
+  "matched_supplier": "THANET-WARE (KENT) LIMITED",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc machined",
+    "kind": "process"
+   },
+   {
+    "label": "aluminium",
+    "kind": "material"
+   },
+   {
+    "label": "6082",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 10,
+  "closes_in_from_now": 16.9964
+ },
+ {
+  "id": 11,
+  "title": "CNC turned SS303 bushings and spacers — 10,500 pcs",
+  "sector_key": "cnc",
+  "process": "cnc turned",
+  "material": "SS303",
+  "qty": 10500.0,
+  "unit": "pc",
+  "budget_low": 0.5,
+  "budget_high": 0.5,
+  "currency": "$",
+  "budget_status": "Priced",
+  "est_total": 5250.0,
+  "closes_in_days": 31,
+  "bid_count": 5,
+  "description": "CNC turned SS303 bushings and spacers — 10,500 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Neil Gonzales",
+  "matched_supplier": "BlueLine Manufacturing, LLC.",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc turned",
+    "kind": "process"
+   },
+   {
+    "label": "SS303",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 11,
+  "closes_in_from_now": 30.9964
+ },
+ {
+  "id": 12,
+  "title": "5-axis machined 6063 aluminium heat sinks — 7,000 pcs",
+  "sector_key": "cnc",
+  "process": "5-axis machined",
+  "material": "6063 aluminium",
+  "qty": 7000.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 18,
+  "bid_count": 5,
+  "description": "5-axis machined 6063 aluminium heat sinks — 7,000 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Ann Christine Chapman",
+  "matched_supplier": "G.& P.BARKER LIMITED",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "5-axis machined",
+    "kind": "process"
+   },
+   {
+    "label": "6063",
+    "kind": "material"
+   },
+   {
+    "label": "aluminium",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 0,
+  "closes_in_from_now": 17.9964
+ },
+ {
+  "id": 13,
+  "title": "Broached and hobbed EN353 spur gears — 2,150 pcs",
+  "sector_key": "auto",
+  "process": "broached and hobbed",
+  "material": "EN353",
+  "qty": 2150.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 43,
+  "bid_count": 5,
+  "description": "Broached and hobbed EN353 spur gears — 2,150 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Tedd Stewart",
+  "matched_supplier": "Kalkaska Screw Products, Inc.",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "Automotive Parts",
+    "kind": "sector"
+   },
+   {
+    "label": "broached and hobbed",
+    "kind": "process"
+   },
+   {
+    "label": "EN353",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 1,
+  "closes_in_from_now": 42.9964
+ },
+ {
+  "id": 14,
+  "title": "5-axis machined 6063 aluminium heat sinks — 15,000 pcs",
+  "sector_key": "cnc",
+  "process": "5-axis machined",
+  "material": "6063 aluminium",
+  "qty": 15000.0,
+  "unit": "pc",
+  "budget_low": 220.0,
+  "budget_high": 270.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 3675000.0,
+  "closes_in_days": 43,
+  "bid_count": 5,
+  "description": "5-axis machined 6063 aluminium heat sinks — 15,000 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Michael J Jenkins",
+  "matched_supplier": "Jenkins Machine, Inc.",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "5-axis machined",
+    "kind": "process"
+   },
+   {
+    "label": "6063",
+    "kind": "material"
+   },
+   {
+    "label": "aluminium",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 2,
+  "closes_in_from_now": 42.9964
+ },
+ {
+  "id": 15,
+  "title": "CNC turned 42CrMo4 shafts — 4,800 pcs",
+  "sector_key": "cnc",
+  "process": "cnc turned",
+  "material": "42CrMo4",
+  "qty": 4800.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 54,
+  "bid_count": 5,
+  "description": "CNC turned 42CrMo4 shafts — 4,800 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Pamela Diana Whiteland",
+  "matched_supplier": "WHITELAND ENGINEERING LIMITED",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc turned",
+    "kind": "process"
+   },
+   {
+    "label": "42CrMo4",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 3,
+  "closes_in_from_now": 53.9964
+ },
+ {
+  "id": 16,
+  "title": "CNC machined SS316 valve bodies — 2,150 pcs",
+  "sector_key": "tools",
+  "process": "cnc machined",
+  "material": "SS316",
+  "qty": 2150.0,
+  "unit": "pc",
+  "budget_low": 10.0,
+  "budget_high": 13.0,
+  "currency": "$",
+  "budget_status": "Priced",
+  "est_total": 24725.0,
+  "closes_in_days": 25,
+  "bid_count": 5,
+  "description": "CNC machined SS316 valve bodies — 2,150 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Bernd Gersmeier",
+  "matched_supplier": "Gersmeier Zerspanungs-GmbH",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "Tools & Fixtures",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc machined",
+    "kind": "process"
+   },
+   {
+    "label": "SS316",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Tecklenburg",
+  "created_ago_days": 4,
+  "closes_in_from_now": 24.9964
+ },
+ {
+  "id": 17,
+  "title": "CNC turned SS303 bushings and spacers — 14,000 pcs",
+  "sector_key": "cnc",
+  "process": "cnc turned",
+  "material": "SS303",
+  "qty": 14000.0,
+  "unit": "pc",
+  "budget_low": 40.0,
+  "budget_high": 50.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 630000.0,
+  "closes_in_days": 25,
+  "bid_count": 5,
+  "description": "CNC turned SS303 bushings and spacers — 14,000 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Bob Grover",
+  "matched_supplier": "GrovTec Machining",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc turned",
+    "kind": "process"
+   },
+   {
+    "label": "SS303",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Wood Village, OR",
+  "created_ago_days": 5,
+  "closes_in_from_now": 24.9964
+ },
+ {
+  "id": 18,
+  "title": "CNC machined CF8M valve bodies — 3,350 pcs",
+  "sector_key": "tools",
+  "process": "cnc machined",
+  "material": "CF8M",
+  "qty": 3350.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 52,
+  "bid_count": 5,
+  "description": "CNC machined CF8M valve bodies — 3,350 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Sandeep Kudale",
+  "matched_supplier": "Kudale Engineering Pvt. Ltd",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "Tools & Fixtures",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc machined",
+    "kind": "process"
+   },
+   {
+    "label": "CF8M",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Pune (Bhosari)",
+  "created_ago_days": 6,
+  "closes_in_from_now": 51.9964
+ },
+ {
+  "id": 19,
+  "title": "CNC turned EN8 shafts — 1,000 pcs",
+  "sector_key": "cnc",
+  "process": "cnc turned",
+  "material": "EN8",
+  "qty": 1000.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 13,
+  "bid_count": 5,
+  "description": "CNC turned EN8 shafts — 1,000 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "John Makris",
+  "matched_supplier": "Roberts Swiss Inc.",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc turned",
+    "kind": "process"
+   },
+   {
+    "label": "EN8",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 7,
+  "closes_in_from_now": 12.9964
+ },
+ {
+  "id": 20,
+  "title": "5-axis machined 6061-T6 aluminium heat sinks — 14,000 pcs",
+  "sector_key": "cnc",
+  "process": "5-axis machined",
+  "material": "6061-T6 aluminium",
+  "qty": 14000.0,
+  "unit": "pc",
+  "budget_low": 230.0,
+  "budget_high": 250.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 3360000.0,
+  "closes_in_days": 18,
+  "bid_count": 5,
+  "description": "5-axis machined 6061-T6 aluminium heat sinks — 14,000 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Grzegorz Arent",
+  "matched_supplier": "",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "5-axis machined",
+    "kind": "process"
+   },
+   {
+    "label": "6061-T6",
+    "kind": "material"
+   },
+   {
+    "label": "aluminium",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 8,
+  "closes_in_from_now": 17.9964
+ },
+ {
+  "id": 21,
+  "title": "VMC milled 6061-T6 aluminium housings — 3,100 pcs",
+  "sector_key": "cnc",
+  "process": "vmc milled",
+  "material": "6061-T6 aluminium",
+  "qty": 3100.0,
+  "unit": "pc",
+  "budget_low": 6.0,
+  "budget_high": 8.0,
+  "currency": "€",
+  "budget_status": "Priced",
+  "est_total": 21700.0,
+  "closes_in_days": 25,
+  "bid_count": 5,
+  "description": "VMC milled 6061-T6 aluminium housings — 3,100 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Paul Hayes",
+  "matched_supplier": "Able Tool Corporation",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "vmc milled",
+    "kind": "process"
+   },
+   {
+    "label": "6061-T6",
+    "kind": "material"
+   },
+   {
+    "label": "aluminium",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Cincinnati, OH",
+  "created_ago_days": 9,
+  "closes_in_from_now": 24.9964
+ },
+ {
+  "id": 22,
+  "title": "Broached and hobbed EN353 spur gears — 4,500 pcs",
+  "sector_key": "auto",
+  "process": "broached and hobbed",
+  "material": "EN353",
+  "qty": 4500.0,
+  "unit": "pc",
+  "budget_low": 490.0,
+  "budget_high": 600.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 2452500.0,
+  "closes_in_days": 12,
+  "bid_count": 5,
+  "description": "Broached and hobbed EN353 spur gears — 4,500 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Claas Friedrich Schwarz",
+  "matched_supplier": "BBS Präzisionsteile GmbH",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "Automotive Parts",
+    "kind": "sector"
+   },
+   {
+    "label": "broached and hobbed",
+    "kind": "process"
+   },
+   {
+    "label": "EN353",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Högersdorf",
+  "created_ago_days": 10,
+  "closes_in_from_now": 11.9964
+ },
+ {
+  "id": 23,
+  "title": "Precision ground SUJ2 bearing races — 2,700 pcs",
+  "sector_key": "cnc",
+  "process": "precision ground",
+  "material": "SUJ2",
+  "qty": 2700.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 9,
+  "bid_count": 5,
+  "description": "Precision ground SUJ2 bearing races — 2,700 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Ashley Lawrence Pendry",
+  "matched_supplier": "PENDRY & SON (ADDLESTONE) LIMITED",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "precision ground",
+    "kind": "process"
+   },
+   {
+    "label": "SUJ2",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 11,
+  "closes_in_from_now": 8.9964
+ },
+ {
+  "id": 24,
+  "title": "CNC turned phosphor bronze bushings and spacers — 3,100 pcs",
+  "sector_key": "cnc",
+  "process": "cnc turned",
+  "material": "phosphor bronze",
+  "qty": 3100.0,
+  "unit": "pc",
+  "budget_low": 40.0,
+  "budget_high": 50.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 139500.0,
+  "closes_in_days": 24,
+  "bid_count": 5,
+  "description": "CNC turned phosphor bronze bushings and spacers — 3,100 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Lowell Cogar",
+  "matched_supplier": "Cogar Manufacturing, Inc.",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc turned",
+    "kind": "process"
+   },
+   {
+    "label": "phosphor",
+    "kind": "material"
+   },
+   {
+    "label": "bronze",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Pearisburg, VA",
+  "created_ago_days": 0,
+  "closes_in_from_now": 23.9964
+ },
+ {
+  "id": 25,
+  "title": "CNC turned brass C36000 bushings and spacers — 2,200 pcs",
+  "sector_key": "cnc",
+  "process": "cnc turned",
+  "material": "brass C36000",
+  "qty": 2200.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 23,
+  "bid_count": 5,
+  "description": "CNC turned brass C36000 bushings and spacers — 2,200 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "John Leonard Bowes",
+  "matched_supplier": "LEONARD BOWES (ENGINEERING) COMPANY LIMITED",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc turned",
+    "kind": "process"
+   },
+   {
+    "label": "brass",
+    "kind": "material"
+   },
+   {
+    "label": "C36000",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 1,
+  "closes_in_from_now": 22.9964
+ },
+ {
+  "id": 26,
+  "title": "CNC turned EN24 shafts — 850 pcs",
+  "sector_key": "cnc",
+  "process": "cnc turned",
+  "material": "EN24",
+  "qty": 850.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 39,
+  "bid_count": 5,
+  "description": "CNC turned EN24 shafts — 850 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Thomas Isaac",
+  "matched_supplier": "Allied Technologies International, Inc",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc turned",
+    "kind": "process"
+   },
+   {
+    "label": "EN24",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Tualatin, OR",
+  "created_ago_days": 2,
+  "closes_in_from_now": 38.9964
+ },
+ {
+  "id": 27,
+  "title": "VMC milled mild steel housings — 5,000 pcs",
+  "sector_key": "cnc",
+  "process": "vmc milled",
+  "material": "mild steel",
+  "qty": 5000.0,
+  "unit": "pc",
+  "budget_low": 600.0,
+  "budget_high": 650.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 3125000.0,
+  "closes_in_days": 16,
+  "bid_count": 5,
+  "description": "VMC milled mild steel housings — 5,000 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Sean Lafferty",
+  "matched_supplier": "Delva",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "vmc milled",
+    "kind": "process"
+   },
+   {
+    "label": "mild",
+    "kind": "material"
+   },
+   {
+    "label": "steel",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Cinnaminson, NJ",
+  "created_ago_days": 3,
+  "closes_in_from_now": 15.9964
+ },
+ {
+  "id": 28,
+  "title": "VMC milled mild steel housings — 210 pcs",
+  "sector_key": "cnc",
+  "process": "vmc milled",
+  "material": "mild steel",
+  "qty": 210.0,
+  "unit": "pc",
+  "budget_low": 550.0,
+  "budget_high": 700.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 131250.0,
+  "closes_in_days": 32,
+  "bid_count": 5,
+  "description": "VMC milled mild steel housings — 210 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Krzysztof Szymański",
+  "matched_supplier": "",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "vmc milled",
+    "kind": "process"
+   },
+   {
+    "label": "mild",
+    "kind": "material"
+   },
+   {
+    "label": "steel",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 4,
+  "closes_in_from_now": 31.9964
+ },
+ {
+  "id": 29,
+  "title": "5-axis machined 6063 aluminium heat sinks — 7,500 pcs",
+  "sector_key": "cnc",
+  "process": "5-axis machined",
+  "material": "6063 aluminium",
+  "qty": 7500.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 33,
+  "bid_count": 5,
+  "description": "5-axis machined 6063 aluminium heat sinks — 7,500 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Sarah Smith",
+  "matched_supplier": "Central Kentucky Tool",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "5-axis machined",
+    "kind": "process"
+   },
+   {
+    "label": "6063",
+    "kind": "material"
+   },
+   {
+    "label": "aluminium",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Lebanon, KY",
+  "created_ago_days": 5,
+  "closes_in_from_now": 32.9964
+ },
+ {
+  "id": 30,
+  "title": "Broached and hobbed 20MnCr5 spur gears — 2,000 pcs",
+  "sector_key": "auto",
+  "process": "broached and hobbed",
+  "material": "20MnCr5",
+  "qty": 2000.0,
+  "unit": "pc",
+  "budget_low": 500.0,
+  "budget_high": 650.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 1150000.0,
+  "closes_in_days": 10,
+  "bid_count": 5,
+  "description": "Broached and hobbed 20MnCr5 spur gears — 2,000 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Martin Richard Jenkins",
+  "matched_supplier": "VOSS ENGINEERING COMPANY LIMITED(THE)",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "Automotive Parts",
+    "kind": "sector"
+   },
+   {
+    "label": "broached and hobbed",
+    "kind": "process"
+   },
+   {
+    "label": "20MnCr5",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 6,
+  "closes_in_from_now": 9.9964
+ },
+ {
+  "id": 31,
+  "title": "CNC machined hydraulic manifolds — 170 pcs",
+  "sector_key": "cnc",
+  "process": "cnc machined",
+  "material": "EN8 steel",
+  "qty": 170.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 7,
+  "bid_count": 5,
+  "description": "CNC machined hydraulic manifolds — 170 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "George Romero",
+  "matched_supplier": "American Turnkey Fabricators",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc machined",
+    "kind": "process"
+   },
+   {
+    "label": "EN8",
+    "kind": "material"
+   },
+   {
+    "label": "steel",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Rancho Cucamonga, CA",
+  "created_ago_days": 7,
+  "closes_in_from_now": 6.9964
+ },
+ {
+  "id": 32,
+  "title": "VMC milled 6061-T6 aluminium housings — 3,200 pcs",
+  "sector_key": "cnc",
+  "process": "vmc milled",
+  "material": "6061-T6 aluminium",
+  "qty": 3200.0,
+  "unit": "pc",
+  "budget_low": 550.0,
+  "budget_high": 600.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 1840000.0,
+  "closes_in_days": 53,
+  "bid_count": 5,
+  "description": "VMC milled 6061-T6 aluminium housings — 3,200 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "David Simon King",
+  "matched_supplier": "QUEENSWAY ENGINEERING (SCUNTHORPE) LIMITED",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "vmc milled",
+    "kind": "process"
+   },
+   {
+    "label": "6061-T6",
+    "kind": "material"
+   },
+   {
+    "label": "aluminium",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 8,
+  "closes_in_from_now": 52.9964
+ },
+ {
+  "id": 33,
+  "title": "Precision ground SUJ2 bearing races — 8,500 pcs",
+  "sector_key": "cnc",
+  "process": "precision ground",
+  "material": "SUJ2",
+  "qty": 8500.0,
+  "unit": "pc",
+  "budget_low": 190.0,
+  "budget_high": 240.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 1827500.0,
+  "closes_in_days": 31,
+  "bid_count": 5,
+  "description": "Precision ground SUJ2 bearing races — 8,500 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Ajay Baburao Shirke",
+  "matched_supplier": "S.M.E.LIMITED",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "precision ground",
+    "kind": "process"
+   },
+   {
+    "label": "SUJ2",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 9,
+  "closes_in_from_now": 30.9964
+ },
+ {
+  "id": 34,
+  "title": "CNC turned phosphor bronze bushings and spacers — 7,000 pcs",
+  "sector_key": "cnc",
+  "process": "cnc turned",
+  "material": "phosphor bronze",
+  "qty": 7000.0,
+  "unit": "pc",
+  "budget_low": 45.0,
+  "budget_high": 55.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 350000.0,
+  "closes_in_days": 26,
+  "bid_count": 5,
+  "description": "CNC turned phosphor bronze bushings and spacers — 7,000 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Oliver Reinhardt",
+  "matched_supplier": "Reinhardt Präzisionsdrehteile GmbH & Co. KG",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc turned",
+    "kind": "process"
+   },
+   {
+    "label": "phosphor",
+    "kind": "material"
+   },
+   {
+    "label": "bronze",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 10,
+  "closes_in_from_now": 25.9964
+ },
+ {
+  "id": 35,
+  "title": "EPS pattern tooling for lost foam — railway brake bracket, 4 tools",
+  "sector_key": "tools",
+  "process": "eps pattern tooling",
+  "material": "Aluminium tooling for EPS moulding",
+  "qty": 4.0,
+  "unit": "set",
+  "budget_low": 650000.0,
+  "budget_high": 900000.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 3100000.0,
+  "closes_in_days": 36,
+  "bid_count": 5,
+  "description": "EPS pattern tooling for lost foam — railway brake bracket, 4 tools",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Viraj Mahalunkar",
+  "matched_supplier": "Sadguru Autocomponents Pvt Ltd",
+  "spec_notes": "Pattern ±0.3 mm, shrink compensated",
+  "tags": [
+   {
+    "label": "Tools & Fixtures",
+    "kind": "sector"
+   },
+   {
+    "label": "eps pattern tooling",
+    "kind": "process"
+   },
+   {
+    "label": "Aluminium",
+    "kind": "material"
+   },
+   {
+    "label": "tooling",
+    "kind": "material"
+   },
+   {
+    "label": "±0.3 mm",
+    "kind": "cert"
+   }
+  ],
+  "hub_city": "Pune (Chakan MIDC)",
+  "created_ago_days": 11,
+  "closes_in_from_now": 35.9964
+ },
+ {
+  "id": 36,
+  "title": "Anodising and passivation partner",
+  "sector_key": "cnc",
+  "process": "anodising",
+  "material": "Aluminium / SS",
+  "qty": 8000.0,
+  "unit": "pc",
+  "budget_low": 14.0,
+  "budget_high": 22.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 144000.0,
+  "closes_in_days": 36,
+  "bid_count": 5,
+  "description": "Anodising and passivation partner",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Tushar Tambat",
+  "matched_supplier": "Siddhant Engineering Services",
+  "spec_notes": "Coating 25-40 µm",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "anodising",
+    "kind": "process"
+   },
+   {
+    "label": "Aluminium",
+    "kind": "material"
+   },
+   {
+    "label": "SS",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Nashik",
+  "created_ago_days": 0,
+  "closes_in_from_now": 35.9964
+ },
+ {
+  "id": 37,
+  "title": "Deep hole drilling subcontract",
+  "sector_key": "cnc",
+  "process": "deep hole drilling",
+  "material": "EN19 / EN24",
+  "qty": 1400.0,
+  "unit": "pc",
+  "budget_low": 480.0,
+  "budget_high": 720.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 840000.0,
+  "closes_in_days": 36,
+  "bid_count": 5,
+  "description": "Deep hole drilling subcontract",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Balvinder Singh",
+  "matched_supplier": "Singh Engineering Works Private Limited",
+  "spec_notes": "Straightness 0.1/100 mm",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "deep hole drilling",
+    "kind": "process"
+   },
+   {
+    "label": "EN19",
+    "kind": "material"
+   },
+   {
+    "label": "EN24",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Pune (Pimpri-Chinchwad)",
+  "created_ago_days": 1,
+  "closes_in_from_now": 35.9964
+ },
+ {
+  "id": 38,
+  "title": "Heat treatment partner — induction hardening",
+  "sector_key": "sheet",
+  "process": "heat treatment",
+  "material": "EN8 / EN19",
+  "qty": 12000.0,
+  "unit": "pc",
+  "budget_low": 22.0,
+  "budget_high": 34.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 336000.0,
+  "closes_in_days": null,
+  "bid_count": 5,
+  "description": "Heat treatment partner — induction hardening",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Nitin Kelkar",
+  "matched_supplier": "Kelkar Dynamics",
+  "spec_notes": "52-58 HRC, case 1.5-2.5 mm",
+  "tags": [
+   {
+    "label": "Sheet Metal & Fabrication",
+    "kind": "sector"
+   },
+   {
+    "label": "heat treatment",
+    "kind": "process"
+   },
+   {
+    "label": "EN8",
+    "kind": "material"
+   },
+   {
+    "label": "EN19",
+    "kind": "material"
+   },
+   {
+    "label": "Heat treat",
+    "kind": "cert"
+   }
+  ],
+  "hub_city": "Nashik",
+  "created_ago_days": 2,
+  "closes_in_from_now": null
+ },
+ {
+  "id": 39,
+  "title": "5-axis machined 6061-T6 aluminium heat sinks — 7,500 pcs",
+  "sector_key": "cnc",
+  "process": "5-axis machined",
+  "material": "6061-T6 aluminium",
+  "qty": 7500.0,
+  "unit": "pc",
+  "budget_low": 2.5,
+  "budget_high": 3.0,
+  "currency": "€",
+  "budget_status": "Priced",
+  "est_total": 20625.0,
+  "closes_in_days": 20,
+  "bid_count": 5,
+  "description": "5-axis machined 6061-T6 aluminium heat sinks — 7,500 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Ashwin Babu",
+  "matched_supplier": "Ashwin Precision Products Private Limited",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "5-axis machined",
+    "kind": "process"
+   },
+   {
+    "label": "6061-T6",
+    "kind": "material"
+   },
+   {
+    "label": "aluminium",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Bengaluru",
+  "created_ago_days": 3,
+  "closes_in_from_now": 19.9964
+ },
+ {
+  "id": 40,
+  "title": "Duplex and super duplex bar stock",
+  "sector_key": "cnc",
+  "process": "duplex and super duplex",
+  "material": "Duplex 2205 / 2507",
+  "qty": 18.0,
+  "unit": "tonne",
+  "budget_low": 480000.0,
+  "budget_high": 620000.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 9900000.0,
+  "closes_in_days": 36,
+  "bid_count": 5,
+  "description": "Duplex and super duplex bar stock",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Rajesh Nyalchand Tolia",
+  "matched_supplier": "Forward Precision Engineers Pvt Ltd",
+  "spec_notes": "EN 10204 3.1",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "duplex and super duplex",
+    "kind": "process"
+   },
+   {
+    "label": "Duplex",
+    "kind": "material"
+   },
+   {
+    "label": "2205",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Thane",
+  "created_ago_days": 4,
+  "closes_in_from_now": 35.9964
+ },
+ {
+  "id": 41,
+  "title": "CNC machined hydraulic manifolds — 2,400 pcs",
+  "sector_key": "cnc",
+  "process": "cnc machined",
+  "material": "aluminium 6082",
+  "qty": 2400.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": null,
+  "bid_count": 5,
+  "description": "CNC machined hydraulic manifolds — 2,400 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Kevin Bader",
+  "matched_supplier": "OGS Industries",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc machined",
+    "kind": "process"
+   },
+   {
+    "label": "aluminium",
+    "kind": "material"
+   },
+   {
+    "label": "6082",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Akron, Ohio",
+  "created_ago_days": 5,
+  "closes_in_from_now": null
+ },
+ {
+  "id": 42,
+  "title": "Wire EDM subcontract",
+  "sector_key": "cnc",
+  "process": "wire edm",
+  "material": "D2 / carbide",
+  "qty": 900.0,
+  "unit": "pc",
+  "budget_low": 320.0,
+  "budget_high": 460.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 351000.0,
+  "closes_in_days": 36,
+  "bid_count": 5,
+  "description": "Wire EDM subcontract",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Aakash Patel",
+  "matched_supplier": "Micron Enterprises",
+  "spec_notes": "±0.005 mm",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "wire edm",
+    "kind": "process"
+   },
+   {
+    "label": "D2",
+    "kind": "material"
+   },
+   {
+    "label": "carbide",
+    "kind": "material"
+   },
+   {
+    "label": "±0.005 mm",
+    "kind": "cert"
+   }
+  ],
+  "hub_city": "Vadodara",
+  "created_ago_days": 6,
+  "closes_in_from_now": 35.9964
+ },
+ {
+  "id": 43,
+  "title": "CNC turned EN19 shafts — 4,350 pcs",
+  "sector_key": "cnc",
+  "process": "cnc turned",
+  "material": "EN19",
+  "qty": 4350.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 44,
+  "bid_count": 5,
+  "description": "CNC turned EN19 shafts — 4,350 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Johnson Pereira",
+  "matched_supplier": "Gemsons Precision Engineering Private Limited",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc turned",
+    "kind": "process"
+   },
+   {
+    "label": "EN19",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Vasai (Palghar)",
+  "created_ago_days": 7,
+  "closes_in_from_now": 43.9964
+ },
+ {
+  "id": 44,
+  "title": "Carbide inserts and holders — annual rate contract",
+  "sector_key": "tools",
+  "process": "carbide inserts",
+  "material": "Carbide tooling",
+  "qty": 1.0,
+  "unit": "lot",
+  "budget_low": 2800000.0,
+  "budget_high": 3600000.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 3200000.0,
+  "closes_in_days": 36,
+  "bid_count": 5,
+  "description": "Carbide inserts and holders — annual rate contract",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Senthil Tk",
+  "matched_supplier": "Aadhira CNC Product Private Limited",
+  "spec_notes": "Per grade chart",
+  "tags": [
+   {
+    "label": "Tools & Fixtures",
+    "kind": "sector"
+   },
+   {
+    "label": "carbide inserts",
+    "kind": "process"
+   },
+   {
+    "label": "Carbide",
+    "kind": "material"
+   },
+   {
+    "label": "tooling",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Coimbatore",
+  "created_ago_days": 8,
+  "closes_in_from_now": 35.9964
+ },
+ {
+  "id": 45,
+  "title": "Coolant management and filtration",
+  "sector_key": "cnc",
+  "process": "coolant management",
+  "material": "Filtration plant",
+  "qty": 1.0,
+  "unit": "lot",
+  "budget_low": 1400000.0,
+  "budget_high": 1900000.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 1650000.0,
+  "closes_in_days": 36,
+  "bid_count": 5,
+  "description": "Coolant management and filtration",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Prashant Umbrani",
+  "matched_supplier": "Craft and Technik Industries",
+  "spec_notes": "Tramp oil < 0.5%",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "coolant management",
+    "kind": "process"
+   },
+   {
+    "label": "Filtration",
+    "kind": "material"
+   },
+   {
+    "label": "plant",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Pune",
+  "created_ago_days": 9,
+  "closes_in_from_now": 35.9964
+ },
+ {
+  "id": 46,
+  "title": "CNC machined WCB steel valve bodies — 500 pcs",
+  "sector_key": "tools",
+  "process": "cnc machined",
+  "material": "WCB steel",
+  "qty": 500.0,
+  "unit": "pc",
+  "budget_low": 9.5,
+  "budget_high": 11.0,
+  "currency": "€",
+  "budget_status": "Priced",
+  "est_total": 5125.0,
+  "closes_in_days": 46,
+  "bid_count": 5,
+  "description": "CNC machined WCB steel valve bodies — 500 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Brian Levan",
+  "matched_supplier": "Levan Machine & Truck Equipment",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "Tools & Fixtures",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc machined",
+    "kind": "process"
+   },
+   {
+    "label": "WCB",
+    "kind": "material"
+   },
+   {
+    "label": "steel",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Fleetwood, Pennsylvania",
+  "created_ago_days": 10,
+  "closes_in_from_now": 45.9964
+ },
+ {
+  "id": 47,
+  "title": "Zero-point workholding system — shop wide",
+  "sector_key": "tools",
+  "process": "zero-point workholding",
+  "material": "Workholding",
+  "qty": 1.0,
+  "unit": "lot",
+  "budget_low": 4200000.0,
+  "budget_high": 5800000.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 5000000.0,
+  "closes_in_days": 36,
+  "bid_count": 5,
+  "description": "Zero-point workholding system — shop wide",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Annamalai Ravi",
+  "matched_supplier": "Precision Machines & Equipments Pvt. Ltd.",
+  "spec_notes": "Repeatability 0.005 mm",
+  "tags": [
+   {
+    "label": "Tools & Fixtures",
+    "kind": "sector"
+   },
+   {
+    "label": "zero-point workholding",
+    "kind": "process"
+   },
+   {
+    "label": "Workholding",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Chennai",
+  "created_ago_days": 11,
+  "closes_in_from_now": 35.9964
+ },
+ {
+  "id": 48,
+  "title": "Precision ground SUJ2 bearing races — 3,400 pcs",
+  "sector_key": "cnc",
+  "process": "precision ground",
+  "material": "SUJ2",
+  "qty": 3400.0,
+  "unit": "pc",
+  "budget_low": 190.0,
+  "budget_high": 210.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 680000.0,
+  "closes_in_days": 28,
+  "bid_count": 5,
+  "description": "Precision ground SUJ2 bearing races — 3,400 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Hiroshi Kida",
+  "matched_supplier": "Kida Valve Ball Co., Ltd.",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "precision ground",
+    "kind": "process"
+   },
+   {
+    "label": "SUJ2",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Higashiosaka, Osaka",
+  "created_ago_days": 0,
+  "closes_in_from_now": 27.9964
+ },
+ {
+  "id": 49,
+  "title": "CNC machined hydraulic manifolds — 1,750 pcs",
+  "sector_key": "cnc",
+  "process": "cnc machined",
+  "material": "EN8 steel",
+  "qty": 1750.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 28,
+  "bid_count": 5,
+  "description": "CNC machined hydraulic manifolds — 1,750 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Justin Stamer",
+  "matched_supplier": "Mill Creek Machining",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc machined",
+    "kind": "process"
+   },
+   {
+    "label": "EN8",
+    "kind": "material"
+   },
+   {
+    "label": "steel",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Paullina, Iowa",
+  "created_ago_days": 1,
+  "closes_in_from_now": 27.9964
+ },
+ {
+  "id": 50,
+  "title": "CNC machined hydraulic manifolds — 1,600 pcs",
+  "sector_key": "cnc",
+  "process": "cnc machined",
+  "material": "EN8 steel",
+  "qty": 1600.0,
+  "unit": "pc",
+  "budget_low": 1300.0,
+  "budget_high": 1450.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 2200000.0,
+  "closes_in_days": 21,
+  "bid_count": 5,
+  "description": "CNC machined hydraulic manifolds — 1,600 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Shunji Hirai",
+  "matched_supplier": "Hirai Seikosho Co., Ltd.",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc machined",
+    "kind": "process"
+   },
+   {
+    "label": "EN8",
+    "kind": "material"
+   },
+   {
+    "label": "steel",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Higashiosaka, Osaka",
+  "created_ago_days": 2,
+  "closes_in_from_now": 20.9964
+ },
+ {
+  "id": 51,
+  "title": "5-axis machined 6063 aluminium heat sinks — 13,000 pcs",
+  "sector_key": "cnc",
+  "process": "5-axis machined",
+  "material": "6063 aluminium",
+  "qty": 13000.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 29,
+  "bid_count": 5,
+  "description": "5-axis machined 6063 aluminium heat sinks — 13,000 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Paul Fronhofer",
+  "matched_supplier": "Fronhofer Tool Company",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "5-axis machined",
+    "kind": "process"
+   },
+   {
+    "label": "6063",
+    "kind": "material"
+   },
+   {
+    "label": "aluminium",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Argyle, NY",
+  "created_ago_days": 3,
+  "closes_in_from_now": 28.9964
+ },
+ {
+  "id": 52,
+  "title": "Broached and hobbed 20MnCr5 spur gears — 6,000 pcs",
+  "sector_key": "auto",
+  "process": "broached and hobbed",
+  "material": "20MnCr5",
+  "qty": 6000.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 15,
+  "bid_count": 5,
+  "description": "Broached and hobbed 20MnCr5 spur gears — 6,000 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Frank Burch",
+  "matched_supplier": "Southern Machine Works, Inc.",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "Automotive Parts",
+    "kind": "sector"
+   },
+   {
+    "label": "broached and hobbed",
+    "kind": "process"
+   },
+   {
+    "label": "20MnCr5",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 4,
+  "closes_in_from_now": 14.9964
+ },
+ {
+  "id": 53,
+  "title": "5-axis machined 6063 aluminium heat sinks — 2,150 pcs",
+  "sector_key": "cnc",
+  "process": "5-axis machined",
+  "material": "6063 aluminium",
+  "qty": 2150.0,
+  "unit": "pc",
+  "budget_low": 240.0,
+  "budget_high": 290.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 569750.0,
+  "closes_in_days": 12,
+  "bid_count": 5,
+  "description": "5-axis machined 6063 aluminium heat sinks — 2,150 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Stefan Greving",
+  "matched_supplier": "BIBBY TRANSMISSIONS LIMITED",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "5-axis machined",
+    "kind": "process"
+   },
+   {
+    "label": "6063",
+    "kind": "material"
+   },
+   {
+    "label": "aluminium",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Dewsbury",
+  "created_ago_days": 5,
+  "closes_in_from_now": 11.9964
+ },
+ {
+  "id": 54,
+  "title": "CNC turned EN24 shafts — 5,500 pcs",
+  "sector_key": "cnc",
+  "process": "cnc turned",
+  "material": "EN24",
+  "qty": 5500.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 18,
+  "bid_count": 5,
+  "description": "CNC turned EN24 shafts — 5,500 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Tushar Tambat",
+  "matched_supplier": "Siddhant Engineering Services",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc turned",
+    "kind": "process"
+   },
+   {
+    "label": "EN24",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Nashik",
+  "created_ago_days": 6,
+  "closes_in_from_now": 17.9964
+ },
+ {
+  "id": 55,
+  "title": "VMC milled 6082 aluminium housings — 1,200 pcs",
+  "sector_key": "cnc",
+  "process": "vmc milled",
+  "material": "6082 aluminium",
+  "qty": 1200.0,
+  "unit": "pc",
+  "budget_low": 550.0,
+  "budget_high": 650.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 720000.0,
+  "closes_in_days": 44,
+  "bid_count": 5,
+  "description": "VMC milled 6082 aluminium housings — 1,200 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Sunil Rasal",
+  "matched_supplier": "MicroMech Engineering",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "vmc milled",
+    "kind": "process"
+   },
+   {
+    "label": "6082",
+    "kind": "material"
+   },
+   {
+    "label": "aluminium",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Pune",
+  "created_ago_days": 7,
+  "closes_in_from_now": 43.9964
+ },
+ {
+  "id": 56,
+  "title": "CNC turned EN24 shafts — 4,550 pcs",
+  "sector_key": "cnc",
+  "process": "cnc turned",
+  "material": "EN24",
+  "qty": 4550.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 5,
+  "bid_count": 5,
+  "description": "CNC turned EN24 shafts — 4,550 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Ann Baumgart",
+  "matched_supplier": "Screw Machine Engineering Co., Inc",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc turned",
+    "kind": "process"
+   },
+   {
+    "label": "EN24",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 8,
+  "closes_in_from_now": 4.9964
+ },
+ {
+  "id": 57,
+  "title": "Precision ground 100Cr6 bearing steel bearing races — 8,500 pcs",
+  "sector_key": "cnc",
+  "process": "precision ground",
+  "material": "100Cr6 bearing steel",
+  "qty": 8500.0,
+  "unit": "pc",
+  "budget_low": 200.0,
+  "budget_high": 260.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 1955000.0,
+  "closes_in_days": 28,
+  "bid_count": 5,
+  "description": "Precision ground 100Cr6 bearing steel bearing races — 8,500 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Michael Maccready",
+  "matched_supplier": "Mac Machine LLC",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "precision ground",
+    "kind": "process"
+   },
+   {
+    "label": "100Cr6",
+    "kind": "material"
+   },
+   {
+    "label": "bearing",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 9,
+  "closes_in_from_now": 27.9964
+ },
+ {
+  "id": 58,
+  "title": "CNC machined hydraulic manifolds — 1,250 pcs",
+  "sector_key": "cnc",
+  "process": "cnc machined",
+  "material": "aluminium 6082",
+  "qty": 1250.0,
+  "unit": "pc",
+  "budget_low": 1350.0,
+  "budget_high": 1800.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 1968750.0,
+  "closes_in_days": 32,
+  "bid_count": 5,
+  "description": "CNC machined hydraulic manifolds — 1,250 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Daniel Benjamin Bills",
+  "matched_supplier": "HOLTITE LIMITED",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc machined",
+    "kind": "process"
+   },
+   {
+    "label": "aluminium",
+    "kind": "material"
+   },
+   {
+    "label": "6082",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Cradley Heath",
+  "created_ago_days": 10,
+  "closes_in_from_now": 31.9964
+ },
+ {
+  "id": 59,
+  "title": "CNC turned brass C36000 bushings and spacers — 4,900 pcs",
+  "sector_key": "cnc",
+  "process": "cnc turned",
+  "material": "brass C36000",
+  "qty": 4900.0,
+  "unit": "pc",
+  "budget_low": 0.5,
+  "budget_high": 0.5,
+  "currency": "$",
+  "budget_status": "Priced",
+  "est_total": 2450.0,
+  "closes_in_days": 18,
+  "bid_count": 5,
+  "description": "CNC turned brass C36000 bushings and spacers — 4,900 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Shardul Patel",
+  "matched_supplier": "Schilthorn Precision Engineering Pvt. Ltd.",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc turned",
+    "kind": "process"
+   },
+   {
+    "label": "brass",
+    "kind": "material"
+   },
+   {
+    "label": "C36000",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Kalol (Ahmedabad)",
+  "created_ago_days": 11,
+  "closes_in_from_now": 17.9964
+ },
+ {
+  "id": 60,
+  "title": "5-axis machined 6061-T6 aluminium heat sinks — 6,500 pcs",
+  "sector_key": "cnc",
+  "process": "5-axis machined",
+  "material": "6061-T6 aluminium",
+  "qty": 6500.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 20,
+  "bid_count": 5,
+  "description": "5-axis machined 6061-T6 aluminium heat sinks — 6,500 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Anthony Bernacchi",
+  "matched_supplier": "Swiss Pro CNC LLC",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "5-axis machined",
+    "kind": "process"
+   },
+   {
+    "label": "6061-T6",
+    "kind": "material"
+   },
+   {
+    "label": "aluminium",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 0,
+  "closes_in_from_now": 19.9964
+ },
+ {
+  "id": 61,
+  "title": "CNC machined hydraulic manifolds — 2,150 pcs",
+  "sector_key": "cnc",
+  "process": "cnc machined",
+  "material": "EN8 steel",
+  "qty": 2150.0,
+  "unit": "pc",
+  "budget_low": 16.0,
+  "budget_high": 20.0,
+  "currency": "$",
+  "budget_status": "Priced",
+  "est_total": 38700.0,
+  "closes_in_days": 51,
+  "bid_count": 5,
+  "description": "CNC machined hydraulic manifolds — 2,150 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Raman Bansal",
+  "matched_supplier": "BDS Manufacturing",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc machined",
+    "kind": "process"
+   },
+   {
+    "label": "EN8",
+    "kind": "material"
+   },
+   {
+    "label": "steel",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 1,
+  "closes_in_from_now": 50.9964
+ },
+ {
+  "id": 62,
+  "title": "CNC machined hydraulic manifolds — 2,850 pcs",
+  "sector_key": "cnc",
+  "process": "cnc machined",
+  "material": "EN8 steel",
+  "qty": 2850.0,
+  "unit": "pc",
+  "budget_low": 1300.0,
+  "budget_high": 1500.0,
+  "currency": "₹",
+  "budget_status": "Priced",
+  "est_total": 3990000.0,
+  "closes_in_days": 25,
+  "bid_count": 5,
+  "description": "CNC machined hydraulic manifolds — 2,850 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Mikko Virtanen",
+  "matched_supplier": "Arctic Tech Oy",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc machined",
+    "kind": "process"
+   },
+   {
+    "label": "EN8",
+    "kind": "material"
+   },
+   {
+    "label": "steel",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 2,
+  "closes_in_from_now": 24.9964
+ },
+ {
+  "id": 63,
+  "title": "CNC machined SS316 valve bodies — 2,200 pcs",
+  "sector_key": "tools",
+  "process": "cnc machined",
+  "material": "SS316",
+  "qty": 2200.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 24,
+  "bid_count": 5,
+  "description": "CNC machined SS316 valve bodies — 2,200 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Shivam Pansara",
+  "matched_supplier": "Mayank Raw Mint",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "Tools & Fixtures",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc machined",
+    "kind": "process"
+   },
+   {
+    "label": "SS316",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Jamnagar (Hapa)",
+  "created_ago_days": 3,
+  "closes_in_from_now": 23.9964
+ },
+ {
+  "id": 64,
+  "title": "CNC turned SS303 bushings and spacers — 15,000 pcs",
+  "sector_key": "cnc",
+  "process": "cnc turned",
+  "material": "SS303",
+  "qty": 15000.0,
+  "unit": "pc",
+  "budget_low": 0.5,
+  "budget_high": 0.5,
+  "currency": "€",
+  "budget_status": "Priced",
+  "est_total": 7500.0,
+  "closes_in_days": 19,
+  "bid_count": 5,
+  "description": "CNC turned SS303 bushings and spacers — 15,000 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Andreas Friesen",
+  "matched_supplier": "Friesen CNC Zerspanung",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "cnc turned",
+    "kind": "process"
+   },
+   {
+    "label": "SS303",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Augustdorf",
+  "created_ago_days": 4,
+  "closes_in_from_now": 18.9964
+ },
+ {
+  "id": 65,
+  "title": "VMC milled 6061-T6 aluminium housings — 1,750 pcs",
+  "sector_key": "cnc",
+  "process": "vmc milled",
+  "material": "6061-T6 aluminium",
+  "qty": 1750.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 52,
+  "bid_count": 5,
+  "description": "VMC milled 6061-T6 aluminium housings — 1,750 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Robert Edward Best",
+  "matched_supplier": "MILLHILL SUPPLIES LIMITED",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "vmc milled",
+    "kind": "process"
+   },
+   {
+    "label": "6061-T6",
+    "kind": "material"
+   },
+   {
+    "label": "aluminium",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 5,
+  "closes_in_from_now": 51.9964
+ },
+ {
+  "id": 66,
+  "title": "Broached and hobbed SCM420 spur gears — 5,500 pcs",
+  "sector_key": "auto",
+  "process": "broached and hobbed",
+  "material": "SCM420",
+  "qty": 5500.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 37,
+  "bid_count": 5,
+  "description": "Broached and hobbed SCM420 spur gears — 5,500 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "KS Swami",
+  "matched_supplier": "Cast Craft Private Limited",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "Automotive Parts",
+    "kind": "sector"
+   },
+   {
+    "label": "broached and hobbed",
+    "kind": "process"
+   },
+   {
+    "label": "SCM420",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "Bengaluru",
+  "created_ago_days": 6,
+  "closes_in_from_now": 36.9964
+ },
+ {
+  "id": 67,
+  "title": "Precision ground 100Cr6 bearing steel bearing races — 6,000 pcs",
+  "sector_key": "cnc",
+  "process": "precision ground",
+  "material": "100Cr6 bearing steel",
+  "qty": 6000.0,
+  "unit": "pc",
+  "budget_low": null,
+  "budget_high": null,
+  "currency": "₹",
+  "budget_status": "Open",
+  "est_total": null,
+  "closes_in_days": 44,
+  "bid_count": 5,
+  "description": "Precision ground 100Cr6 bearing steel bearing races — 6,000 pcs",
+  "attachments": [],
+  "clarify": [],
+  "routing_cap": 5,
+  "status": "published",
+  "issuer_name": "Steven Hurley",
+  "matched_supplier": "Pro Products LLC",
+  "spec_notes": "",
+  "tags": [
+   {
+    "label": "CNC & Machining",
+    "kind": "sector"
+   },
+   {
+    "label": "precision ground",
+    "kind": "process"
+   },
+   {
+    "label": "100Cr6",
+    "kind": "material"
+   },
+   {
+    "label": "bearing",
+    "kind": "material"
+   }
+  ],
+  "hub_city": "",
+  "created_ago_days": 7,
+  "closes_in_from_now": 43.9964
+ }
+]

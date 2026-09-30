@@ -1,0 +1,24 @@
+# Render blueprint for the RFQClub API (free tier).
+# Neon connection string + a strong AUTH_SECRET are set in the Render dashboard
+# (they are not committed). First boot auto-seeds the demo board from
+# api/seed_data/rfqs.json — see api/bootstrap.py.
+services:
+  - type: web
+    name: rfqclub-api
+    runtime: python
+    plan: free
+    rootDir: api
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: OTP_MODE
+        value: dev
+      - key: DATABASE_URL # set to the Neon pooled string in the dashboard
+        sync: false
+      - key: AUTH_SECRET # generate a strong random value in the dashboard
+        sync: false
+      - key: CORS_ORIGINS # once Vercel deploys, e.g. https://<proj>.vercel.app
+        value: http://localhost:3001

@@ -6,3 +6,7 @@ python-telegram-bot>=21
 python-dotenv>=1.0
 httpx>=0.27
 openpyxl>=3.1
+# Postgres drivers for hosted deploys (Neon/Render); psycopg3 is what
+# SQLAlchemy 2 uses for postgresql+psycopg, psycopg2-binary as the fallback.
+psycopg[binary]>=3.1
+psycopg2-binary>=2.9

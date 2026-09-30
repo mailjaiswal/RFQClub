@@ -1,12 +1,22 @@
-"""SQLAlchemy engine + session for RFQClub API (SQLite)."""
+"""SQLAlchemy engine + session for RFQClub API (SQLite locally, Postgres in prod)."""
 from __future__ import annotations
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 import config
 
-connect_args = {"check_same_thread": False} if config.DATABASE_URL.startswith("sqlite") else {}
-engine = create_engine(config.DATABASE_URL, connect_args=connect_args, future=True)
+
+def _url() -> str:
+    """Normalise DATABASE_URL: managed hosts (Render/Neon) hand out plain
+    postgresql://, which SQLAlchemy routes to psycopg2 — we ship psycopg3."""
+    u = config.DATABASE_URL
+    if u.startswith("postgresql://"):
+        u = "postgresql+psycopg://" + u[len("postgresql://"):]
+    return u
+
+
+connect_args = {"check_same_thread": False} if _url().startswith("sqlite") else {}
+engine = create_engine(_url(), connect_args=connect_args, future=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
 

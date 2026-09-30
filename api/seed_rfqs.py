@@ -1,14 +1,19 @@
 """Seed the rfq table from the RFQ Demand sheet of the source workbook.
 
 Idempotent: clears existing rfq rows then re-inserts the 67 parsed rows.
+When the workbook is unavailable (hosted deploys have no Windows path), the
+same rows come from the committed portable snapshot in seed_data/rfqs.json
+(produced locally with export_seed_json.py).
 Optionally seeds demo suppliers + blinded bids for the first few RFQs so the
 bids/compare endpoints have data to serve during local dev (--demo-bids).
 
 Run:  python seed_rfqs.py [--demo-bids]
 """
 from __future__ import annotations
+import json
 import sys
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import openpyxl
 
@@ -18,6 +23,16 @@ import models
 import rfq_parser
 import rfq_tags
 from sectors import classify
+
+SEED_JSON = Path(__file__).with_name("seed_data") / "rfqs.json"
+
+
+def _clear_rfqs(session):
+    session.query(models.Bid).delete()
+    session.query(models.Award).delete()
+    session.query(models.SaveItem).delete()
+    session.query(models.Rfq).delete()
+    session.commit()
 
 
 def _norm(s) -> str:
@@ -64,6 +79,33 @@ def _to_days(raw) -> int | None:
 
 
 def seed_rfqs(session):
+    if not Path(config.SOURCE_XLSX).exists():
+        return _seed_from_json(session)
+    try:
+        return _seed_from_workbook(session)
+    except OSError:
+        # Network share down / file locked — the committed snapshot is equivalent.
+        return _seed_from_json(session)
+
+
+def _seed_from_json(session) -> int:
+    """Portable path: rebuild the RFQ rows from the committed JSON snapshot."""
+    rows = json.loads(SEED_JSON.read_text(encoding="utf-8"))
+    _clear_rfqs(session)
+    now = datetime.now(timezone.utc)
+    count = 0
+    for d in rows:
+        rfq = models.Rfq(**{k: v for k, v in d.items() if k not in ("created_ago_days", "closes_in_from_now")})
+        rfq.created_at = now - timedelta(days=int(d.get("created_ago_days") or 0))
+        off = d.get("closes_in_from_now")
+        rfq.closes_at = now + timedelta(days=float(off)) if off is not None else None
+        session.add(rfq)
+        count += 1
+    session.commit()
+    return count
+
+
+def _seed_from_workbook(session) -> int:
     wb = openpyxl.load_workbook(config.SOURCE_XLSX, read_only=True, data_only=True)
     ws = wb["RFQ Demand"]
     rows = list(ws.iter_rows(values_only=True))
@@ -74,11 +116,7 @@ def seed_rfqs(session):
         i = idx.get(name)
         return r[i] if i is not None and i < len(r) else None
 
-    session.query(models.Bid).delete()
-    session.query(models.Award).delete()
-    session.query(models.SaveItem).delete()
-    session.query(models.Rfq).delete()
-    session.commit()
+    _clear_rfqs(session)
 
     hubs = _hub_lookup()
     now = datetime.now(timezone.utc)
@@ -204,7 +242,8 @@ def main():
     session = db.SessionLocal()
     try:
         n = seed_rfqs(session)
-        print(f"Seeded {n} RFQs from '{config.SOURCE_XLSX}' -> {config.DATABASE_URL}")
+        src = str(config.SOURCE_XLSX) if Path(config.SOURCE_XLSX).exists() else str(SEED_JSON)
+        print(f"Seeded {n} RFQs from '{src}' -> {config.DATABASE_URL}")
         if "--demo-bids" in sys.argv:
             m = seed_demo_bids(session)
             print(f"Seeded demo suppliers + blinded bids for {m} RFQs.")
