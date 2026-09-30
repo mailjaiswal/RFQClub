@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getRfq, getBids } from "@/lib/api";
+import { reqToken } from "@/lib/server-token";
 import { deadlineLabel } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,8 @@ export default async function RfqDetailPage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   let rfq, bidsMeta;
   try {
-    [rfq, bidsMeta] = await Promise.all([getRfq(id), getBids(id).catch(() => null)]);
+    const tk = await reqToken();
+    [rfq, bidsMeta] = await Promise.all([getRfq(id, tk), getBids(id, tk).catch(() => null)]);
   } catch {
     notFound();
   }

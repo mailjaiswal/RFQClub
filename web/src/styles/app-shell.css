@@ -122,7 +122,7 @@
 .app .ap-una{display:flex;flex-direction:column;line-height:1.2}
 .app .ap-una b{font-size:12px}
 .app .ap-una span{font-size:10px;color:#8A857A}
-.app .ap-out{align-self:stretch;text-align:center;border:1px solid #E4E1DA;background:transparent;border-radius:999px;padding:5px 10px;font-size:10.5px;font-weight:600;color:#54555C;cursor:pointer;font-family:inherit}
+.app .ap-out{align-self:stretch;text-align:center;text-decoration:none;display:block;border:1px solid #E4E1DA;background:transparent;border-radius:999px;padding:5px 10px;font-size:10.5px;font-weight:600;color:#54555C;cursor:pointer;font-family:inherit}
 .app .ap-out:hover{border-color:#B23A2B;color:#B23A2B}
 /* ---------- board card grid (cards view) ---------- */
 .app .ap-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;padding:18px 22px}

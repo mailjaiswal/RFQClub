@@ -1,10 +1,11 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { RfqDetail } from "@/lib/api";
 import { submitBid } from "@/lib/api";
 import { computeTLC, formatINR } from "@/lib/format";
+import { getUser } from "@/lib/session";
 
 export default function BidForm({ rfq }: { rfq: RfqDetail }) {
   const router = useRouter();
@@ -22,6 +23,16 @@ export default function BidForm({ rfq }: { rfq: RfqDetail }) {
   const [hubCity, setHubCity] = useState("");
   const [distance, setDistance] = useState("");
   const [tags, setTags] = useState("");
+  const [signedIn, setSignedIn] = useState(false);
+
+  // Signed-in suppliers get their account identity pre-filled (still editable).
+  useEffect(() => {
+    const u = getUser();
+    if (u) {
+      setSignedIn(true);
+      setSupplierName(u.email.split("@")[0]);
+    }
+  }, []);
 
   const [exception, setException] = useState(false);
   const [exceptionNote, setExceptionNote] = useState("");
@@ -153,6 +164,9 @@ export default function BidForm({ rfq }: { rfq: RfqDetail }) {
         {/* supplier identity */}
         <div className="surface-card" style={{ padding: 20, marginTop: 16 }}>
           <div className="label-mono">Your shop (hidden from buyer until award)</div>
+          {signedIn && (
+            <p className="muted" style={{ fontSize: 11.5, margin: "8px 0 0" }}>Prefilled from your signed-in account — the bid is stamped to it on submit.</p>
+          )}
           <div className="grid sm:grid-cols-2 gap-4" style={{ marginTop: 12 }}>
             <Field label="Shop name"><input className="field" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} placeholder="e.g. Coimbatore Machining Works" /></Field>
             <Field label="Hub city"><input className="field" value={hubCity} onChange={(e) => setHubCity(e.target.value)} placeholder="City, State" /></Field>

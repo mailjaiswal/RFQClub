@@ -180,6 +180,13 @@
 .app .mr-view{font-family:var(--font-jetbrains),monospace;font-size:11px;color:#54555C;border:1px solid #E4E1DA;border-radius:999px;padding:4px 10px}
 .app .mr-view:hover{border-color:#1D1C19;color:#1D1C19}
 @media(max-width:900px){.app .mr-row{grid-template-columns:1fr auto;gap:6px 12px}.app .mr-hd{display:none}.app .mr-code{grid-column:1/-1}.app .mr-title{grid-column:1/-1}.app .mr-row .c,.app .mr-row .r{text-align:left}.app .mr-act{grid-column:1/-1;justify-content:flex-start;margin-top:4px}}
+/* signed-in banner + My bids rows */
+.app .mr-note.ok{border-style:solid;border-color:rgba(46,125,70,.35);background:rgba(46,125,70,.08);color:#266B3C}
+.app .mr-note.ok b{color:#1E5530}
+.app .mr-bids{grid-template-columns:82px 1fr 132px 130px 70px}
+@media(max-width:900px){.app .mr-bids{grid-template-columns:1fr auto}}
+.app.dark .mr-note.ok{background:rgba(46,125,70,.14);border-color:rgba(62,207,122,.35);color:#3ECF7A}
+.app.dark .mr-note.ok b{color:#3ECF7A}
 /* my-rfqs dark */
 .app.dark .mr-head h1{color:#F2F0E9}
 .app.dark .mr-note{background:#1b1b1f;border-color:#3a3a42;color:#b9b6ad}

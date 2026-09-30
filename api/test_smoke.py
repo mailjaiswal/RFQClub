@@ -89,26 +89,82 @@ def main():
     print("bid over cap ->", r.status_code, r.json().get("detail"))
     assert r.status_code == 409
 
-    # a fresh RFQ (id 67) accepts a bid
-    r = client.get("/api/rfqs/67"); assert r.status_code == 200
-    r = client.post("/api/rfqs/67/bid", json=payload)
-    print("bid on rfq67 ->", r.status_code, r.json())
+    # a freshly-posted draft RFQ (0 bids) accepts a bid
+    r = client.post("/api/rfqs", json={"title": "Smoke test flanges", "sector_key": "cnc", "qty": 50, "unit": "pcs"})
+    assert r.status_code == 201
+    fresh_id = r.json()["id"]
+    r = client.get(f"/api/rfqs/{fresh_id}"); assert r.status_code == 200
+    r = client.post(f"/api/rfqs/{fresh_id}/bid", json=payload)
+    print("bid on fresh rfq ->", r.status_code, r.json())
     assert r.status_code == 201
     bid_id = r.json()["bid_id"]
 
     # award reveals the winner's name
-    r = client.post("/api/rfqs/67/award", json={"bid_id": bid_id})
+    r = client.post(f"/api/rfqs/{fresh_id}/award", json={"bid_id": bid_id})
     print("award ->", r.status_code, r.json())
     assert r.status_code == 200 and r.json()["revealed_name"] == "Extra Shop"
-    r = client.get("/api/rfqs/67/bids")
+    r = client.get(f"/api/rfqs/{fresh_id}/bids")
     winner = [b for b in r.json()["bids"] if b.get("revealed_name")]
     assert winner and winner[0]["revealed_name"] == "Extra Shop"
     print("reveal-on-award OK")
 
     # server-side TLC recompute matches: unit*qty+tooling+freight (+18% gst)
-    r = client.get("/api/rfqs/67/bids"); b0 = r.json()["bids"][0]
+    r = client.get(f"/api/rfqs/{fresh_id}/bids"); b0 = r.json()["bids"][0]
     print("admin unblinded:")
-    r = client.get("/api/admin/rfqs/67/bids"); print(" ", r.json()["bids"][0]["supplier_name"])
+    r = client.get(f"/api/admin/rfqs/{fresh_id}/bids"); print(" ", r.json()["bids"][0]["supplier_name"])
+
+    # ---------- auth: email OTP (mock) + per-user persistence ----------
+    def bearer(tok): return {"Authorization": f"Bearer {tok}"}
+
+    # honest flow for two users (wrong code first, then fresh code)
+    tokens = {}
+    for em in ("buyer.one@test.com", "buyer.two@test.com"):
+        r = client.post("/api/auth/otp/request", json={"email": em})
+        assert r.status_code == 200 and r.json().get("dev_code")
+        code = r.json()["dev_code"]
+        assert client.post("/api/auth/otp/verify", json={"email": em, "code": "000000"}).status_code == 400
+        r = client.post("/api/auth/otp/request", json={"email": em})  # wrong-code attempt above consumed nothing; re-request fresh
+        code = r.json()["dev_code"]
+        r = client.post("/api/auth/otp/verify", json={"email": em, "code": code})
+        assert r.status_code == 200 and r.json()["token"]
+        tokens[em] = r.json()["token"]
+        print(f"otp login {em} OK")
+
+    # /me requires a token; tampered token rejected
+    assert client.get("/api/auth/me").status_code == 401
+    assert client.get("/api/auth/me", headers=bearer("x|y|9999999999.deadbeef")).status_code == 401
+    r = client.get("/api/auth/me", headers=bearer(tokens["buyer.one@test.com"]))
+    assert r.status_code == 200 and r.json()["user"]["email"] == "buyer.one@test.com"
+
+    # role update re-issues a token
+    r = client.post("/api/auth/role", json={"role": "buyer"}, headers=bearer(tokens["buyer.one@test.com"]))
+    assert r.status_code == 200 and r.json()["user"]["role"] == "buyer"
+    tokens["buyer.one@test.com"] = r.json()["token"]
+
+    # per-user save isolation
+    client.post("/api/rfqs/2/save", headers=bearer(tokens["buyer.one@test.com"]))
+    s1 = {i["id"]: i["saved"] for i in client.get("/api/rfqs", headers=bearer(tokens["buyer.one@test.com"])).json()["items"]}
+    s2 = {i["id"]: i["saved"] for i in client.get("/api/rfqs", headers=bearer(tokens["buyer.two@test.com"])).json()["items"]}
+    assert s1[2] is True and s2[2] is False, "save isolation broken"
+    print("save isolation OK (user1 saved rfq2, user2 did not)")
+
+    # anonymous parity: legacy global flag still drives the saved field
+    sA = {i["id"]: i["saved"] for i in client.get("/api/rfqs").json()["items"]}
+    assert sA[2] is False, "anonymous view must not see user saves"
+
+    # my/rfqs + my/bids round-trip on a user-posted draft
+    u2 = bearer(tokens["buyer.two@test.com"])
+    r = client.post("/api/rfqs", json={"title": "Smoke gearbox batch", "sector_key": "cnc", "qty": 100, "unit": "pcs"}, headers=u2)
+    assert r.status_code == 201
+    new_id = r.json()["id"]
+    r = client.post(f"/api/rfqs/{new_id}/bid", json=payload, headers=u2)
+    assert r.status_code == 201
+    r = client.get("/api/auth/my/rfqs", headers=u2)
+    assert r.status_code == 200 and any(i["id"] == new_id for i in r.json()["items"])
+    r = client.get("/api/auth/my/bids", headers=u2)
+    mine = r.json()["items"]
+    assert any(m["rfq"]["id"] == new_id and m["status"] == "Live" for m in mine), mine
+    print(f"my/rfqs + my/bids OK (posted rfq {new_id}, {len(mine)} bid(s))")
 
     print("\nALL SMOKE CHECKS PASSED")
 

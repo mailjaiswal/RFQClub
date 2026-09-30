@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getRfq, getBids } from "@/lib/api";
+import { reqToken } from "@/lib/server-token";
 import BidForm from "@/components/BidForm";
 
 export const dynamic = "force-dynamic";
@@ -9,8 +10,9 @@ export default async function BidPage({ params }: { params: Promise<{ id: string
   const { id } = await params;
   let rfq, bidsMeta;
   try {
-    rfq = await getRfq(id);
-    bidsMeta = await getBids(id).catch(() => null);
+    const tk = await reqToken();
+    rfq = await getRfq(id, tk);
+    bidsMeta = await getBids(id, tk).catch(() => null);
   } catch {
     notFound();
   }

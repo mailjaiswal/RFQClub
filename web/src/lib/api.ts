@@ -1,5 +1,6 @@
 // Typed client for the RFQClub FastAPI backend.
 // Base URL comes from NEXT_PUBLIC_API_BASE (see .env.local).
+import { getToken } from "@/lib/session";
 
 export const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000").replace(/\/+$/, "");
 
@@ -115,10 +116,17 @@ export interface BidPayload {
   source?: string;
 }
 
-async function req<T>(path: string, init?: RequestInit): Promise<T> {
+async function req<T>(path: string, init?: RequestInit, token?: string | null): Promise<T> {
+  // Client: auto-attach the signed-in bearer token. Server: pass `token` explicitly
+  // (server components forward the rc_token cookie). Auth headers are read once here.
+  const auth = token ?? (typeof window !== "undefined" ? getToken() : null);
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(auth ? { Authorization: `Bearer ${auth}` } : {}),
+      ...(init?.headers || {}),
+    },
     cache: "no-store",
   });
   if (!res.ok) {
@@ -140,22 +148,22 @@ export interface BoardParams {
   status?: string;
 }
 
-export function getBoard(params: BoardParams = {}): Promise<BoardResponse> {
+export function getBoard(params: BoardParams = {}, token?: string | null): Promise<BoardResponse> {
   const usp = new URLSearchParams();
   if (params.sector) usp.set("sector", params.sector);
   if (params.q) usp.set("q", params.q);
   if (params.sort) usp.set("sort", params.sort);
   if (params.status) usp.set("status", params.status);
   const qs = usp.toString();
-  return req<BoardResponse>(`/api/rfqs${qs ? `?${qs}` : ""}`);
+  return req<BoardResponse>(`/api/rfqs${qs ? `?${qs}` : ""}`, undefined, token ?? null);
 }
 
-export function getRfq(id: number | string): Promise<RfqDetail> {
-  return req<RfqDetail>(`/api/rfqs/${id}`);
+export function getRfq(id: number | string, token?: string | null): Promise<RfqDetail> {
+  return req<RfqDetail>(`/api/rfqs/${id}`, undefined, token ?? null);
 }
 
-export function getBids(id: number | string): Promise<BidsResponse> {
-  return req<BidsResponse>(`/api/rfqs/${id}/bids`);
+export function getBids(id: number | string, token?: string | null): Promise<BidsResponse> {
+  return req<BidsResponse>(`/api/rfqs/${id}/bids`, undefined, token ?? null);
 }
 
 export function submitBid(id: number | string, payload: BidPayload): Promise<{ ok: boolean; bid_id: number; bidder_code: string; tlc_rupees: number; tlc_display: string }> {
@@ -215,4 +223,71 @@ export interface Profile {
 
 export function getProfile(): Promise<Profile> {
   return req<Profile>("/api/profile");
+}
+
+// ---- Auth (email OTP, mock delivery) ----
+export interface AuthUser {
+  id: number;
+  email: string;
+  role: string;
+  created_at?: string | null;
+}
+
+export interface OtpRequestResult {
+  ok: boolean;
+  email: string;
+  expires_in: number;
+  dev_code?: string; // present in demo mode: code shown on screen instead of emailed
+}
+
+export interface VerifyResult {
+  token: string;
+  user: AuthUser;
+}
+
+export function otpRequest(email: string): Promise<OtpRequestResult> {
+  return req("/api/auth/otp/request", { method: "POST", body: JSON.stringify({ email }) });
+}
+
+export function otpVerify(email: string, code: string): Promise<VerifyResult> {
+  return req("/api/auth/otp/verify", { method: "POST", body: JSON.stringify({ email, code }) });
+}
+
+export function authMe(): Promise<{ user: AuthUser }> {
+  return req("/api/auth/me");
+}
+
+export function authSetRole(role: string): Promise<VerifyResult> {
+  return req("/api/auth/role", { method: "POST", body: JSON.stringify({ role }) });
+}
+
+// ---- Signed-in user views (token: server components only) ----
+export interface MyRfqsResponse {
+  count: number;
+  items: RfqCard[];
+}
+
+export interface MyBidItem {
+  bid_id: number;
+  bidder_code: string;
+  rfq: RfqCard | null;
+  tlc_rupees: number;
+  tlc_display: string;
+  unit_price: number;
+  lead_weeks: number | null;
+  status: "Won" | "Lost" | "Live" | "Closed";
+  created_at: string | null;
+}
+
+export interface MyBidsResponse {
+  count: number;
+  items: MyBidItem[];
+}
+
+export function getMyRfqs(token?: string | null): Promise<MyRfqsResponse> {
+  return req("/api/auth/my/rfqs", undefined, token ?? null);
+}
+
+export function getMyBids(token?: string | null): Promise<MyBidsResponse> {
+  return req("/api/auth/my/bids", undefined, token ?? null);
 }

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import { useCommand } from "@/components/CommandPalette";
 import Tour, { type TourHandle } from "@/components/Tour";
+import { clearSession, getUser, type SessionUser } from "@/lib/session";
 
 const SUN = <svg className="ic-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>;
 const MOON = <svg className="ic-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>;
@@ -21,7 +22,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const [mounted, setMounted] = useState(false);
   const [counts, setCounts] = useState({ open: 0, saved: 0 });
+  const [user, setUser] = useState<SessionUser | null>(null);
   useEffect(() => setMounted(true), []);
+
+  // Session user for the rail block; LoginPage/Log out dispatch rc:session.
+  useEffect(() => {
+    const sync = () => setUser(getUser());
+    sync();
+    window.addEventListener("rc:session", sync);
+    return () => window.removeEventListener("rc:session", sync);
+  }, []);
 
   // Board publishes live counts (open + saved) whenever they change. The board
   // child effect runs before this parent mounts its listener, so prime from the
@@ -40,6 +50,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   function goView(v: View) {
     router.push(v === "all" ? "/" : `/?view=${v}`);
+  }
+
+  function logOut() {
+    clearSession();
+    router.push("/");
+    router.refresh();
   }
 
   return (
@@ -115,14 +131,25 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          <div className="ap-user">
-            <Link className="ap-userrow" href="/profile" title="Open my profile">
-              <span className="ap-ava">A</span>
-              <span className="ap-una"><b>Ankur</b><span>Admin · RFQClub</span></span>
-              <span className="ap-ugear" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.3 1a7 7 0 0 0-1.7-1l-.3-2.5h-4l-.3 2.5a7 7 0 0 0-1.7 1l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.3 2.5h4l.3-2.5a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.5c.1-.3.1-.7.1-1z" /></svg></span>
-            </Link>
-            <button className="ap-out" onClick={() => router.push("/")} title="Log out">Log out</button>
-          </div>
+          {user ? (
+            <div className="ap-user">
+              <Link className="ap-userrow" href="/profile" title="Open my profile">
+                <span className="ap-ava">{user.email[0].toUpperCase()}</span>
+                <span className="ap-una"><b>{user.email.split("@")[0]}</b><span>{user.role || "member"} · RFQClub</span></span>
+                <span className="ap-ugear" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.3 1a7 7 0 0 0-1.7-1l-.3-2.5h-4l-.3 2.5a7 7 0 0 0-1.7 1l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.3 2.5h4l.3-2.5a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.5c.1-.3.1-.7.1-1z" /></svg></span>
+              </Link>
+              <button className="ap-out" onClick={logOut} title="Log out">Log out</button>
+            </div>
+          ) : (
+            <div className="ap-user">
+              <Link className="ap-userrow" href="/login" title="Sign in with a one-time email code">
+                <span className="ap-ava">?</span>
+                <span className="ap-una"><b>Guest</b><span>demo mode · not signed in</span></span>
+                <span className="ap-ugear" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" /></svg></span>
+              </Link>
+              <Link className="ap-out" href="/login" title="Sign in">Sign in</Link>
+            </div>
+          )}
         </aside>
 
         {/* CENTER */}

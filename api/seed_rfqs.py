@@ -76,6 +76,7 @@ def seed_rfqs(session):
 
     session.query(models.Bid).delete()
     session.query(models.Award).delete()
+    session.query(models.SaveItem).delete()
     session.query(models.Rfq).delete()
     session.commit()
 

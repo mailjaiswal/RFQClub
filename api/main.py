@@ -19,6 +19,7 @@ import models
 import sectors
 import util
 import profile_data
+from auth import router as auth_router, optional_user, require_user
 from schemas import BidCreate, RfqCreate, AwardIn
 
 app = FastAPI(title="RFQClub API", version="0.1.0")
@@ -26,6 +27,7 @@ app.add_middleware(
     CORSMiddleware, allow_origins=config.CORS_ORIGINS,
     allow_methods=["*"], allow_headers=["*"],
 )
+app.include_router(auth_router)
 
 
 @app.on_event("startup")
@@ -65,7 +67,14 @@ def _posted_days(created_at: datetime | None) -> int | None:
     return max(0, (now - created_at).days)
 
 
-def _card(rfq: models.Rfq) -> dict:
+def _saved_ids(session, user: models.User | None) -> set[int] | None:
+    """Per-user watchlist ids; None => fall back to the legacy global flag."""
+    if user is None:
+        return None
+    return {s.rfq_id for s in session.query(models.SaveItem).filter(models.SaveItem.user_id == user.id)}
+
+
+def _card(rfq: models.Rfq, saved_ids: set[int] | None = None) -> dict:
     return {
         "id": rfq.id,
         "code": rfq.code,
@@ -86,13 +95,13 @@ def _card(rfq: models.Rfq) -> dict:
         "status": rfq.status,
         "tags": rfq.tags or [],
         "hub_city": rfq.hub_city or "",
-        "saved": bool(rfq.saved),
+        "saved": (rfq.id in saved_ids) if saved_ids is not None else bool(rfq.saved),
         "posted_days_ago": _posted_days(rfq.created_at),
     }
 
 
-def _detail(rfq: models.Rfq) -> dict:
-    d = _card(rfq)
+def _detail(rfq: models.Rfq, saved_ids: set[int] | None = None) -> dict:
+    d = _card(rfq, saved_ids)
     d.update({
         "process": rfq.process,
         "description": rfq.description,
@@ -163,6 +172,7 @@ def list_rfqs(
     sort: str = Query("deadline", pattern="^(deadline|value|bidcount)$"),
     status: str = Query("published"),
     db: Session = Depends(db.get_db),
+    user: models.User | None = Depends(optional_user),
 ):
     query = db.query(models.Rfq)
     if status:
@@ -181,21 +191,22 @@ def list_rfqs(
     rows = query.all()
     counts = db.query(func.count(models.Rfq.id)).filter(models.Rfq.status == "published").scalar()
     total_demand = db.query(func.sum(models.Rfq.est_total)).filter(models.Rfq.status == "published").scalar() or 0
+    sids = _saved_ids(db, user)
     return {
         "count": len(rows),
         "open_total": counts,
         "demand_total": total_demand,
         "demand_total_display": util.format_inr(total_demand, "₹"),
-        "items": [_card(r) for r in rows],
+        "items": [_card(r, sids) for r in rows],
     }
 
 
 @app.get("/api/rfqs/{rfq_id}")
-def get_rfq(rfq_id: int, db: Session = Depends(db.get_db)):
+def get_rfq(rfq_id: int, db: Session = Depends(db.get_db), user: models.User | None = Depends(optional_user)):
     rfq = db.get(models.Rfq, rfq_id)
     if not rfq:
         raise HTTPException(404, "RFQ not found")
-    return _detail(rfq)
+    return _detail(rfq, _saved_ids(db, user))
 
 
 @app.get("/api/rfqs/{rfq_id}/bids")
@@ -263,18 +274,27 @@ def admin_bids(rfq_id: int, db: Session = Depends(db.get_db)):
 
 # ---------- write endpoints ----------
 @app.post("/api/rfqs/{rfq_id}/save")
-def toggle_save(rfq_id: int, db: Session = Depends(db.get_db)):
-    """Toggle the watchlist flag on an RFQ. Global demo flag (no auth yet)."""
+def toggle_save(rfq_id: int, db: Session = Depends(db.get_db), user: models.User | None = Depends(optional_user)):
+    """Toggle the watchlist flag. Per-user SaveItem when signed in; legacy global flag otherwise."""
     rfq = db.get(models.Rfq, rfq_id)
     if not rfq:
         raise HTTPException(404, "RFQ not found")
+    if user is not None:
+        item = db.query(models.SaveItem).filter(models.SaveItem.user_id == user.id, models.SaveItem.rfq_id == rfq_id).first()
+        if item:
+            db.delete(item)
+            db.commit()
+            return {"ok": True, "saved": False}
+        db.add(models.SaveItem(user_id=user.id, rfq_id=rfq_id))
+        db.commit()
+        return {"ok": True, "saved": True}
     rfq.saved = not bool(rfq.saved)
     db.commit()
     return {"ok": True, "saved": rfq.saved}
 
 
 @app.post("/api/rfqs/{rfq_id}/bid", status_code=201)
-def create_bid(rfq_id: int, payload: BidCreate, db: Session = Depends(db.get_db)):
+def create_bid(rfq_id: int, payload: BidCreate, db: Session = Depends(db.get_db), user: models.User | None = Depends(optional_user)):
     rfq = db.get(models.Rfq, rfq_id)
     if not rfq:
         raise HTTPException(404, "RFQ not found")
@@ -300,7 +320,7 @@ def create_bid(rfq_id: int, payload: BidCreate, db: Session = Depends(db.get_db)
 
     code = chr(ord("A") + existing)
     bid = models.Bid(
-        rfq_id=rfq_id, supplier_id=supplier.id, bidder_code=code,
+        rfq_id=rfq_id, supplier_id=supplier.id, bidder_code=code, user_id=user.id if user else None,
         unit_price=payload.unit_price, tooling=payload.tooling, freight=payload.freight,
         gst_included=payload.gst_included, lead_weeks=payload.lead_weeks,
         payment_terms=payload.payment_terms, validity_days=payload.validity_days,
@@ -317,7 +337,7 @@ def create_bid(rfq_id: int, payload: BidCreate, db: Session = Depends(db.get_db)
 
 
 @app.post("/api/rfqs", status_code=201)
-def create_rfq(payload: RfqCreate, db: Session = Depends(db.get_db)):
+def create_rfq(payload: RfqCreate, db: Session = Depends(db.get_db), user: models.User | None = Depends(optional_user)):
     """Self-serve / concierge-created RFQ. Lands as a draft unless published."""
     now = datetime.now(timezone.utc)
     rfq = models.Rfq(
@@ -330,7 +350,7 @@ def create_rfq(payload: RfqCreate, db: Session = Depends(db.get_db)):
         closes_in_days=payload.closes_in_days,
         closes_at=(now + timedelta(days=payload.closes_in_days)) if payload.closes_in_days is not None else None,
         description=payload.description, clarify=payload.clarify, routing_cap=payload.routing_cap,
-        status="draft",
+        status="draft", user_id=user.id if user else None,
     )
     db.add(rfq)
     db.commit()
@@ -356,3 +376,38 @@ def award(rfq_id: int, payload: AwardIn, db: Session = Depends(db.get_db)):
     name = bid.supplier.name if bid.supplier else ""
     return {"ok": True, "rfq_id": rfq_id, "awarded_bid_id": bid.id, "revealed_name": name,
             "tlc_display": util.format_inr(util.cents_to_rupees(bid.tlc_cents), "₹")}
+
+
+# ---------- signed-in user views ----------
+@app.get("/api/auth/my/rfqs")
+def my_rfqs(db: Session = Depends(db.get_db), user: models.User = Depends(require_user)):
+    """RFQs this user posted (any status), most recent first."""
+    rows = (
+        db.query(models.Rfq).filter(models.Rfq.user_id == user.id)
+        .order_by(models.Rfq.created_at.desc(), models.Rfq.id.desc()).all()
+    )
+    sids = _saved_ids(db, user)
+    return {"count": len(rows), "items": [_card(r, sids) for r in rows]}
+
+
+@app.get("/api/auth/my/bids")
+def my_bids(db: Session = Depends(db.get_db), user: models.User = Depends(require_user)):
+    """Bids this user submitted, with the blinded-comparison context back."""
+    bids = (
+        db.query(models.Bid).filter(models.Bid.user_id == user.id)
+        .order_by(models.Bid.created_at.desc(), models.Bid.id.desc()).all()
+    )
+    out = []
+    for b in bids:
+        rfq = db.get(models.Rfq, b.rfq_id)
+        aw = _award_of(db, b.rfq_id)
+        out.append({
+            "bid_id": b.id, "bidder_code": b.bidder_code,
+            "rfq": _card(rfq) if rfq else None,
+            "tlc_rupees": util.cents_to_rupees(b.tlc_cents),
+            "tlc_display": util.format_inr(util.cents_to_rupees(b.tlc_cents), rfq.currency if rfq else "₹"),
+            "unit_price": b.unit_price, "lead_weeks": b.lead_weeks,
+            "status": "Won" if aw and aw.bid_id == b.id else ("Lost" if aw else ("Live" if rfq and util.is_open(rfq.closes_at) else "Closed")),
+            "created_at": b.created_at.isoformat() if b.created_at else None,
+        })
+    return {"count": len(out), "items": out}

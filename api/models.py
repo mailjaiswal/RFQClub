@@ -2,7 +2,7 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 from sqlalchemy import (
-    String, Integer, Float, Boolean, DateTime, Text, JSON, ForeignKey, func,
+    String, Integer, Float, Boolean, DateTime, Text, JSON, ForeignKey, UniqueConstraint, func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -63,6 +63,7 @@ class Rfq(Base):
     routing_cap: Mapped[int] = mapped_column(Integer, default=5)
     status: Mapped[str] = mapped_column(String, default="published")  # published/closed/awarded/draft
     buyer_id: Mapped[int | None] = mapped_column(ForeignKey("buyer.id"), nullable=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("user.id"), nullable=True, index=True)  # posting account (null = seeded/anonymous)
     issuer_name: Mapped[str] = mapped_column(String, default="")  # hidden from public API
     matched_supplier: Mapped[str] = mapped_column(String, default="")
     spec_notes: Mapped[str] = mapped_column(Text, default="")
@@ -84,6 +85,7 @@ class Bid(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     rfq_id: Mapped[int] = mapped_column(ForeignKey("rfq.id"), index=True)
     supplier_id: Mapped[int | None] = mapped_column(ForeignKey("supplier.id"), nullable=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("user.id"), nullable=True, index=True)  # bidding account
     bidder_code: Mapped[str] = mapped_column(String, default="")  # A..E shown to buyer
     unit_price: Mapped[float] = mapped_column(Float, default=0)
     tooling: Mapped[float] = mapped_column(Float, default=0)
@@ -122,10 +124,20 @@ class Award(Base):
 class User(Base):
     __tablename__ = "user"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    email: Mapped[str] = mapped_column(String, default="")
+    email: Mapped[str] = mapped_column(String, default="", unique=True)
     role: Mapped[str] = mapped_column(String, default="supplier")  # buyer/supplier/operator
     org_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     telegram_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class SaveItem(Base):
+    """Per-user watchlist entry (replaces the global rfq.saved flag once signed in)."""
+    __tablename__ = "save_item"
+    __table_args__ = (UniqueConstraint("user_id", "rfq_id", name="uq_save_user_rfq"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), index=True)
+    rfq_id: Mapped[int] = mapped_column(ForeignKey("rfq.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 

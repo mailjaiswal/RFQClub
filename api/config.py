@@ -29,6 +29,11 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 ALLOWED_CHAT_IDS = {int(x) for x in os.getenv("ALLOWED_CHAT_IDS", "").replace(",", " ").split() if x.lstrip("-").isdigit()}
 OPERATOR_CHAT_IDS = {int(x) for x in os.getenv("OPERATOR_CHAT_IDS", "").replace(",", " ").split() if x.lstrip("-").isdigit()}
 
+# Auth (email-OTP mock): HMAC secret for stateless session tokens, and the
+# delivery mode — "dev" returns the code in the API response (demo, on-screen).
+AUTH_SECRET = os.getenv("AUTH_SECRET", "dev-insecure-change-me").strip()
+OTP_MODE = os.getenv("OTP_MODE", "dev").strip().lower()
+
 LLM_ENABLED = os.getenv("LLM_ENABLED", "false").lower() in ("1", "true", "yes")
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "").strip()

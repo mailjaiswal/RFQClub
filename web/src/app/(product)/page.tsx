@@ -1,5 +1,6 @@
 import BoardClient from "@/components/BoardClient";
 import { getBoard } from "@/lib/api";
+import { reqToken } from "@/lib/server-token";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export default async function BoardPage({
 
   let initial;
   try {
-    initial = await getBoard({ sort: "deadline" });
+    initial = await getBoard({ sort: "deadline" }, await reqToken());
   } catch {
     initial = { count: 0, open_total: 0, demand_total: 0, demand_total_display: "—", items: [] };
   }
