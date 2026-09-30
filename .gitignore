@@ -1,0 +1,20 @@
+# --- Python (api) ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+api/config.env
+api/data/*.db
+api/data/*.db-journal
+
+# --- Node (web) ---
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+.env*.local
+
+# --- misc ---
+.DS_Store
+*.log

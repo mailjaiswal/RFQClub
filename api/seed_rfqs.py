@@ -1,0 +1,159 @@
+"""Seed the rfq table from the RFQ Demand sheet of the source workbook.
+
+Idempotent: clears existing rfq rows then re-inserts the 67 parsed rows.
+Optionally seeds demo suppliers + blinded bids for the first few RFQs so the
+bids/compare endpoints have data to serve during local dev (--demo-bids).
+
+Run:  python seed_rfqs.py [--demo-bids]
+"""
+from __future__ import annotations
+import sys
+from datetime import datetime, timedelta, timezone
+
+import openpyxl
+
+import config
+import db
+import models
+import rfq_parser
+from sectors import classify
+
+
+def _to_days(raw) -> int | None:
+    if raw is None:
+        return None
+    s = str(raw)
+    m = s.lower()
+    if "day" in m or "hour" in m or "week" in m or "month" in m:
+        return rfq_parser._closes_days(m)
+    try:
+        return int(float(s))
+    except Exception:
+        return None
+
+
+def seed_rfqs(session):
+    wb = openpyxl.load_workbook(config.SOURCE_XLSX, read_only=True, data_only=True)
+    ws = wb["RFQ Demand"]
+    rows = list(ws.iter_rows(values_only=True))
+    header = [str(h).strip() if h is not None else "" for h in rows[0]]
+    idx = {h: i for i, h in enumerate(header)}
+
+    def get(r, name):
+        i = idx.get(name)
+        return r[i] if i is not None and i < len(r) else None
+
+    session.query(models.Bid).delete()
+    session.query(models.Rfq).delete()
+    session.commit()
+
+    now = datetime.now(timezone.utc)
+    count = 0
+    for r in rows[1:]:
+        if r is None or get(r, "RFQ Title") is None:
+            continue
+        title = str(get(r, "RFQ Title")).strip()
+        process = str(get(r, "Process") or "").strip()
+        material = str(get(r, "Material / Grade") or "").strip()
+        days = _to_days(get(r, "Closes In"))
+        try:
+            rid = int(get(r, "#"))
+        except Exception:
+            rid = None
+        rfq = models.Rfq(
+            title=title,
+            sector_key=classify(process, title, material),
+            process=process,
+            material=material,
+            qty=get(r, "Qty"),
+            unit=str(get(r, "Unit") or "").strip(),
+            budget_low=get(r, "Budget Low"),
+            budget_high=get(r, "Budget High"),
+            currency=(str(get(r, "Currency") or "₹").strip() or "₹"),
+            budget_status=str(get(r, "Budget Status") or "Open").strip(),
+            est_total=get(r, "Est. Total (native)"),
+            closes_in_days=days,
+            closes_at=(now + timedelta(days=days) if days is not None else None),
+            bid_count=int(get(r, "Bids") or 0),
+            description=title,
+            routing_cap=5,
+            status="published",
+            issuer_name=str(get(r, "Issuer (Buyer)") or "").strip(),
+            matched_supplier=str(get(r, "Matched Supplier Co (in contacts)") or "").strip(),
+            spec_notes=str(get(r, "Spec Notes") or "").strip(),
+        )
+        if rid is not None:
+            rfq.id = rid
+        session.add(rfq)
+        count += 1
+    session.commit()
+    return count
+
+
+# --- demo suppliers + blinded bids (first N published RFQs) ---
+_DEMO_SUPPLIERS = [
+    dict(name="Ganesh Precision", hub_city="Pune, MH", distance_km=410, kyc_verified=True,
+         capability_tags=["5-Axis", "Duplex", "NDT in-house"], certifications=["AS9100D"]),
+    dict(name="Rajkot Precision Forgings", hub_city="Rajkot, GJ", distance_km=1380, kyc_verified=True,
+         capability_tags=["Milling", "Duplex"], certifications=[]),
+    dict(name="Coimbatore Machining Works", hub_city="Coimbatore, TN", distance_km=12, kyc_verified=True,
+         capability_tags=["5-Axis", "Turning"], certifications=[]),
+    dict(name="Chennai Aero Components", hub_city="Chennai, TN", distance_km=590, kyc_verified=True,
+         capability_tags=["5-Axis", "Ra 0.4", "NDT"], certifications=["AS9100D"]),
+    dict(name="Nagla Engineering Works", hub_city="Ludhiana, PB", distance_km=2100, kyc_verified=True,
+         capability_tags=["Milling", "Turning"], certifications=[]),
+]
+# per-bidder templates: (unit_factor, tooling, freight, lead, terms, exception)
+_DEMO_BID = [
+    (1.00, 85000, 42000, 5, "30 / 70", False),
+    (0.975, 85000, 90000, 8, "40 / 60", False),
+    (1.036, 60000, 12000, 4, "Advance", False),
+    (1.143, 120000, 55000, 6, "30 / 70", False),
+    (1.102, 85000, 110000, 10, "Advance", True),
+]
+
+
+def seed_demo_bids(session, n_rfqs: int = 3):
+    session.query(models.Supplier).delete()
+    session.commit()
+    sups = []
+    for s in _DEMO_SUPPLIERS:
+        sup = models.Supplier(**s)
+        session.add(sup)
+        sups.append(sup)
+    session.commit()
+
+    rfqs = session.query(models.Rfq).order_by(models.Rfq.id).limit(n_rfqs).all()
+    letters = "ABCDE"
+    for rfq in rfqs:
+        unit0 = rfq.budget_low or ((rfq.est_total / rfq.qty) if (rfq.est_total and rfq.qty) else 9800)
+        for i, s in enumerate(sups):
+            factor, tooling, freight, lead, terms, exc = _DEMO_BID[i]
+            bid = models.Bid(
+                rfq_id=rfq.id, supplier_id=s.id, bidder_code=letters[i],
+                unit_price=round(unit0 * factor, 2), tooling=tooling, freight=freight,
+                gst_included=True, lead_weeks=lead, payment_terms=terms, validity_days=30,
+                exception_flag=exc, exception_note=("±0.05 mm vs required ±0.02 mm; NDT outsourced." if exc else ""),
+                source="demo",
+            )
+            bid.tlc_cents = bid.compute_tlc_cents(rfq.qty)
+            session.add(bid)
+    session.commit()
+    return len(rfqs)
+
+
+def main():
+    db.init_db()
+    session = db.SessionLocal()
+    try:
+        n = seed_rfqs(session)
+        print(f"Seeded {n} RFQs from '{config.SOURCE_XLSX}' -> {config.DATABASE_URL}")
+        if "--demo-bids" in sys.argv:
+            m = seed_demo_bids(session)
+            print(f"Seeded demo suppliers + blinded bids for {m} RFQs.")
+    finally:
+        session.close()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,286 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   RFQClub design tokens — ported from design-concepts.html
+   ============================================================ */
+:root {
+  --paper: #f5f3ec;
+  --card: #ffffff;
+  --ink: #1d1c19;
+  --subtle: #54555c;
+  --muted: #8a857a;
+  --hairline: #e4e1da;
+
+  --primary: #3f4397;
+  --oxide: #2e7d46;
+  --saffron: #ef7a2b;
+  --whatsapp: #25d366;
+  --whatsapp-deep: #128c4a;
+
+  --urg-green: #3b7148;
+  --urg-amber: #b77a1b;
+  --urg-red: #b23a2b;
+
+  --shadow: 0 1px 2px rgba(29, 28, 25, 0.04), 0 6px 20px rgba(29, 28, 25, 0.06);
+}
+
+html.dark {
+  --paper: #121215;
+  --card: #1b1b20;
+  --ink: #f3f1e9;
+  --subtle: #c3c2bd;
+  --muted: #8a8a92;
+  --hairline: #2a2a31;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-hanken), system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.mono {
+  font-family: var(--font-jetbrains), monospace;
+}
+.display {
+  font-family: var(--font-fraunces), serif;
+}
+
+/* ---------- surfaces ---------- */
+.surface-card {
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+}
+
+.hairline {
+  border-color: var(--hairline);
+}
+
+.muted {
+  color: var(--muted);
+}
+.subtle {
+  color: var(--subtle);
+}
+
+.label-mono {
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 9px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 999px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 0.06s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn-primary {
+  background: var(--ink);
+  color: var(--paper);
+}
+.btn-outline {
+  background: transparent;
+  border-color: var(--hairline);
+  color: var(--ink);
+}
+.btn-outline:hover {
+  border-color: var(--muted);
+}
+.btn-green {
+  border: 1px solid var(--oxide);
+  color: var(--oxide);
+  background: rgba(46, 125, 70, 0.08);
+}
+
+/* icon button (theme toggle etc.) */
+.icbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid var(--hairline);
+  background: var(--card);
+  color: var(--subtle);
+  cursor: pointer;
+}
+.icbtn:hover {
+  color: var(--ink);
+  border-color: var(--muted);
+}
+
+/* ---------- chips / pills ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--hairline);
+  background: var(--card);
+}
+
+.urgency-green {
+  color: var(--urg-green);
+  border-color: rgba(59, 113, 72, 0.4);
+  background: rgba(59, 113, 72, 0.08);
+}
+.urgency-amber {
+  color: var(--urg-amber);
+  border-color: rgba(183, 122, 27, 0.4);
+  background: rgba(183, 122, 27, 0.1);
+}
+.urgency-red {
+  color: var(--urg-red);
+  border-color: rgba(178, 58, 43, 0.4);
+  background: rgba(178, 58, 43, 0.09);
+}
+
+/* sector filter pill */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--hairline);
+  background: var(--card);
+  color: var(--subtle);
+  transition: all 0.12s ease;
+}
+.pill:hover {
+  border-color: var(--muted);
+  color: var(--ink);
+}
+.pill[data-active="true"] {
+  color: #fff;
+  border-color: transparent;
+}
+
+/* ---------- form fields ---------- */
+.field {
+  display: block;
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--ink);
+}
+.field:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(63, 67, 151, 0.14);
+}
+.field-label {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--subtle);
+  margin-bottom: 5px;
+}
+
+.input-money {
+  font-family: var(--font-jetbrains), monospace;
+}
+
+/* ---------- table-ish rows ---------- */
+.kv {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px dashed var(--hairline);
+}
+.kv:last-child {
+  border-bottom: none;
+}
+
+/* command palette overlay */
+.cmdk-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 20, 24, 0.4);
+  backdrop-filter: blur(2px);
+  z-index: 100;
+}
+.cmdk-panel {
+  position: fixed;
+  top: 15vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(560px, 92vw);
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  z-index: 101;
+  overflow: hidden;
+}
+.cmdk-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+}
+.cmdk-item[data-active="true"] {
+  background: rgba(63, 67, 151, 0.1);
+  border-left-color: var(--primary);
+}
+
+kbd {
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 9.5px;
+  color: var(--subtle);
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
