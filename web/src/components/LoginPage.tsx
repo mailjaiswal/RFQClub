@@ -1,66 +1,148 @@
 "use client";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { otpRequest, otpVerify, authSetRole, type AuthUser } from "@/lib/api";
+import {
+  otpRequest, otpVerify, authSetRole,
+  register as apiRegister, login as apiLogin, googleSignIn,
+  type AuthUser, type VerifyResult,
+} from "@/lib/api";
 import { setSession } from "@/lib/session";
 
-type Step = "email" | "code" | "role";
+// Google Identity Services (ID-token). Absent env → the Google block is hidden
+// entirely (never show a broken button). Value is public (client ID, not secret).
+const GOOGLE_CLIENT_ID = (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "").trim();
+
+type View = "signin" | "register" | "code" | "role";
+
+/* minimal shape of the GSI global we touch, so we need no extra @types dep */
+type GoogleCredentialResponse = { credential?: string };
 
 function Inner() {
   const router = useRouter();
   const rawNext = useSearchParams().get("next");
   const next = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/board";
-  const [step, setStep] = useState<Step>("email");
+
+  const [view, setView] = useState<View>("signin");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [code, setCode] = useState("");
   const [devCode, setDevCode] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [demoBusy, setDemoBusy] = useState<string | null>(null);
+  const [googleReady, setGoogleReady] = useState(false);
 
+  const googleBtnRef = useRef<HTMLDivElement>(null);
+
+  // Demo OTP auto-fill (mock delivery) when on the code screen.
   useEffect(() => {
-    if (step === "code" && devCode) setCode(devCode); // demo: auto-fill the mock-delivered code
-  }, [step, devCode]);
+    if (view === "code" && devCode) setCode(devCode);
+  }, [view, devCode]);
 
+  // ---- helpers ----
+  function done(v: VerifyResult, forceRole = false) {
+    setSession(v.token, v.user);
+    setUser(v.user);
+    if (forceRole || v.is_new) {
+      setView("role");
+    } else {
+      router.push(next);
+      router.refresh();
+    }
+  }
+
+  async function doLogin() {
+    setBusy(true); setError(null);
+    try { done(await apiLogin(email.trim(), password)); }
+    catch (e) { setError(e instanceof Error ? e.message : "Sign-in failed."); }
+    finally { setBusy(false); }
+  }
+
+  async function doRegister() {
+    setError(null);
+    if (!email.includes("@")) { setError("Enter a valid email address."); return; }
+    if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
+    if (password !== confirm) { setError("Passwords don't match."); return; }
+    setBusy(true);
+    try { done(await apiRegister(email.trim(), password, name.trim()), true); }
+    catch (e) { setError(e instanceof Error ? e.message : "Could not create the account."); }
+    finally { setBusy(false); }
+  }
+
+  async function handleGoogle(credential?: string) {
+    if (!credential) { setError("Google didn't return a credential."); return; }
+    setBusy(true); setError(null);
+    try { done(await googleSignIn(credential)); }
+    catch (e) { setError(e instanceof Error ? e.message : "Google sign-in failed."); }
+    finally { setBusy(false); }
+  }
+
+  // Mount the official Google button when a client ID is configured.
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || (view !== "signin" && view !== "register")) return;
+    const el = googleBtnRef.current;
+    if (!el) return;
+    const node: HTMLDivElement = el;
+    const g = () => (window as unknown as { google?: { accounts?: { id?: unknown } } }).google;
+    function render() {
+      const grp = (window as unknown as {
+        google?: { accounts?: { id?: {
+          initialize: (o: { client_id: string; callback: (r: GoogleCredentialResponse) => void }) => void;
+          renderButton: (el: HTMLElement, o: Record<string, unknown>) => void;
+        } } };
+      }).google;
+      if (!grp?.accounts?.id) return;
+      grp.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: (resp) => handleGoogle(resp?.credential),
+      });
+      node.innerHTML = "";
+      grp.accounts.id.renderButton(node, { theme: "outline", size: "large", width: 300, text: "continue_with" });
+      setGoogleReady(true);
+    }
+    if (g()?.accounts?.id) { render(); return; }
+    if (!document.getElementById("ggs-gsi")) {
+      const s = document.createElement("script");
+      s.id = "ggs-gsi"; s.src = "https://accounts.google.com/gsi/client"; s.async = true; s.defer = true;
+      s.onload = render;
+      document.head.appendChild(s);
+    } else {
+      const t = setInterval(() => { if (g()?.accounts?.id) { render(); clearInterval(t); } }, 150);
+      return () => clearInterval(t);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
+
+  // ---- one-time code (OTP) path, retained ----
   async function sendCode() {
     setBusy(true); setError(null);
     try {
       const r = await otpRequest(email.trim());
       setDevCode(r.dev_code ?? null);
-      setStep("code");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not send the code.");
-    } finally { setBusy(false); }
+      setView("code");
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not send the code."); }
+    finally { setBusy(false); }
   }
-
   async function verify() {
     setBusy(true); setError(null);
-    try {
-      const r = await otpVerify(email.trim(), code.trim());
-      setUser(r.user);
-      setSession(r.token, r.user);
-      setStep("role");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Verification failed.");
-    } finally { setBusy(false); }
+    try { done(await otpVerify(email.trim(), code.trim()), true); }
+    catch (e) { setError(e instanceof Error ? e.message : "Verification failed."); }
+    finally { setBusy(false); }
   }
-
   async function chooseRole(role: string) {
     setBusy(true); setError(null);
     try {
       const r = await authSetRole(role);
       setSession(r.token, r.user);
-      router.push(next);
-      router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not update role.");
-    } finally { setBusy(false); }
+      router.push(next); router.refresh();
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not update role."); }
+    finally { setBusy(false); }
   }
 
-  // One-click demo: run the whole OTP dance against a fixed per-role account
-  // so an evaluator can explore with a persistent identity, no code entry.
-  // Requires OTP_MODE=dev (the API returns the code as dev_code).
+  // One-click demo instant sign-in (needs OTP_MODE=dev).
   async function quickDemo(role: "buyer" | "supplier") {
     setBusy(true); setDemoBusy(role); setError(null);
     try {
@@ -71,42 +153,100 @@ function Inner() {
       setSession(v.token, v.user); // store first so authSetRole carries the bearer
       const rv = await authSetRole(role);
       setSession(rv.token, rv.user);
-      router.push(next);
-      router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Demo sign-in failed.");
-    } finally { setBusy(false); setDemoBusy(null); }
+      router.push(next); router.refresh();
+    } catch (e) { setError(e instanceof Error ? e.message : "Demo sign-in failed."); }
+    finally { setBusy(false); setDemoBusy(null); }
   }
+
+  const tabs = (
+    <div className="lg-tabs">
+      <button className={`lg-tab${view === "signin" ? " on" : ""}`} onClick={() => { setView("signin"); setError(null); }}
+        disabled={view === "role"}>Sign in</button>
+      <button className={`lg-tab${view === "register" ? " on" : ""}`} onClick={() => { setView("register"); setError(null); }}
+        disabled={view === "role"}>Register</button>
+    </div>
+  );
+
+  const googleBlock = GOOGLE_CLIENT_ID && view !== "role" ? (
+    <div className="lg-google">
+      <div className="lg-google-btn" ref={googleBtnRef}>
+        {!googleReady && <span className="lg-google-fallback">Loading Google sign-in…</span>}
+      </div>
+    </div>
+  ) : null;
+
+  const demoBlock = view !== "role" ? (
+    <>
+      <div className="lg-or"><span>or explore instantly</span></div>
+      <div className="lg-demo-row">
+        <button className="lg-btn lg-btn-ghost" disabled={busy} onClick={() => quickDemo("buyer")}>
+          {demoBusy === "buyer" ? "Signing in…" : "Continue as demo Buyer →"}
+        </button>
+        <button className="lg-btn lg-btn-ghost" disabled={busy} onClick={() => quickDemo("supplier")}>
+          {demoBusy === "supplier" ? "Signing in…" : "Continue as demo Supplier →"}
+        </button>
+      </div>
+      <p className="lg-hint">No password needed — signs into a shared <span className="mono">demo.{demoBusy ?? "role"}</span> account so saved RFQs, posts and bids persist across the demo.</p>
+      <button className="lg-switch" onClick={() => { setError(null); sendCode(); }}>Use a one-time email code instead →</button>
+    </>
+  ) : null;
 
   return (
     <div className="lg-wrap">
       <div className="lg-card">
         <div className="lg-k mono">RFQClub access</div>
-        {step === "email" && (
+
+        {view === "signin" && (
           <>
-            <h1>Sign in to track your RFQs</h1>
-            <p>We&apos;ll send a one-time code to your email. No passwords in the demo.</p>
-            <label className="lg-lbl">Work email</label>
+            {tabs}
+            <h1>Welcome back</h1>
+            <p>Sign in with your email and password to track your RFQs.</p>
+            <label className="lg-lbl">Email</label>
             <input className="lg-in" type="email" placeholder="you@company.com" value={email}
               onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && email.includes("@") && sendCode()} />
+              onKeyDown={(e) => e.key === "Enter" && email.includes("@") && password && doLogin()} />
+            <label className="lg-lbl">Password</label>
+            <input className="lg-in" type="password" placeholder="••••••••" value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && doLogin()} />
             {error && <div className="lg-err">⚠ {error}</div>}
-            <button className="lg-btn" disabled={!email.includes("@") || busy} onClick={sendCode}>
-              {busy ? "Sending…" : "Send code →"}
+            <button className="lg-btn" disabled={!email.includes("@") || !password || busy} onClick={doLogin}>
+              {busy ? "Signing in…" : "Sign in →"}
             </button>
-            <div className="lg-or"><span>or explore instantly</span></div>
-            <div className="lg-demo-row">
-              <button className="lg-btn lg-btn-ghost" disabled={busy} onClick={() => quickDemo("buyer")}>
-                {demoBusy === "buyer" ? "Signing in…" : "Continue as demo Buyer →"}
-              </button>
-              <button className="lg-btn lg-btn-ghost" disabled={busy} onClick={() => quickDemo("supplier")}>
-                {demoBusy === "supplier" ? "Signing in…" : "Continue as demo Supplier →"}
-              </button>
-            </div>
-            <p className="lg-hint">No code needed. Signs into a shared <span className="mono">demo.{demoBusy ?? "role"}</span> account, so saved RFQs, posts and bids persist across the demo.</p>
+            <p className="lg-hint">New here? <button className="lg-switch" style={{ display: "inline" }} onClick={() => { setView("register"); setError(null); }}>Create an account</button></p>
+            {googleBlock}
+            {demoBlock}
           </>
         )}
-        {step === "code" && (
+
+        {view === "register" && (
+          <>
+            {tabs}
+            <h1>Create your account</h1>
+            <p>Post RFQs, place blinded bids and track everything on one board.</p>
+            <label className="lg-lbl">Name</label>
+            <input className="lg-in" type="text" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
+            <label className="lg-lbl">Email</label>
+            <input className="lg-in" type="email" placeholder="you@company.com" value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && email.includes("@") && doRegister()} />
+            <label className="lg-lbl">Password</label>
+            <input className="lg-in" type="password" placeholder="At least 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <label className="lg-lbl">Confirm password</label>
+            <input className="lg-in" type="password" placeholder="Re-enter password" value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && doRegister()} />
+            {error && <div className="lg-err">⚠ {error}</div>}
+            <button className="lg-btn" disabled={!email.includes("@") || password.length < 8 || confirm.length === 0 || busy} onClick={doRegister}>
+              {busy ? "Creating…" : "Create account →"}
+            </button>
+            <p className="lg-hint">Already registered? <button className="lg-switch" style={{ display: "inline" }} onClick={() => { setView("signin"); setError(null); }}>Sign in</button></p>
+            {googleBlock}
+            {demoBlock}
+          </>
+        )}
+
+        {view === "code" && (
           <>
             <h1>Enter your code</h1>
             <p>Sent to <b>{email.trim()}</b>. The code expires in 10 minutes.</p>
@@ -124,13 +264,14 @@ function Inner() {
             <button className="lg-btn" disabled={code.length !== 6 || busy} onClick={verify}>
               {busy ? "Verifying…" : "Verify code →"}
             </button>
-            <button className="lg-again" onClick={() => { setStep("email"); setError(null); }}>← use a different email</button>
+            <button className="lg-again" onClick={() => { setView("signin"); setError(null); }}>← back to email &amp; password</button>
           </>
         )}
-        {step === "role" && (
+
+        {view === "role" && (
           <>
             <h1>How will you use RFQClub?</h1>
-            <p>You can switch this later. Welcome, <b>{user?.email}</b>.</p>
+            <p>You can switch this later. Welcome, <b>{user?.name || user?.email}</b>.</p>
             <div className="lg-roles">
               <button className="lg-role" disabled={busy} onClick={() => chooseRole("buyer")}>
                 <b>I&apos;m a Buyer</b>
@@ -144,6 +285,7 @@ function Inner() {
             {error && <div className="lg-err">⚠ {error}</div>}
           </>
         )}
+
         <div className="lg-foot mono">Demo auth · data is shared and resets with the seed</div>
       </div>
     </div>

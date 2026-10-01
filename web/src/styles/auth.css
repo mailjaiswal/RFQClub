@@ -133,6 +133,66 @@
   color: var(--subtle);
 }
 
+/* Sign in / Register tabs */
+.lg-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 4px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  border-radius: 999px;
+}
+.lg-tab {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--subtle);
+  padding: 8px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.lg-tab.on {
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.lg-tab:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* inline switch links (create account / sign in / use a code) */
+.lg-switch {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--primary);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Continue with Google */
+.lg-google {
+  margin-top: 14px;
+}
+.lg-google-btn {
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
+}
+.lg-google-fallback {
+  font-size: 11px;
+  color: var(--muted);
+  align-self: center;
+}
+
 .lg-demo {
   border: 1px dashed rgba(183, 122, 27, 0.55);
   background: rgba(183, 122, 27, 0.08);

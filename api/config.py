@@ -42,6 +42,12 @@ OPERATOR_CHAT_IDS = {int(x) for x in os.getenv("OPERATOR_CHAT_IDS", "").replace(
 AUTH_SECRET = os.getenv("AUTH_SECRET", "dev-insecure-change-me").strip()
 OTP_MODE = os.getenv("OTP_MODE", "dev").strip().lower()
 
+# "Continue with Google" (Google Identity Services ID-token): the Web OAuth
+# Client ID whose `aud` we require on the presented token. Unset => Google
+# sign-in disabled (endpoint returns 503), everything else still works.
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+GOOGLE_ISSUERS = ("accounts.google.com", "https://accounts.google.com")
+
 LLM_ENABLED = os.getenv("LLM_ENABLED", "false").lower() in ("1", "true", "yes")
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "").strip()

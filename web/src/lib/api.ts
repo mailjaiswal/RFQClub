@@ -229,6 +229,7 @@ export function getProfile(): Promise<Profile> {
 export interface AuthUser {
   id: number;
   email: string;
+  name?: string;
   role: string;
   created_at?: string | null;
 }
@@ -243,6 +244,21 @@ export interface OtpRequestResult {
 export interface VerifyResult {
   token: string;
   user: AuthUser;
+  is_new?: boolean; // true for a freshly-created account (register / first Google sign-in)
+}
+
+// email + password
+export function register(email: string, password: string, name?: string): Promise<VerifyResult> {
+  return req("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password, name: name ?? "" }) });
+}
+
+export function login(email: string, password: string): Promise<VerifyResult> {
+  return req("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+}
+
+// Google Identity Services ID token (the `credential` from Google's button)
+export function googleSignIn(credential: string): Promise<VerifyResult> {
+  return req("/api/auth/google", { method: "POST", body: JSON.stringify({ credential }) });
 }
 
 export function otpRequest(email: string): Promise<OtpRequestResult> {

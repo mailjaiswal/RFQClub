@@ -33,17 +33,30 @@ Key endpoints:
 - `POST /api/rfqs/{id}/bid` — supplier landed-cost bid (server recomputes TLC, enforces routing cap)
 - `POST /api/rfqs/{id}/award` — award a bid; reveals the winner's name
 - `POST /api/rfqs/{id}/save` — toggle the watchlist flag (per-user when signed in)
+- `POST /api/auth/register` · `POST /api/auth/login` — email + password (PBKDF2-SHA256, stdlib `security.py`)
+- `POST /api/auth/google` — "Continue with Google" (Google Identity Services ID token, verified against `GOOGLE_CLIENT_ID`)
 - `POST /api/auth/otp/request` · `POST /api/auth/otp/verify` — email-OTP sign-in (stateless HMAC bearer token)
 - `GET /api/auth/me` · `GET /api/auth/my/rfqs` · `GET /api/auth/my/bids` — session + per-user lists
 
 ### Auth model
-Sign-in is a mock **email-OTP**: request a code, verify, get a stateless
-HMAC-SHA256 bearer token (`email|role|exp`). Because the web (Vercel) and API
-(Render) are different sites, we send the token as an `Authorization: Bearer`
-header (not a cookie), so the CORS allowlist — see `CORS_ORIGIN_REGEX` in
-`api/config.py` — governs which browser origins may mutate. `OTP_MODE=dev`
-returns the code on-screen (`dev_code`) so the flow is demoable without a real
-mailer.
+Every method issues the **same stateless HMAC-SHA256 bearer token**
+(`email|role|exp`). Because the web (Vercel) and API (Render) are different
+sites, we send the token as an `Authorization: Bearer` header (not a cookie), so
+the CORS allowlist — see `CORS_ORIGIN_REGEX` in `api/config.py` — governs which
+browser origins may mutate. Three ways in:
+
+- **Email + password** — hashed with stdlib PBKDF2-HMAC-SHA256 (`api/security.py`),
+  no extra dependency; registration sets `password_hash` on the `user` row.
+- **Continue with Google** — the browser hands back a Google ID token which the
+  API validates via Google's `tokeninfo` endpoint (audience must equal
+  `GOOGLE_CLIENT_ID`); the account is created or linked by email. Hidden in the
+  UI until `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is set.
+- **Email-OTP (demo)** — `OTP_MODE=dev` returns the code on-screen (`dev_code`),
+  so the flow — and the one-click demo Buyer/Supplier — works without a mailer.
+
+New `user` columns (`name`, `password_hash`, `google_id`) are added on startup by
+an idempotent migration in `api/db.py` (`_ensure_user_columns`), so existing
+OTP-only users keep working and simply have no password until they register one.
 
 Ingestion is human-gated: the Telegram bot (`ingest_bot.py`) parses messy text
 with `rfq_parser.py` (+ optional `llm_structurer.py`) into `pending_draft`
@@ -76,5 +89,10 @@ are ported from `design-concepts.html`.
   re-runs it and is guarded by `AUTH_SECRET`.
 - Required Render env: `DATABASE_URL` (Neon pooled URL — `postgresql://` is
   normalised to the `psycopg3` driver in `api/db.py`), `AUTH_SECRET` (token
-  signing key), and optionally `OTP_MODE=dev`.
+  signing key), and optionally `OTP_MODE=dev`. For Google sign-in set
+  `GOOGLE_CLIENT_ID` (API) and `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Vercel build env,
+  same value); leave both unset to hide the Google button.
+- Google OAuth: one **Web application** Client ID with Authorized JavaScript
+  origins `https://rfqclub-web.vercel.app` and `http://localhost:3000` (no
+  redirect URI needed for the ID-token popup flow).
 - Set `DATABASE_URL` to empty/omit it to fall back to local SQLite.
