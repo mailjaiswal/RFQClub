@@ -20,5 +20,7 @@ services:
         sync: false
       - key: AUTH_SECRET # generate a strong random value in the dashboard
         sync: false
+      - key: GOOGLE_CLIENT_ID # public OAuth client ID (not a secret) for "Continue with Google"
+        value: 553353885205-gpjdn704gn0nbj95klij2d8dfopc0i6u.apps.googleusercontent.com
       - key: CORS_ORIGINS # once Vercel deploys, e.g. https://<proj>.vercel.app
         value: http://localhost:3001
