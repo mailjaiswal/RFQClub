@@ -45,14 +45,18 @@ def _ensure_user_columns():
     (the latter lacks ADD COLUMN IF NOT EXISTS)."""
     cols = {c["name"] for c in inspect(engine).get_columns("user")}
     add = {"name": "VARCHAR DEFAULT ''", "password_hash": "VARCHAR", "google_id": "VARCHAR",
-           "last_login": "TIMESTAMP"}
+           "last_login": "TIMESTAMP",
+           "otp_hash": "VARCHAR", "otp_expires_at": "TIMESTAMP",
+           "reset_hash": "VARCHAR", "reset_expires_at": "TIMESTAMP"}
     missing = {col: ddl for col, ddl in add.items() if col not in cols}
     if missing:
         with engine.begin() as cx:
             for col, ddl in missing.items():
                 cx.execute(text(f'ALTER TABLE "user" ADD COLUMN {col} {ddl}'))
-    # index for google_id (ORM declares it, but an ALTER-added column has none)
-    idx = {i["name"] for i in inspect(engine).get_indexes("user")}
-    if "ix_user_google_id" not in idx:
-        with engine.begin() as cx:
-            cx.execute(text('CREATE INDEX IF NOT EXISTS ix_user_google_id ON "user" (google_id)'))
+    # An ALTER-added column arrives without its ORM-declared index, so create
+    # those separately (IF NOT EXISTS keeps this safe to re-run).
+    indexed = {i["name"] for i in inspect(engine).get_indexes("user")}
+    for name, col in (("ix_user_google_id", "google_id"), ("ix_user_reset_hash", "reset_hash")):
+        if name not in indexed:
+            with engine.begin() as cx:
+                cx.execute(text(f'CREATE INDEX IF NOT EXISTS {name} ON "user" ({col})'))

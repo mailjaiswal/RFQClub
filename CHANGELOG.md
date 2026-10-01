@@ -8,6 +8,22 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
 ## [Unreleased]
 
 ### Added
+- **Real email delivery** for sign-in codes and password-reset links
+  (`api/mailer.py`). **Resend** over HTTPS (`httpx`, already a dependency) when
+  `RESEND_API_KEY` is set, otherwise **SMTP** via stdlib `smtplib` (STARTTLS or
+  implicit TLS) when `SMTP_HOST` is set; `EMAIL_MODE` forces `auto`/`dev`/`resend`/
+  `smtp`. Branded HTML+plain-text templates are sent for both the 6-digit code and
+  the single-use `/login?reset=<token>` link, which the login page now opens
+  directly from the query string. Delivery is still **optional**: with no provider
+  configured — or if a send fails — `OTP_MODE=dev` keeps surfacing the secret
+  on-screen (now with a `delivery_warning`) so the demo never dead-ends, while any
+  other mode returns `503` rather than claiming an email was sent; successful sends
+  report `delivery: "email"`.
+- OTP codes and reset tokens are now **persisted on the `user` row** as keyed
+  digests (`otp_hash`/`otp_expires_at`, `reset_hash`/`reset_expires_at`, added by
+  the idempotent startup migration) instead of process memory, so a pending code or
+  reset link survives a Render restart and works across instances. Issuing a new
+  reset link supersedes the previous one; both remain strictly single-use.
 - **Account & auth hardening:** in-process sliding-window **rate limiting** on the
   sensitive auth endpoints (`login`, `register`, `forgot`, `reset`, `otp/*`,
   `password`) keyed by email + client IP, returning `429` with a wait hint; a

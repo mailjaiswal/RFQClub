@@ -21,6 +21,7 @@ type GoogleCredentialResponse = { credential?: string };
 function Inner() {
   const router = useRouter();
   const rawNext = useSearchParams().get("next");
+  const rawReset = useSearchParams().get("reset");
   const next = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/board";
 
   const [view, setView] = useState<View>("signin");
@@ -32,6 +33,8 @@ function Inner() {
   const [devCode, setDevCode] = useState<string | null>(null);
   const [resetToken, setResetToken] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
+  // true when the token arrived via a real emailed ?reset= link (not demo fallback)
+  const [resetViaLink, setResetViaLink] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -40,10 +43,20 @@ function Inner() {
 
   const googleBtnRef = useRef<HTMLDivElement>(null);
 
-  // Demo OTP auto-fill (mock delivery) when on the code screen.
+  // Demo OTP auto-fill when a code is surfaced on-screen, and following a real
+  // password-reset link that lands here as /login?reset=<token>.
   useEffect(() => {
     if (view === "code" && devCode) setCode(devCode);
   }, [view, devCode]);
+
+  useEffect(() => {
+    if (rawReset) {
+      setResetToken(rawReset);
+      setResetViaLink(true);
+      setPassword(""); setConfirm(""); setError(null);
+      setView("reset");
+    }
+  }, [rawReset]);
 
   // ---- helpers ----
   function done(v: VerifyResult, forceRole = false) {
@@ -81,12 +94,13 @@ function Inner() {
     try {
       const r = await forgotPassword(email.trim());
       if (r.dev_reset_token) {
-        // demo/mock delivery: follow the link straight away
+        // demo fallback (no mailer configured): follow the link straight away
         setResetToken(r.dev_reset_token);
+        setResetViaLink(false);
         setPassword(""); setConfirm("");
         setView("reset");
       } else {
-        setResetSent(true); // production: an email would be sent (never reveals if account exists)
+        setResetSent(true); // a real reset link was emailed (never reveals if account exists)
       }
     } catch (e) { setError(e instanceof Error ? e.message : "Could not start the reset."); }
     finally { setBusy(false); }
@@ -325,11 +339,15 @@ function Inner() {
         {view === "reset" && (
           <>
             <h1>Choose a new password</h1>
-            <p>Resetting the password for <b>{email.trim()}</b>.</p>
-            <div className="lg-demo">
-              <b>Demo mode</b> — email delivery isn&apos;t wired up, so we opened your reset link right here:{" "}
-              <span className="mono lg-code">{(resetToken || "").slice(0, 8)}…</span>
-            </div>
+            {email.trim()
+              ? <p>Resetting the password for <b>{email.trim()}</b>.</p>
+              : <p>Set a new password for the account this reset link belongs to.</p>}
+            {!resetViaLink && (
+              <div className="lg-demo">
+                <b>Demo mode</b> — email delivery isn&apos;t wired up, so we opened your reset link right here:{" "}
+                <span className="mono lg-code">{(resetToken || "").slice(0, 8)}…</span>
+              </div>
+            )}
             <label className="lg-lbl">New password</label>
             <input className="lg-in" type="password" placeholder="At least 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
             <label className="lg-lbl">Confirm new password</label>

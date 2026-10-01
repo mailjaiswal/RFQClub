@@ -34,7 +34,7 @@ Key endpoints:
 - `POST /api/rfqs/{id}/award` — award a bid; reveals the winner's name
 - `POST /api/rfqs/{id}/save` — toggle the watchlist flag (per-user when signed in)
 - `POST /api/auth/register` · `POST /api/auth/login` — email + password (PBKDF2-SHA256, stdlib `security.py`)
-- `POST /api/auth/forgot` · `POST /api/auth/reset` — password recovery (single-use expiring token; surfaced on-screen in `OTP_MODE=dev`)
+- `POST /api/auth/forgot` · `POST /api/auth/reset` — password recovery (single-use expiring token, emailed as a `/login?reset=` link)
 - `POST /api/auth/password` — change (or, for a Google/OTP-only account, set) the signed-in user's password
 - `POST /api/auth/google` — "Continue with Google" (Google Identity Services ID token, verified against `GOOGLE_CLIENT_ID`)
 - `POST /api/auth/otp/request` · `POST /api/auth/otp/verify` — email-OTP sign-in (stateless HMAC bearer token)
@@ -49,20 +49,33 @@ browser origins may mutate. Three ways in:
 
 - **Email + password** — hashed with stdlib PBKDF2-HMAC-SHA256 (`api/security.py`),
   no extra dependency; registration sets `password_hash` on the `user` row.
-  Recovery uses a single-use, expiring reset token (`/auth/forgot` → `/auth/reset`)
-  whose delivery is mocked like the OTP in `OTP_MODE=dev`.
+  Recovery issues a single-use, expiring reset token (`/auth/forgot` → `/auth/reset`)
+  and emails a `/login?reset=<token>` link that the page follows automatically.
 - **Continue with Google** — the browser hands back a Google ID token which the
   API validates via Google's `tokeninfo` endpoint (audience must equal
   `GOOGLE_CLIENT_ID`); the account is created or linked by email. Hidden in the
   UI until `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is set.
-- **Email-OTP (demo)** — `OTP_MODE=dev` returns the code on-screen (`dev_code`),
-  so the flow — and the one-click demo Buyer/Supplier — works without a mailer.
+- **Email-OTP** — a 6-digit code, emailed when a mail provider is configured and
+  shown on-screen (`dev_code`) otherwise, so the flow — and the one-click demo
+  Buyer/Supplier — keeps working without a mailer.
 
-New `user` columns (`name`, `password_hash`, `google_id`) are added on startup by
-an idempotent migration in `api/db.py` (`_ensure_user_columns`), so existing
-OTP-only users keep working and simply have no password until they register one.
-A `last_login` timestamp is stamped on every successful sign-in (login, Google,
-OTP, register, reset) and surfaced in the account-security dialog.
+**Email delivery** (`api/mailer.py`) is provider-optional and adds no dependency:
+**Resend** (HTTP via `httpx`) when `RESEND_API_KEY` is set, else **SMTP** (stdlib
+`smtplib`, STARTTLS or implicit TLS) when `SMTP_HOST` is set, else nothing is sent.
+`EMAIL_MODE` picks `auto` (default) / `dev` / `resend` / `smtp`. When there is no
+provider — or a send fails — and `OTP_MODE=dev`, the code/token is returned in the
+API response with a `delivery_warning` so the demo never dead-ends; with `OTP_MODE`
+set to anything else the endpoint answers `503` instead of pretending an email went
+out. Responses carry `delivery: "email"` once a message is actually queued.
+
+New `user` columns are added on startup by an idempotent migration in `api/db.py`
+(`_ensure_user_columns`): `name`, `password_hash`, `google_id`, `last_login`, and
+the short-lived secrets `otp_hash`/`otp_expires_at` + `reset_hash`/`reset_expires_at`.
+Those are stored as keyed digests (never plaintext) and live on the row, so a
+pending code or reset link survives a server restart and works across instances;
+existing OTP-only users keep working and simply have no password until they set one.
+A `last_login` timestamp is stamped on every successful sign-in (login, Google, OTP,
+register, reset) and surfaced in the account-security dialog.
 
 **Abuse protection:** the sensitive auth endpoints (`login`, `register`, `forgot`,
 `reset`, `otp/*`, `password`) share a small in-process sliding-window rate limiter
@@ -107,6 +120,12 @@ are ported from `design-concepts.html`.
 - Google OAuth: one **Web application** Client ID with Authorized JavaScript
   origins `https://rfqclub-web.vercel.app` and `http://localhost:3000` (no
   redirect URI needed for the ID-token popup flow).
+- To email codes and reset links for real, add two dashboard-only env vars on
+  Render: `RESEND_API_KEY` and `EMAIL_FROM` (e.g. `RFQClub <no-reply@yourdomain.com>`;
+  Resend requires a **verified domain** for addresses outside `onboarding@resend.dev`,
+  which only ever delivers to your own Resend account). Alternatively set
+  `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `SMTP_SECURITY`.
+  `WEB_BASE_URL` (committed) is the origin used to build reset links.
 - Set `DATABASE_URL` to empty/omit it to fall back to local SQLite.
 
 ## License

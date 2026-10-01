@@ -225,7 +225,7 @@ export function getProfile(): Promise<Profile> {
   return req<Profile>("/api/profile");
 }
 
-// ---- Auth (email OTP, mock delivery) ----
+// ---- Auth (email + password, Google, email OTP) ----
 export interface AuthUser {
   id: number;
   email: string;
@@ -240,7 +240,9 @@ export interface OtpRequestResult {
   ok: boolean;
   email: string;
   expires_in: number;
-  dev_code?: string; // present in demo mode: code shown on screen instead of emailed
+  delivery?: string; // "email" when the code was actually sent
+  dev_code?: string; // demo fallback: code shown on screen because it wasn't emailed
+  delivery_warning?: string; // why email delivery was skipped/failed (demo mode)
 }
 
 export interface VerifyResult {
@@ -258,11 +260,13 @@ export function login(email: string, password: string): Promise<VerifyResult> {
   return req("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
 }
 
-// password reset (mock delivery — dev_reset_token is surfaced in dev mode)
+// password reset (emails a link; dev_reset_token is surfaced in demo mode)
 export interface ForgotResult {
   ok: boolean;
   expires_in: number;
-  dev_reset_token?: string; // present in demo mode: the link the UI follows directly
+  delivery?: string; // "email" when a reset link was actually sent
+  dev_reset_token?: string; // demo fallback: the link the UI follows directly
+  delivery_warning?: string;
 }
 
 export function forgotPassword(email: string): Promise<ForgotResult> {

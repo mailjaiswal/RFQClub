@@ -24,3 +24,12 @@ services:
         value: 553353885205-gpjdn704gn0nbj95klij2d8dfopc0i6u.apps.googleusercontent.com
       - key: CORS_ORIGINS # once Vercel deploys, e.g. https://<proj>.vercel.app
         value: http://localhost:3001
+      - key: WEB_BASE_URL # origin used to build password-reset links sent by email
+        value: https://rfqclub-web.vercel.app
+      # Email delivery is optional: with no key set, sign-in codes and reset
+      # links are shown on-screen instead (OTP_MODE=dev). Add a RESEND_API_KEY
+      # (plus EMAIL_FROM on your verified domain) in the dashboard to send for real.
+      - key: RESEND_API_KEY # https://resend.com/api-keys
+        sync: false
+      - key: EMAIL_FROM # e.g. RFQClub <no-reply@yourdomain.com>
+        sync: false

@@ -48,6 +48,21 @@ OTP_MODE = os.getenv("OTP_MODE", "dev").strip().lower()
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
 GOOGLE_ISSUERS = ("accounts.google.com", "https://accounts.google.com")
 
+# Transactional email (sign-in codes + password-reset links). Empty key/host =>
+# nothing is sent and secrets are surfaced on-screen instead (demo behaviour).
+# EMAIL_MODE: auto (pick a configured provider) | dev | resend | smtp.
+EMAIL_MODE = os.getenv("EMAIL_MODE", "auto").strip().lower()
+EMAIL_FROM = os.getenv("EMAIL_FROM", "RFQClub <onboarding@resend.dev>").strip()
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "").strip()
+SMTP_HOST = os.getenv("SMTP_HOST", "").strip()
+SMTP_PORT = int(os.getenv("SMTP_PORT", "0") or 0)
+SMTP_USERNAME = os.getenv("SMTP_USERNAME", "").strip()
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "").strip()
+# starttls (587) or ssl (465)
+SMTP_SECURITY = os.getenv("SMTP_SECURITY", "starttls").strip().lower()
+# Public web origin, used to build password-reset links sent by email.
+WEB_BASE_URL = os.getenv("WEB_BASE_URL", "https://rfqclub-web.vercel.app").strip().rstrip("/")
+
 LLM_ENABLED = os.getenv("LLM_ENABLED", "false").lower() in ("1", "true", "yes")
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "").strip()

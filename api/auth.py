@@ -1,11 +1,14 @@
 """Auth for RFQClub: email + password (with forgot/reset), "Continue with Google"
-(ID-token), and the original email-OTP (mock delivery) — all issuing the same
-stateless bearer token.
+(ID-token), and the original email-OTP — all issuing the same stateless bearer
+token.
 
 Sessions are stateless HMAC-signed bearer tokens (email|role|exp.sig) so the
-Vercel frontend can call this API cross-site without cookie gymnastics. The
-delivery of an OTP is mocked in dev: the 6-digit code is returned in the API
-response and shown on the login screen, clearly labelled as such in the UI.
+Vercel frontend can call this API cross-site without cookie gymnastics.
+
+Sign-in codes and reset links are emailed through `mailer` (Resend or SMTP) when
+a provider is configured. With none configured — or if a send fails — and
+`OTP_MODE=dev`, the secret is returned in the API response and shown on the login
+screen instead, clearly labelled as such in the UI, so the demo never dead-ends.
 """
 from __future__ import annotations
 
@@ -14,7 +17,7 @@ import hmac
 import secrets
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -23,18 +26,20 @@ from sqlalchemy.orm import Session
 
 import config
 import db
+import mailer
 import models
 import security
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-# In-memory OTP store: email -> (code, expiry_epoch). Codes are short-lived;
-# a server restart simply invalidates pending codes (request a new one).
+# OTP fallback store: email -> (code, expiry_epoch), used only for an address that
+# has no user row yet; otherwise codes live on the row (otp_hash) and survive a
+# restart. Either way codes are short-lived.
 _OTP: dict[str, tuple[str, float]] = {}
 OTP_TTL = 600.0
-# In-memory password-reset store: email -> (single-use token, expiry_epoch).
-# Delivery is mocked like the OTP: in dev the token is returned in the response
-# and the UI jumps straight to the reset step (no email provider is wired up).
+# Password-reset fallback store: email -> (single-use token, expiry_epoch). Like
+# the OTP, a real token is persisted on the user row (reset_hash) and emailed when
+# a mail provider is configured; this dict covers the dev/no-row case.
 _RESET: dict[str, tuple[str, float]] = {}
 RESET_TTL = 3600.0
 TOKEN_TTL = 7 * 86400
@@ -76,6 +81,121 @@ def _throttle(bucket: str, limit: int, window: float) -> None:
 
 def _stamp_login(user: models.User) -> None:
     user.last_login = datetime.now(timezone.utc)
+
+
+# ---- durable one-time secrets ---------------------------------------------
+# Codes and reset links live on the user row (as keyed digests) so they survive
+# a restart and work across instances; the in-memory dicts above remain only as a
+# fallback for an address that has no row yet.
+
+
+def _epoch(dt: datetime | None) -> float:
+    """UTC epoch for a datetime that arrives tz-aware (Postgres) or naive (SQLite)."""
+    if dt is None:
+        return 0.0
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.timestamp()
+
+
+def _future(seconds: float) -> datetime:
+    return datetime.now(timezone.utc) + timedelta(seconds=seconds)
+
+
+def _store_otp(session: Session, email: str, code: str, ttl: float) -> None:
+    user = session.query(models.User).filter(models.User.email == email).first()
+    if user is not None:
+        user.otp_hash = _sign(code)
+        user.otp_expires_at = _future(ttl)
+        session.commit()
+    else:
+        _OTP[email] = (code, time.time() + ttl)
+
+
+def _check_otp(session: Session, email: str, code: str) -> str:
+    """Classify a presented code as 'ok' | 'bad' | 'expired' | 'none'."""
+    user = session.query(models.User).filter(models.User.email == email).first()
+    if user is not None and user.otp_hash:
+        if _epoch(user.otp_expires_at) < time.time():
+            _clear_otp(session, email)
+            return "expired"
+        return "ok" if hmac.compare_digest(user.otp_hash, _sign(code)) else "bad"
+    rec = _OTP.get(email)
+    if not rec:
+        return "none"
+    if rec[1] < time.time():
+        _OTP.pop(email, None)
+        return "expired"
+    return "ok" if hmac.compare_digest(rec[0], code) else "bad"
+
+
+def _clear_otp(session: Session, email: str) -> None:
+    user = session.query(models.User).filter(models.User.email == email).first()
+    if user is not None and (user.otp_hash or user.otp_expires_at):
+        user.otp_hash = None
+        user.otp_expires_at = None
+        session.commit()
+    _OTP.pop(email, None)
+
+
+def _store_reset(session: Session, email: str, token: str, ttl: float) -> None:
+    """Persist a single-use reset token (superseding any earlier one)."""
+    user = session.query(models.User).filter(models.User.email == email).first()
+    if user is not None:
+        user.reset_hash = _sign(token)
+        user.reset_expires_at = _future(ttl)
+        session.commit()
+    else:
+        _RESET[email] = (token, time.time() + ttl)
+
+
+def _consume_reset(session: Session, token: str) -> models.User:
+    """Return the user matching this token, invalidating it. Raises 400 otherwise."""
+    user = session.query(models.User).filter(models.User.reset_hash == _sign(token)).first()
+    if user is not None:
+        expired = _epoch(user.reset_expires_at) < time.time()
+        user.reset_hash = None
+        user.reset_expires_at = None
+        session.commit()
+        if expired:
+            raise HTTPException(400, "Reset link expired — request a new one")
+        return user
+    for email, (tok, exp) in list(_RESET.items()):
+        if hmac.compare_digest(tok, token):
+            del _RESET[email]
+            if exp < time.time():
+                raise HTTPException(400, "Reset link expired — request a new one")
+            fallback = session.query(models.User).filter(models.User.email == email).first()
+            if fallback is None:
+                raise HTTPException(400, "Invalid or expired reset link")
+            return fallback
+    raise HTTPException(400, "Invalid or expired reset link")
+
+
+def _attempt(send, *args) -> str | None:
+    """Try to email something. Returns None on success, or a human-readable reason
+    when there is no provider configured or the send failed."""
+    try:
+        if mailer.provider() == "dev":
+            return "no email provider is configured on this server"
+        send(*args)
+        return None
+    except mailer.MailError as exc:
+        return str(exc)
+
+
+def _reveal_or_fail(out: dict, key: str, secret: str, detail: str | None,
+                    missing_msg: str) -> dict:
+    """Delivery couldn't happen (no provider, or the send failed). In demo mode we
+    surface the secret on-screen so the flow stays usable and say why; otherwise
+    we fail loudly rather than pretending an email went out."""
+    if config.OTP_MODE == "dev":
+        if secret:
+            out[key] = secret
+        if detail:
+            out["delivery_warning"] = detail
+        return out
+    raise HTTPException(503, detail or missing_msg)
 
 
 class EmailIn(BaseModel):
@@ -191,23 +311,26 @@ def otp_request(payload: EmailIn, request: Request, session: Session = Depends(d
     _throttle(f"otpip:{_client_ip(request)}", 30, 900)
     _get_or_create_user(session, email)
     code = f"{secrets.randbelow(1_000_000):06d}"
-    _OTP[email] = (code, time.time() + OTP_TTL)
+    _store_otp(session, email, code, OTP_TTL)
     out = {"ok": True, "email": email, "expires_in": int(OTP_TTL)}
-    if config.OTP_MODE == "dev":
-        out["dev_code"] = code  # mock delivery — shown on screen in demo mode
-    return out
+    detail = _attempt(mailer.send_otp, email, code, int(OTP_TTL // 60))
+    if detail is None:
+        out["delivery"] = "email"
+        return out
+    return _reveal_or_fail(out, "dev_code", code, detail,
+                           "Could not email a code — contact support")
 
 
 @router.post("/otp/verify")
 def otp_verify(payload: VerifyIn, request: Request, session: Session = Depends(db.get_db)):
     email = _norm(payload.email)
     _throttle(f"otpverify:{email}", 8, 300)
-    rec = _OTP.get(email)
-    if not rec or rec[1] < time.time():
+    state = _check_otp(session, email, (payload.code or "").strip())
+    if state == "expired" or state == "none":
         raise HTTPException(400, "Code expired — request a new one")
-    if not hmac.compare_digest(rec[0], (payload.code or "").strip()):
+    if state == "bad":
         raise HTTPException(400, "Incorrect code")
-    del _OTP[email]
+    _clear_otp(session, email)
     user = _get_or_create_user(session, email)
     _stamp_login(user)
     session.commit()
@@ -299,21 +422,27 @@ def google(payload: GoogleIn, request: Request, session: Session = Depends(db.ge
 @router.post("/forgot")
 def forgot(payload: EmailIn, request: Request, session: Session = Depends(db.get_db)):
     """Start a password reset. Always reports ok so it never leaks which emails
-    have accounts. When an account exists we mint a single-use token; in dev mode
-    it is returned so the UI can present the reset step directly (mock delivery).
+    have accounts. When an account exists we mint a single-use token, persist it on
+    the user row, and email a reset link. With no mail provider (or a failed send)
+    in dev mode the token is returned so the UI can present the reset step.
     """
     email = _norm(payload.email)
     _throttle(f"forgot:{email}", 5, 3600)
     _throttle(f"forgotip:{_client_ip(request)}", 20, 3600)
     out = {"ok": True, "expires_in": int(RESET_TTL)}
     user = session.query(models.User).filter(models.User.email == email).first()
-    if user:
-        # drop any prior pending link, then issue a fresh one
-        token = secrets.token_urlsafe(32)
-        _RESET[email] = (token, time.time() + RESET_TTL)
-        if config.OTP_MODE == "dev":
-            out["dev_reset_token"] = token  # mock delivery — used directly by the UI
-    return out
+    if not user:
+        return out  # unknown address: say nothing, issue nothing
+    # issuing a fresh link supersedes any earlier pending one
+    token = secrets.token_urlsafe(32)
+    _store_reset(session, email, token, RESET_TTL)
+    link = f"{config.WEB_BASE_URL}/login?reset={token}"
+    detail = _attempt(mailer.send_reset_link, email, link, int(RESET_TTL // 60))
+    if detail is None:
+        out["delivery"] = "email"
+        return out
+    return _reveal_or_fail(out, "dev_reset_token", token, detail,
+                           "Could not email a reset link — contact support")
 
 
 @router.post("/reset")
@@ -324,20 +453,7 @@ def reset(payload: ResetIn, request: Request, session: Session = Depends(db.get_
     password = payload.password or ""
     if len(password) < 8:
         raise HTTPException(400, "Password must be at least 8 characters")
-    email = None
-    for candidate, (tok, exp) in list(_RESET.items()):
-        if hmac.compare_digest(tok, token):
-            email = candidate
-            if exp < time.time():
-                del _RESET[candidate]
-                raise HTTPException(400, "Reset link expired — request a new one")
-            break
-    if email is None:
-        raise HTTPException(400, "Invalid or expired reset link")
-    user = session.query(models.User).filter(models.User.email == email).first()
-    del _RESET[email]  # single-use, whether or not the user lookup succeeds
-    if not user:
-        raise HTTPException(400, "Invalid or expired reset link")
+    user = _consume_reset(session, token)  # single-use; raises 400 if invalid/expired
     user.password_hash = security.hash_password(password)
     _stamp_login(user)  # reset signs the user in
     session.commit()
