@@ -126,7 +126,15 @@ export default async function MyRfqsPage() {
                   </span>
                   <span className="r mr-act">
                     {s.duplicate_of && <span className="muted" style={{ fontSize: 11 }}>dup of {s.duplicate_of.code}</span>}
-                    <Link className="mr-post" href="/post">New +</Link>
+                    {s.can_clarify ? (
+                      <Link className="mr-post" href={`/draft/${s.draft_id}`}>Add details ({s.clarify_count})</Link>
+                    ) : s.status === "PENDING" && s.answered > 0 ? (
+                      <span className="muted" style={{ fontSize: 11.5 }}>Answered — awaiting concierge</span>
+                    ) : s.status === "PENDING" ? (
+                      <span className="muted" style={{ fontSize: 11.5 }}>In review</span>
+                    ) : (
+                      <Link className="mr-post" href="/post">New +</Link>
+                    )}
                   </span>
                 </div>
               ))}

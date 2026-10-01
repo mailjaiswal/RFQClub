@@ -112,6 +112,7 @@ def draft_out(session, draft: models.PendingDraft, dedupe_index: dict[str, model
     else:
         dup = dedupe_index.get(draft_util.norm_title(title))
     sector_key = f.get("sector_key") or "cnc"
+    clarifications = draft_util.open_clarifications(f)
     return {
         "id": draft.id,
         "status": draft.status,
@@ -135,7 +136,9 @@ def draft_out(session, draft: models.PendingDraft, dedupe_index: dict[str, model
             "description": f.get("description") or "",
             "notes": f.get("notes") or "",
             "hub_city": f.get("hub_city") or "",
-            "clarify": f.get("clarify") or [],
+            "clarify": [c["question"] for c in clarifications],
+            "clarifications": clarifications,
+            "clarify_answers": f.get("clarify_answers") or {},
             "budget_display": ("Open budget" if low is None else (
                 util.format_inr(low, f.get("cur") or "₹") if high in (None, low)
                 else f"{util.format_inr(low, f.get('cur') or '₹')}–{util.format_inr(high, f.get('cur') or '₹')}"
@@ -164,6 +167,11 @@ def approve_draft(session, draft_id: int, edits: dict | None = None, publish: bo
         raise WorkflowError(f"draft #{draft.id} is already {draft.status}", 409)
     fields = apply_edits(draft_util.draft_to_fields(draft), edits)
     title = str(fields["title"]).strip()
+    # Carry the still-open clarify questions (if any) onto the RFQ, merged with any
+    # free-text notes a bot/LLM pass stored, so the board listing keeps the context.
+    open_q = [c["question"] for c in draft_util.open_clarifications(fields)]
+    stored = list(fields.get("clarify") or [])
+    fields["clarify"] = stored + [q for q in open_q if q not in stored]
     if not force:
         dup = draft_util.dedupe_hit(session, title)
         if dup:
@@ -189,6 +197,30 @@ def reject_draft(session, draft_id: int, reason: str = "",
     draft.reviewed_at = _now()
     draft.reviewed_by = actor.email if actor else (draft.reviewed_by or "cli")
     session.commit()
+    return draft
+
+
+def answer_clarifications(session, draft_id: int, answers: dict,
+                          actor: models.User | None = None) -> models.PendingDraft:
+    """The buyer (or a concierge on their behalf) answers the open clarify
+    questions. Each accepted answer is folded into the draft's fields via
+    draft_util.apply_clarification and recorded for the review trail. Only a
+    PENDING draft can be clarified; a malformed answer for a known key is skipped
+    rather than raising, so one bad field can't block the rest."""
+    draft = _get_pending(session, draft_id)
+    if draft.status != "PENDING":
+        raise WorkflowError(f"draft #{draft.id} is already {draft.status}", 409)
+    fields = draft_util.draft_to_fields(draft)
+    recorded = fields.setdefault("clarify_answers", {})
+    for key, value in (answers or {}).items():
+        changed, disp = draft_util.apply_clarification(fields, key, value)
+        if changed:
+            recorded[key] = {"answer": disp, "raw": (value or "").strip()[:500],
+                             "at": _now().isoformat(), "by": (actor.email if actor else "buyer")}
+    # assign a fresh dict so SQLAlchemy detects the JSON change
+    draft.parsed = fields
+    session.commit()
+    session.refresh(draft)
     return draft
 
 

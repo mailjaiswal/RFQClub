@@ -352,12 +352,25 @@ export interface IntakePayload {
   hub_city?: string;
 }
 
+export interface Clarification {
+  key: string; // qty | material | process | budget
+  question: string;
+}
+
+export interface ClarifyAnswerRec {
+  answer: string;
+  raw: string;
+  at: string;
+  by: string;
+}
+
 export interface IntakeResult {
   ok: boolean;
   draft_id: number;
   status: string; // always "in_review"
   sector_label: string;
   clarify: string[];
+  clarifications?: Clarification[];
 }
 
 export function intakeRfq(payload: IntakePayload): Promise<IntakeResult> {
@@ -372,6 +385,9 @@ export interface SubmissionItem {
   reviewed_at: string | null;
   reject_reason: string;
   clarify: string[];
+  clarify_count: number;
+  can_clarify: boolean;
+  answered: number;
   title: string;
   sector_label: string;
   budget_display: string;
@@ -404,7 +420,9 @@ export interface ReviewDraft {
     qty: number | null; unit: string; low: number | null; high: number | null;
     closes_in_days: number | null; sector_key: string; sector_label: string;
     description: string; notes: string; hub_city: string;
-    clarify: string[]; budget_display: string;
+    clarify: string[]; clarifications: Clarification[];
+    clarify_answers: Record<string, ClarifyAnswerRec>;
+    budget_display: string;
   };
   confidence: Record<string, number>;
   low_confidence: string[];
@@ -447,4 +465,13 @@ export function rejectDraft(draftId: number, reason: string): Promise<{ ok: bool
 
 export function setRfqStatus(rfqId: number, status: "published" | "draft" | "closed"): Promise<{ ok: boolean; rfq: RfqCard; status: string }> {
   return req(`/api/operator/rfqs/${rfqId}/status`, { method: "POST", body: JSON.stringify({ status }) });
+}
+
+// ---- buyer-side clarify loop (owner of an intake draft) ----
+export function getIntakeDraft(draftId: number, token?: string | null): Promise<{ ok: boolean; draft: ReviewDraft }> {
+  return req(`/api/rfqs/intake/${draftId}`, undefined, token ?? null);
+}
+
+export function answerClarify(draftId: number, answers: Record<string, string>): Promise<{ ok: boolean; draft: ReviewDraft }> {
+  return req(`/api/rfqs/intake/${draftId}/clarify`, { method: "POST", body: JSON.stringify({ answers }) });
 }

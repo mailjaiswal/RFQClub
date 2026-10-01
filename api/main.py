@@ -27,7 +27,7 @@ import util
 import workflow
 import profile_data
 from auth import router as auth_router, optional_user, require_user, require_operator
-from schemas import ApproveIn, AwardIn, BidCreate, IntakeIn, RejectIn, RfqCreate, RfqStatusIn
+from schemas import ApproveIn, AwardIn, BidCreate, ClarifyIn, IntakeIn, RejectIn, RfqCreate, RfqStatusIn
 
 app = FastAPI(title="RFQClub API", version="0.1.0")
 app.add_middleware(
@@ -384,15 +384,6 @@ def intake_rfq(payload: IntakeIn, db: Session = Depends(db.get_db), user: models
     a review draft, which a concierge structures, corrects and publishes."""
     title = payload.title.strip()
     sector_key = payload.sector_key.strip() or sectors.classify(payload.process, title, payload.material)
-    clarify = []
-    if payload.qty is None:
-        clarify.append("Confirm quantity and unit (pcs / kg / sets).")
-    if not payload.material.strip():
-        clarify.append("Which grade / material specification applies?")
-    if not payload.process.strip():
-        clarify.append("Which process should shops quote against (machining, casting, fabrication…)?")
-    if payload.budget_low is None:
-        clarify.append("Is there an indicative budget, or should we route it open?")
     parsed = draft_util.normalize_fields({
         "title": title, "process": payload.process, "material": payload.material,
         "qty": payload.qty, "unit": payload.unit or "pcs",
@@ -401,7 +392,6 @@ def intake_rfq(payload: IntakeIn, db: Session = Depends(db.get_db), user: models
         # permanently open listing; the concierge can adjust it during review
         "closes_in_days": payload.closes_in_days if payload.closes_in_days is not None else 14,
         "sector_key": sector_key, "description": payload.description, "hub_city": payload.hub_city,
-        "clarify": clarify,
     })
     # Self-declared form answers are trustworthy; anything left blank is marked low
     # so it surfaces in the queue as needing a human look.
@@ -409,10 +399,45 @@ def intake_rfq(payload: IntakeIn, db: Session = Depends(db.get_db), user: models
     for key, val in (("process", payload.process), ("material", payload.material),
                      ("qty", payload.qty), ("low", payload.budget_low)):
         confidence[key] = 1.0 if val not in (None, "") else 0.4
+    parsed["confidence"] = confidence
+    # The clarify questions are derived from whatever the form left blank, so the
+    # buyer can answer them right away (or later) — see /api/rfqs/intake/{id}/clarify.
+    clarifications = draft_util.open_clarifications(parsed)
     draft = draft_util.create_draft(db, raw_text=payload.description or title, parsed=parsed,
                                     confidence=confidence, user_id=user.id, source="web")
     return {"ok": True, "draft_id": draft.id, "status": "in_review",
-            "sector_label": sectors.label(sector_key), "clarify": clarify}
+            "sector_label": sectors.label(sector_key),
+            "clarifications": clarifications, "clarify": [c["question"] for c in clarifications]}
+
+
+def _own_draft(db: Session, user: models.User, draft_id: int) -> models.PendingDraft:
+    """A buyer's own intake draft. 404 (not 403) for anything else so we never
+    leak whether someone else's draft id exists."""
+    draft = db.get(models.PendingDraft, draft_id)
+    if not draft or draft.user_id != user.id:
+        raise HTTPException(404, "draft not found")
+    return draft
+
+
+@app.get("/api/rfqs/intake/{draft_id}")
+def get_intake(draft_id: int, db: Session = Depends(db.get_db), user: models.User = Depends(require_user)):
+    """The buyer's own draft and its still-open clarify questions — powers the
+    'add the missing details' page."""
+    draft = _own_draft(db, user, draft_id)
+    return {"ok": True, "draft": workflow.draft_out(db, draft)}
+
+
+@app.post("/api/rfqs/intake/{draft_id}/clarify")
+def clarify_intake(draft_id: int, payload: ClarifyIn, db: Session = Depends(db.get_db),
+                   user: models.User = Depends(require_user)):
+    """Answer one or more clarify questions; each answer folds into the draft's
+    structured fields for the concierge. Only the owner, only while PENDING."""
+    _own_draft(db, user, draft_id)
+    try:
+        draft = workflow.answer_clarifications(db, draft_id, payload.answers, actor=user)
+    except workflow.WorkflowError as exc:
+        raise HTTPException(exc.status, str(exc))
+    return {"ok": True, "draft": workflow.draft_out(db, draft)}
 
 
 # ---------- concierge review workflow (operator only) ----------
@@ -510,6 +535,9 @@ def my_submissions(db: Session = Depends(db.get_db), user: models.User = Depends
             "draft_id": out["id"], "status": out["status"], "source": out["source"],
             "created_at": out["created_at"], "reviewed_at": out["reviewed_at"],
             "reject_reason": out["reject_reason"], "clarify": f["clarify"],
+            "clarify_count": len(f["clarifications"]),
+            "can_clarify": out["status"] == "PENDING" and len(f["clarifications"]) > 0,
+            "answered": len(f["clarify_answers"]),
             "title": f["title"], "sector_label": f["sector_label"],
             "budget_display": f["budget_display"], "qty": f["qty"], "unit": f["unit"],
             "duplicate_of": out["duplicate_of"],

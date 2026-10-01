@@ -109,6 +109,27 @@
   border-radius: 999px;
   padding: 3px 9px;
 }
+.app .rv-answered {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.app .rv-ans {
+  font-size: 11px;
+  color: #2E7D46;
+  background: rgba(46, 125, 70, .09);
+  border: 1px solid rgba(46, 125, 70, .26);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+.app .rv-clarify .rv-clarlabel {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--muted);
+  font-weight: 600;
+}
 .app .rv-rawtoggle {
   background: none;
   border: none;
@@ -229,6 +250,16 @@
   background: #232327;
   color: #b9b6ad;
   border-color: #3a3a42;
+}
+.app.dark .rv-clarify .rv-clarlabel {
+  background: none;
+  border: none;
+  color: #8b8880;
+}
+.app.dark .rv-ans {
+  background: rgba(46, 125, 70, .16);
+  color: #7fd39a;
+  border-color: rgba(46, 125, 70, .34);
 }
 .app.dark .mr-post,
 .app.dark .btn-dark {

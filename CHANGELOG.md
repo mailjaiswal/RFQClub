@@ -25,6 +25,15 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
 - A concierge **review queue** UI at `/review` (approve & publish / approve as draft /
   reject with reason / publish · close unpublished RFQs), operator-gated navigation in
   the app rail, and a **Concierge / staff** role claim on the login screen.
+- **Buyer clarify loop** (`api/draft_util.py`, `workflow.answer_clarifications`). The
+  intake's missing-field prompts are now *structured* (`{key, question}`) and
+  **derived** — a question is open for exactly as long as its field is blank, so a
+  buyer answer (or a concierge edit) resolves it with no separate flag to keep in
+  sync. Numeric answers reuse the regex parser ("1200 pcs", "₹8–15 Lakh"). New
+  owner-only endpoints `GET /api/rfqs/intake/{id}` and
+  `POST /api/rfqs/intake/{id}/clarify` back a `/draft/{id}` "add the missing details"
+  page; captured answers (and who gave them) now appear on each card in the
+  concierge queue.
 - **Authorization hardening:** the unblinded supplier-name endpoint
   (`GET /api/admin/rfqs/{id}/bids`) is now **operator-only** (it was public), the
   `operator` role can only be claimed by an email listed in `OPERATOR_EMAILS`

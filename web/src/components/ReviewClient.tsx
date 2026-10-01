@@ -167,8 +167,18 @@ function DraftCard({ draft, busy, onApprove, onReject }: {
       {dup && (
         <div className="rv-warn dup">⚠ Duplicate of <Link href={`/rfq/${dup.id}`}>{dup.code}</Link> — approve will need “force”.</div>
       )}
-      {f.clarify.length > 0 && (
-        <div className="rv-clarify">{f.clarify.map((c, i) => <span key={i}>{c}</span>)}</div>
+      {Object.entries(f.clarify_answers || {}).length > 0 && (
+        <div className="rv-answered">
+          {Object.entries(f.clarify_answers).map(([key, rec]) => (
+            <span key={key} className="rv-ans">✓ {key}: {rec.answer}{rec.by ? ` (${rec.by})` : ""}</span>
+          ))}
+        </div>
+      )}
+      {f.clarifications.length > 0 && (
+        <div className="rv-clarify">
+          <span className="rv-clarlabel">Still asking the buyer:</span>
+          {f.clarifications.map((c, i) => <span key={i}>{c.question}</span>)}
+        </div>
       )}
 
       <button className="rv-rawtoggle" onClick={() => setOpen((o) => !o)}>{open ? "Hide" : "Show"} buyer&apos;s raw text</button>

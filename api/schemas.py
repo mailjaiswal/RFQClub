@@ -82,6 +82,12 @@ class ApproveIn(BaseModel):
     force: bool = False  # approve despite a matching RFQ already being live
 
 
+class ClarifyIn(BaseModel):
+    """Answers to a draft's open clarify questions, keyed by field name
+    (qty / material / process / budget). Empty answers are ignored."""
+    answers: dict[str, str] = Field(default_factory=dict)
+
+
 class RejectIn(BaseModel):
     reason: str = Field(default="", max_length=500)
 

@@ -26,7 +26,8 @@ export function CommandProvider({ children }: { children: React.ReactNode }) {
       { id: "mybids", label: "My bids", hint: "/board?view=mybids", group: "Go", run: go("/board?view=mybids") },
       { id: "hiw", label: "How it works", hint: "/how-it-works", group: "Go", run: go("/how-it-works") },
       { id: "profile", label: "My profile", hint: "/profile", group: "Go", run: go("/profile") },
-      { id: "post", label: "Post an RFQ (concierge)", hint: "/how-it-works", group: "Actions", run: go("/how-it-works") },
+      { id: "post", label: "Post an RFQ", hint: "/post", group: "Actions", run: go("/post") },
+      { id: "review", label: "Review queue (concierge)", hint: "/review", group: "Actions", run: go("/review") },
       {
         id: "theme",
         label: resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode",

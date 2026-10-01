@@ -40,6 +40,7 @@ Key endpoints:
 - `POST /api/auth/otp/request` · `POST /api/auth/otp/verify` — email-OTP sign-in (stateless HMAC bearer token)
 - `GET /api/auth/me` · `GET /api/auth/my/rfqs` · `GET /api/auth/my/bids` · `GET /api/auth/my/submissions` — session + per-user lists
 - `POST /api/rfqs/intake` — the web "Post an RFQ" form files a review draft (never a live board row)
+- `GET /api/rfqs/intake/{id}` · `POST /api/rfqs/intake/{id}/clarify` — the buyer's own draft and its clarify loop (owner-only, while pending)
 - `GET /api/operator/queue` · `POST /api/operator/drafts/{id}/approve|reject` · `POST /api/operator/rfqs/{id}/status` — the concierge review gate (operator-only)
 
 ### Auth model
@@ -92,7 +93,10 @@ arrive two ways — the Telegram bot (`ingest_bot.py`, parsed by `rfq_parser.py`
 — and both land as `pending_draft` rows; structured `POST /api/rfqs` records land as
 `rfq` rows with status `draft`. A concierge reviews them in the `/review` queue
 (correct any field, approve as draft or **publish** to the board, or reject with a
-reason the buyer sees), and duplicate titles are refused unless forced. Nothing
+reason the buyer sees), and duplicate titles are refused unless forced. Anything the
+form left blank becomes a derived **clarify question** the buyer can answer at
+`/draft/{id}` — answers fold back into the draft's fields and appear to the concierge.
+Nothing
 unreviewed reaches the board. `GET /api/admin/rfqs/{id}/bids` (unblinded supplier
 names) and every `/api/operator/*` action require the `operator` role, which can
 only be claimed by an email listed in `OPERATOR_EMAILS` — leave it empty for a

@@ -88,10 +88,13 @@ export default function PostForm() {
         </p>
         {done.clarify.length > 0 && (
           <div style={{ marginTop: 16 }}>
-            <div className="label-mono">They may ask you for</div>
+            <div className="label-mono">A few things we still need</div>
             <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 13, color: "var(--subtle)", lineHeight: 1.7 }}>
               {done.clarify.map((c, i) => <li key={i}>{c}</li>)}
             </ul>
+            <Link href={`/draft/${done.draft_id}`} className="btn btn-outline" style={{ marginTop: 12 }}>
+              Answer now →
+            </Link>
           </div>
         )}
         <div className="flex gap-3" style={{ marginTop: 18 }}>
