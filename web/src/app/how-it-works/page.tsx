@@ -7,10 +7,10 @@ export default function HowItWorksPage() {
     <div className="demo">
       <div className="dm-top">
         <span className="dm-mark">RFQ<b>Club</b>.</span>
-        <Link className="lnk" href="/">Board</Link>
+        <Link className="lnk" href="/board">Board</Link>
         <Link className="lnk" href="/how-it-works">How it works</Link>
         <span className="sp" />
-        <Link className="post" href="/">Post an RFQ</Link>
+        <Link className="post" href="/board">Post an RFQ</Link>
       </div>
 
       <div className="dm-hero">

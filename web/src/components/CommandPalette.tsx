@@ -20,10 +20,10 @@ export function CommandProvider({ children }: { children: React.ReactNode }) {
 
   const commands = useMemo<Command[]>(
     () => [
-      { id: "board", label: "Board · All open", hint: "/", group: "Go", run: go("/") },
-      { id: "saved", label: "Saved RFQs", hint: "/?view=saved", group: "Go", run: go("/?view=saved") },
+      { id: "board", label: "Board · All open", hint: "/board", group: "Go", run: go("/board") },
+      { id: "saved", label: "Saved RFQs", hint: "/board?view=saved", group: "Go", run: go("/board?view=saved") },
       { id: "myrfqs", label: "My RFQs", hint: "/my-rfqs", group: "Go", run: go("/my-rfqs") },
-      { id: "mybids", label: "My bids", hint: "/?view=mybids", group: "Go", run: go("/?view=mybids") },
+      { id: "mybids", label: "My bids", hint: "/board?view=mybids", group: "Go", run: go("/board?view=mybids") },
       { id: "hiw", label: "How it works", hint: "/how-it-works", group: "Go", run: go("/how-it-works") },
       { id: "profile", label: "My profile", hint: "/profile", group: "Go", run: go("/profile") },
       { id: "post", label: "Post an RFQ (concierge)", hint: "/how-it-works", group: "Actions", run: go("/how-it-works") },

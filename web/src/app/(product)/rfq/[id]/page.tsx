@@ -26,7 +26,7 @@ export default async function RfqDetailPage({ params }: { params: Promise<{ id: 
   return (
     <>
       <div className="ap-subbar">
-        <Link href="/" className="ap-back">← Board</Link>
+        <Link href="/board" className="ap-back">← Board</Link>
         <span className="code">{rfq.code}</span>
       </div>
 

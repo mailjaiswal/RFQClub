@@ -45,11 +45,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   const view = (searchParams.get("view") as View) || "all";
-  const onBoard = pathname === "/";
+  const onBoard = pathname === "/board";
   const dark = mounted && resolvedTheme === "dark";
 
   function goView(v: View) {
-    router.push(v === "all" ? "/" : `/?view=${v}`);
+    router.push(v === "all" ? "/board" : `/board?view=${v}`);
   }
 
   function logOut() {

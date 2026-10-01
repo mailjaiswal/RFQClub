@@ -8,7 +8,8 @@ type Step = "email" | "code" | "role";
 
 function Inner() {
   const router = useRouter();
-  const next = useSearchParams().get("next") || "/";
+  const rawNext = useSearchParams().get("next");
+  const next = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/board";
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");

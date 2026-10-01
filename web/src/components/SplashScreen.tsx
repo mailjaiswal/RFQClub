@@ -1,11 +1,13 @@
 "use client";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { usePathname } from "next/navigation";
 
 /**
  * Option 1 — "The process story" splash.
- * Plays six scenes once (Post → Route → Bid → Compare → Award → logo), then
- * cross-fades away to reveal the already-mounted landing page underneath.
- * Rendered at 1.5× speed (durations below are the 1× base).
+ * Plays once as the intro to the public landing page (`/`), then cross-fades
+ * away to reveal the marketing page underneath. It deliberately does NOT run
+ * on the app routes (`/login`, `/board`, …) so signing in and the board are
+ * never delayed. Rendered at 1.5× speed (durations below are the 1× base).
  */
 const SPEED = 1.5;
 const DUR = [1400, 1700, 1600, 1700, 2000, 2000]; // ms per scene at 1×
@@ -31,13 +33,19 @@ const SHOPS = [
 const v = (o: Record<string, string>) => o as CSSProperties;
 
 export default function SplashScreen() {
+  const pathname = usePathname();
+  // Decide once, on first mount: splash plays only if the entry route is `/`.
+  const activeRef = useRef<boolean | null>(null);
+  if (activeRef.current === null) activeRef.current = pathname === "/";
+  const active = activeRef.current;
+
   const [idx, setIdx] = useState(0);
   const [leaving, setLeaving] = useState(false);
   const [gone, setGone] = useState(false);
   const finished = useRef(false);
 
   useEffect(() => {
-    if (finished.current) return;
+    if (!active || finished.current) return;
     let reduce = false;
     try {
       reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -69,9 +77,9 @@ export default function SplashScreen() {
     };
     advance(0);
     return () => clearTimeout(timer);
-  }, []);
+  }, [active]);
 
-  if (gone) return null;
+  if (!active || gone) return null;
 
   const skip = () => {
     if (finished.current) return;

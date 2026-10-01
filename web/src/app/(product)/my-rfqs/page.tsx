@@ -147,7 +147,7 @@ export default async function MyRfqsPage() {
             </div>
             {bids.length === 0 && (
               <div className="card" style={{ textAlign: "center", color: "var(--muted)" }}>
-                You haven't bid on anything yet — <Link href="/" style={{ textDecoration: "underline" }}>browse the board</Link>.
+                You haven't bid on anything yet — <Link href="/board" style={{ textDecoration: "underline" }}>browse the board</Link>.
               </div>
             )}
           </>

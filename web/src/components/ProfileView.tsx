@@ -197,7 +197,7 @@ export default function ProfileView({ profile }: { profile: Profile }) {
     <div className={`pf${dark ? " dark" : ""}`} id="pfScope">
       <div className="pf-top">
         <span className="pf-mark">RFQ<b>Club</b>.</span>
-        <span className="pf-crumb"><Link href="/">Board</Link> / My profile</span>
+        <span className="pf-crumb"><Link href="/board">Board</Link> / My profile</span>
         <span className="sp" />
         <button className="icbtn" title="Toggle light / dark theme" aria-label="Toggle theme"
           onClick={() => setTheme(dark ? "light" : "dark")}>{SUN}{MOON}</button>
