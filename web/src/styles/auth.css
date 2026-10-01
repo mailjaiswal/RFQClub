@@ -89,6 +89,50 @@
   cursor: not-allowed;
 }
 
+/* One-click demo shortcuts on the email step */
+.lg-or {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 12px;
+  color: var(--muted);
+  font-size: 10.5px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.lg-or::before,
+.lg-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--hairline);
+}
+.lg-demo-row {
+  display: grid;
+  gap: 8px;
+}
+.lg-btn-ghost {
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  text-align: left;
+  transition: border-color 0.12s ease, background 0.12s ease, transform 0.06s ease;
+}
+.lg-btn-ghost:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: var(--card);
+}
+.lg-hint {
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 10px 0 0;
+}
+.lg-hint .mono {
+  font-size: 10.5px;
+  color: var(--subtle);
+}
+
 .lg-demo {
   border: 1px dashed rgba(183, 122, 27, 0.55);
   background: rgba(183, 122, 27, 0.08);

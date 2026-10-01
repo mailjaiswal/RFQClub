@@ -16,6 +16,7 @@ function Inner() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [demoBusy, setDemoBusy] = useState<string | null>(null);
 
   useEffect(() => {
     if (step === "code" && devCode) setCode(devCode); // demo: auto-fill the mock-delivered code
@@ -56,6 +57,26 @@ function Inner() {
     } finally { setBusy(false); }
   }
 
+  // One-click demo: run the whole OTP dance against a fixed per-role account
+  // so an evaluator can explore with a persistent identity, no code entry.
+  // Requires OTP_MODE=dev (the API returns the code as dev_code).
+  async function quickDemo(role: "buyer" | "supplier") {
+    setBusy(true); setDemoBusy(role); setError(null);
+    try {
+      const demoEmail = `demo.${role}@rfqclub.app`;
+      const r = await otpRequest(demoEmail);
+      if (!r.dev_code) throw new Error("Demo sign-in needs dev code delivery (OTP_MODE=dev).");
+      const v = await otpVerify(demoEmail, r.dev_code);
+      setSession(v.token, v.user); // store first so authSetRole carries the bearer
+      const rv = await authSetRole(role);
+      setSession(rv.token, rv.user);
+      router.push(next);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Demo sign-in failed.");
+    } finally { setBusy(false); setDemoBusy(null); }
+  }
+
   return (
     <div className="lg-wrap">
       <div className="lg-card">
@@ -72,6 +93,16 @@ function Inner() {
             <button className="lg-btn" disabled={!email.includes("@") || busy} onClick={sendCode}>
               {busy ? "Sending…" : "Send code →"}
             </button>
+            <div className="lg-or"><span>or explore instantly</span></div>
+            <div className="lg-demo-row">
+              <button className="lg-btn lg-btn-ghost" disabled={busy} onClick={() => quickDemo("buyer")}>
+                {demoBusy === "buyer" ? "Signing in…" : "Continue as demo Buyer →"}
+              </button>
+              <button className="lg-btn lg-btn-ghost" disabled={busy} onClick={() => quickDemo("supplier")}>
+                {demoBusy === "supplier" ? "Signing in…" : "Continue as demo Supplier →"}
+              </button>
+            </div>
+            <p className="lg-hint">No code needed. Signs into a shared <span className="mono">demo.{demoBusy ?? "role"}</span> account, so saved RFQs, posts and bids persist across the demo.</p>
           </>
         )}
         {step === "code" && (
