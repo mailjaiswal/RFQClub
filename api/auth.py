@@ -1,6 +1,6 @@
-"""Auth for RFQClub: email + password, "Continue with Google" (ID-token), and
-the original email-OTP (mock delivery) — all issuing the same stateless bearer
-token.
+"""Auth for RFQClub: email + password (with forgot/reset), "Continue with Google"
+(ID-token), and the original email-OTP (mock delivery) — all issuing the same
+stateless bearer token.
 
 Sessions are stateless HMAC-signed bearer tokens (email|role|exp.sig) so the
 Vercel frontend can call this API cross-site without cookie gymnastics. The
@@ -30,6 +30,11 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 # a server restart simply invalidates pending codes (request a new one).
 _OTP: dict[str, tuple[str, float]] = {}
 OTP_TTL = 600.0
+# In-memory password-reset store: email -> (single-use token, expiry_epoch).
+# Delivery is mocked like the OTP: in dev the token is returned in the response
+# and the UI jumps straight to the reset step (no email provider is wired up).
+_RESET: dict[str, tuple[str, float]] = {}
+RESET_TTL = 3600.0
 TOKEN_TTL = 7 * 86400
 
 ROLES = ("buyer", "supplier", "operator")
@@ -61,6 +66,11 @@ class LoginIn(BaseModel):
 
 class GoogleIn(BaseModel):
     credential: str
+
+
+class ResetIn(BaseModel):
+    token: str
+    password: str
 
 
 def _norm(email: str) -> str:
@@ -224,6 +234,50 @@ def google(payload: GoogleIn, session: Session = Depends(db.get_db)):
         user.name = info["name"]
     session.commit()
     return {"token": make_token(user), "user": _user_out(user), "is_new": is_new}
+
+
+@router.post("/forgot")
+def forgot(payload: EmailIn, session: Session = Depends(db.get_db)):
+    """Start a password reset. Always reports ok so it never leaks which emails
+    have accounts. When an account exists we mint a single-use token; in dev mode
+    it is returned so the UI can present the reset step directly (mock delivery).
+    """
+    email = _norm(payload.email)
+    out = {"ok": True, "expires_in": int(RESET_TTL)}
+    user = session.query(models.User).filter(models.User.email == email).first()
+    if user:
+        # drop any prior pending link, then issue a fresh one
+        token = secrets.token_urlsafe(32)
+        _RESET[email] = (token, time.time() + RESET_TTL)
+        if config.OTP_MODE == "dev":
+            out["dev_reset_token"] = token  # mock delivery — used directly by the UI
+    return out
+
+
+@router.post("/reset")
+def reset(payload: ResetIn, session: Session = Depends(db.get_db)):
+    """Consume a reset token and set a new password, then sign the user in."""
+    token = (payload.token or "").strip()
+    password = payload.password or ""
+    if len(password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters")
+    email = None
+    for candidate, (tok, exp) in list(_RESET.items()):
+        if hmac.compare_digest(tok, token):
+            email = candidate
+            if exp < time.time():
+                del _RESET[candidate]
+                raise HTTPException(400, "Reset link expired — request a new one")
+            break
+    if email is None:
+        raise HTTPException(400, "Invalid or expired reset link")
+    user = session.query(models.User).filter(models.User.email == email).first()
+    del _RESET[email]  # single-use, whether or not the user lookup succeeds
+    if not user:
+        raise HTTPException(400, "Invalid or expired reset link")
+    user.password_hash = security.hash_password(password)
+    session.commit()
+    return {"token": make_token(user), "user": _user_out(user), "is_new": False}
 
 
 @router.get("/me")

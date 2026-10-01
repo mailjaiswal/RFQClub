@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   otpRequest, otpVerify, authSetRole,
   register as apiRegister, login as apiLogin, googleSignIn,
+  forgotPassword, resetPassword,
   type AuthUser, type VerifyResult,
 } from "@/lib/api";
 import { setSession } from "@/lib/session";
@@ -12,7 +13,7 @@ import { setSession } from "@/lib/session";
 // entirely (never show a broken button). Value is public (client ID, not secret).
 const GOOGLE_CLIENT_ID = (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "").trim();
 
-type View = "signin" | "register" | "code" | "role";
+type View = "signin" | "register" | "code" | "role" | "forgot" | "reset";
 
 /* minimal shape of the GSI global we touch, so we need no extra @types dep */
 type GoogleCredentialResponse = { credential?: string };
@@ -29,6 +30,8 @@ function Inner() {
   const [confirm, setConfirm] = useState("");
   const [code, setCode] = useState("");
   const [devCode, setDevCode] = useState<string | null>(null);
+  const [resetToken, setResetToken] = useState<string | null>(null);
+  const [resetSent, setResetSent] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -69,6 +72,34 @@ function Inner() {
     setBusy(true);
     try { done(await apiRegister(email.trim(), password, name.trim()), true); }
     catch (e) { setError(e instanceof Error ? e.message : "Could not create the account."); }
+    finally { setBusy(false); }
+  }
+
+  // ---- forgot password / reset ----
+  async function startForgot() {
+    setBusy(true); setError(null); setResetSent(false);
+    try {
+      const r = await forgotPassword(email.trim());
+      if (r.dev_reset_token) {
+        // demo/mock delivery: follow the link straight away
+        setResetToken(r.dev_reset_token);
+        setPassword(""); setConfirm("");
+        setView("reset");
+      } else {
+        setResetSent(true); // production: an email would be sent (never reveals if account exists)
+      }
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not start the reset."); }
+    finally { setBusy(false); }
+  }
+
+  async function doReset() {
+    setError(null);
+    if (!resetToken) { setError("Reset link missing — start over."); return; }
+    if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
+    if (password !== confirm) { setError("Passwords don't match."); return; }
+    setBusy(true);
+    try { done(await resetPassword(resetToken, password)); }
+    catch (e) { setError(e instanceof Error ? e.message : "Could not reset the password."); }
     finally { setBusy(false); }
   }
 
@@ -167,7 +198,7 @@ function Inner() {
     </div>
   );
 
-  const googleBlock = GOOGLE_CLIENT_ID && view !== "role" ? (
+  const googleBlock = GOOGLE_CLIENT_ID && (view === "signin" || view === "register") ? (
     <div className="lg-google">
       <div className="lg-google-btn" ref={googleBtnRef}>
         {!googleReady && <span className="lg-google-fallback">Loading Google sign-in…</span>}
@@ -175,7 +206,7 @@ function Inner() {
     </div>
   ) : null;
 
-  const demoBlock = view !== "role" ? (
+  const demoBlock = (view === "signin" || view === "register") ? (
     <>
       <div className="lg-or"><span>or explore instantly</span></div>
       <div className="lg-demo-row">
@@ -209,6 +240,9 @@ function Inner() {
             <input className="lg-in" type="password" placeholder="••••••••" value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && doLogin()} />
+            <div style={{ textAlign: "right", marginTop: "-4px" }}>
+              <button className="lg-switch" style={{ display: "inline" }} onClick={() => { setView("forgot"); setError(null); setResetSent(false); }}>Forgot password?</button>
+            </div>
             {error && <div className="lg-err">⚠ {error}</div>}
             <button className="lg-btn" disabled={!email.includes("@") || !password || busy} onClick={doLogin}>
               {busy ? "Signing in…" : "Sign in →"}
@@ -265,6 +299,48 @@ function Inner() {
               {busy ? "Verifying…" : "Verify code →"}
             </button>
             <button className="lg-again" onClick={() => { setView("signin"); setError(null); }}>← back to email &amp; password</button>
+          </>
+        )}
+
+        {view === "forgot" && (
+          <>
+            <h1>Reset your password</h1>
+            <p>Enter the email on your account and we&apos;ll send a secure reset link.</p>
+            <label className="lg-lbl">Email</label>
+            <input className="lg-in" type="email" placeholder="you@company.com" value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && email.includes("@") && startForgot()} />
+            {resetSent && (
+              <div className="lg-demo"><b>Check your inbox</b> — if an account exists for{" "}
+                <span className="mono">{email.trim()}</span>, a reset link is on its way.</div>
+            )}
+            {error && <div className="lg-err">⚠ {error}</div>}
+            <button className="lg-btn" disabled={!email.includes("@") || busy} onClick={startForgot}>
+              {busy ? "Sending…" : "Send reset link →"}
+            </button>
+            <button className="lg-again" onClick={() => { setView("signin"); setError(null); setResetSent(false); }}>← back to sign in</button>
+          </>
+        )}
+
+        {view === "reset" && (
+          <>
+            <h1>Choose a new password</h1>
+            <p>Resetting the password for <b>{email.trim()}</b>.</p>
+            <div className="lg-demo">
+              <b>Demo mode</b> — email delivery isn&apos;t wired up, so we opened your reset link right here:{" "}
+              <span className="mono lg-code">{(resetToken || "").slice(0, 8)}…</span>
+            </div>
+            <label className="lg-lbl">New password</label>
+            <input className="lg-in" type="password" placeholder="At least 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <label className="lg-lbl">Confirm new password</label>
+            <input className="lg-in" type="password" placeholder="Re-enter password" value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && doReset()} />
+            {error && <div className="lg-err">⚠ {error}</div>}
+            <button className="lg-btn" disabled={password.length < 8 || confirm.length === 0 || busy} onClick={doReset}>
+              {busy ? "Updating…" : "Reset password →"}
+            </button>
+            <button className="lg-again" onClick={() => { setView("signin"); setError(null); setResetToken(null); }}>← cancel</button>
           </>
         )}
 

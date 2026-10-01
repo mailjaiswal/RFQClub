@@ -256,6 +256,21 @@ export function login(email: string, password: string): Promise<VerifyResult> {
   return req("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
 }
 
+// password reset (mock delivery — dev_reset_token is surfaced in dev mode)
+export interface ForgotResult {
+  ok: boolean;
+  expires_in: number;
+  dev_reset_token?: string; // present in demo mode: the link the UI follows directly
+}
+
+export function forgotPassword(email: string): Promise<ForgotResult> {
+  return req("/api/auth/forgot", { method: "POST", body: JSON.stringify({ email }) });
+}
+
+export function resetPassword(token: string, password: string): Promise<VerifyResult> {
+  return req("/api/auth/reset", { method: "POST", body: JSON.stringify({ token, password }) });
+}
+
 // Google Identity Services ID token (the `credential` from Google's button)
 export function googleSignIn(credential: string): Promise<VerifyResult> {
   return req("/api/auth/google", { method: "POST", body: JSON.stringify({ credential }) });
