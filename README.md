@@ -34,6 +34,7 @@ Key endpoints:
 - `POST /api/rfqs/{id}/award` — award a bid; reveals the winner's name
 - `POST /api/rfqs/{id}/save` — toggle the watchlist flag (per-user when signed in)
 - `POST /api/auth/register` · `POST /api/auth/login` — email + password (PBKDF2-SHA256, stdlib `security.py`)
+- `POST /api/auth/forgot` · `POST /api/auth/reset` — password recovery (single-use expiring token; surfaced on-screen in `OTP_MODE=dev`)
 - `POST /api/auth/google` — "Continue with Google" (Google Identity Services ID token, verified against `GOOGLE_CLIENT_ID`)
 - `POST /api/auth/otp/request` · `POST /api/auth/otp/verify` — email-OTP sign-in (stateless HMAC bearer token)
 - `GET /api/auth/me` · `GET /api/auth/my/rfqs` · `GET /api/auth/my/bids` — session + per-user lists
@@ -47,6 +48,8 @@ browser origins may mutate. Three ways in:
 
 - **Email + password** — hashed with stdlib PBKDF2-HMAC-SHA256 (`api/security.py`),
   no extra dependency; registration sets `password_hash` on the `user` row.
+  Recovery uses a single-use, expiring reset token (`/auth/forgot` → `/auth/reset`)
+  whose delivery is mocked like the OTP in `OTP_MODE=dev`.
 - **Continue with Google** — the browser hands back a Google ID token which the
   API validates via Google's `tokeninfo` endpoint (audience must equal
   `GOOGLE_CLIENT_ID`); the account is created or linked by email. Hidden in the
@@ -96,3 +99,8 @@ are ported from `design-concepts.html`.
   origins `https://rfqclub-web.vercel.app` and `http://localhost:3000` (no
   redirect URI needed for the ID-token popup flow).
 - Set `DATABASE_URL` to empty/omit it to fall back to local SQLite.
+
+## License
+Proprietary — **All rights reserved**. See [LICENSE](LICENSE). The code is not
+open-source; use, modification or redistribution requires prior written
+permission from Swaniki. See [CHANGELOG.md](CHANGELOG.md) for release history.
