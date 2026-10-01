@@ -124,6 +124,9 @@
 .app .ap-una span{font-size:10px;color:#8A857A}
 .app .ap-out{align-self:stretch;text-align:center;text-decoration:none;display:block;border:1px solid #E4E1DA;background:transparent;border-radius:999px;padding:5px 10px;font-size:10.5px;font-weight:600;color:#54555C;cursor:pointer;font-family:inherit}
 .app .ap-out:hover{border-color:#B23A2B;color:#B23A2B}
+.app .ap-uroles{display:flex;gap:8px}
+.app .ap-uroles .ap-out{flex:1 1 0}
+.app .ap-out-sec:hover{border-color:#3F4397;color:#3F4397}
 /* ---------- board card grid (cards view) ---------- */
 .app .ap-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;padding:18px 22px}
 @media (max-width:780px){.app .ap-grid{grid-template-columns:1fr}}
@@ -157,6 +160,7 @@
 .app.dark .ap-user{background:#1b1b1f;border-top-color:#26262c}
 .app.dark .ap-out{border-color:#2f2f37;color:#b9b6ad}
 .app.dark .ap-out:hover{border-color:#FF5C6C;color:#FF5C6C}
+.app.dark .ap-out-sec:hover{border-color:#8b90e0;color:#8b90e0}
 .app.dark .ap-userrow:hover{background:#232329}
 .app.dark .ap-ugear svg{stroke:#8f8c85}
 .app.dark .ap-lbl,.app.dark .ap-id,.app.dark .ap-spec,.app.dark .ap-dead,.app.dark .ap-una span,.app.dark .ap-nav .cnt{color:#8f8c85}

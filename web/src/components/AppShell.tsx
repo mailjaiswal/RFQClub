@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import { useCommand } from "@/components/CommandPalette";
 import Tour, { type TourHandle } from "@/components/Tour";
+import PasswordDialog from "@/components/PasswordDialog";
 import { clearSession, getUser, type SessionUser } from "@/lib/session";
 
 const SUN = <svg className="ic-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>;
@@ -23,6 +24,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [counts, setCounts] = useState({ open: 0, saved: 0 });
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [showPwd, setShowPwd] = useState(false);
   useEffect(() => setMounted(true), []);
 
   // Session user for the rail block; LoginPage/Log out dispatch rc:session.
@@ -138,7 +140,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 <span className="ap-una"><b>{user.email.split("@")[0]}</b><span>{user.role || "member"} · RFQClub</span></span>
                 <span className="ap-ugear" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.3 1a7 7 0 0 0-1.7-1l-.3-2.5h-4l-.3 2.5a7 7 0 0 0-1.7 1l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.3 2.5h4l.3-2.5a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.5c.1-.3.1-.7.1-1z" /></svg></span>
               </Link>
-              <button className="ap-out" onClick={logOut} title="Log out">Log out</button>
+              <div className="ap-uroles">
+                <button className="ap-out ap-out-sec" onClick={() => setShowPwd(true)} title="Password & account security">Security</button>
+                <button className="ap-out" onClick={logOut} title="Log out">Log out</button>
+              </div>
             </div>
           ) : (
             <div className="ap-user">
@@ -157,6 +162,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <Tour ref={tourRef} />
+      {showPwd && <PasswordDialog onClose={() => setShowPwd(false)} />}
     </div>
   );
 }

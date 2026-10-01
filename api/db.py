@@ -44,7 +44,8 @@ def _ensure_user_columns():
     in the auth columns only when absent — portable across Postgres and SQLite
     (the latter lacks ADD COLUMN IF NOT EXISTS)."""
     cols = {c["name"] for c in inspect(engine).get_columns("user")}
-    add = {"name": "VARCHAR DEFAULT ''", "password_hash": "VARCHAR", "google_id": "VARCHAR"}
+    add = {"name": "VARCHAR DEFAULT ''", "password_hash": "VARCHAR", "google_id": "VARCHAR",
+           "last_login": "TIMESTAMP"}
     missing = {col: ddl for col, ddl in add.items() if col not in cols}
     if missing:
         with engine.begin() as cx:

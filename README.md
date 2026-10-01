@@ -35,6 +35,7 @@ Key endpoints:
 - `POST /api/rfqs/{id}/save` — toggle the watchlist flag (per-user when signed in)
 - `POST /api/auth/register` · `POST /api/auth/login` — email + password (PBKDF2-SHA256, stdlib `security.py`)
 - `POST /api/auth/forgot` · `POST /api/auth/reset` — password recovery (single-use expiring token; surfaced on-screen in `OTP_MODE=dev`)
+- `POST /api/auth/password` — change (or, for a Google/OTP-only account, set) the signed-in user's password
 - `POST /api/auth/google` — "Continue with Google" (Google Identity Services ID token, verified against `GOOGLE_CLIENT_ID`)
 - `POST /api/auth/otp/request` · `POST /api/auth/otp/verify` — email-OTP sign-in (stateless HMAC bearer token)
 - `GET /api/auth/me` · `GET /api/auth/my/rfqs` · `GET /api/auth/my/bids` — session + per-user lists
@@ -60,6 +61,14 @@ browser origins may mutate. Three ways in:
 New `user` columns (`name`, `password_hash`, `google_id`) are added on startup by
 an idempotent migration in `api/db.py` (`_ensure_user_columns`), so existing
 OTP-only users keep working and simply have no password until they register one.
+A `last_login` timestamp is stamped on every successful sign-in (login, Google,
+OTP, register, reset) and surfaced in the account-security dialog.
+
+**Abuse protection:** the sensitive auth endpoints (`login`, `register`, `forgot`,
+`reset`, `otp/*`, `password`) share a small in-process sliding-window rate limiter
+(`api/auth.py` `_throttle`), keyed by email and client IP (from `X-Forwarded-For`),
+returning `429` with a wait hint. It's in-memory because Render runs one free-tier
+process; move it to Redis before scaling horizontally.
 
 Ingestion is human-gated: the Telegram bot (`ingest_bot.py`) parses messy text
 with `rfq_parser.py` (+ optional `llm_structurer.py`) into `pending_draft`

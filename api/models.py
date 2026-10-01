@@ -129,6 +129,7 @@ class User(Base):
     role: Mapped[str] = mapped_column(String, default="supplier")  # buyer/supplier/operator
     password_hash: Mapped[str | None] = mapped_column(String, nullable=True)  # pbkdf2_sha256$... (null = OTP/Google-only)
     google_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)  # Google `sub` when linked
+    last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)  # stamped on a successful sign-in
     org_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     telegram_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)

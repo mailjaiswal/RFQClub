@@ -8,6 +8,14 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
 ## [Unreleased]
 
 ### Added
+- **Account & auth hardening:** in-process sliding-window **rate limiting** on the
+  sensitive auth endpoints (`login`, `register`, `forgot`, `reset`, `otp/*`,
+  `password`) keyed by email + client IP, returning `429` with a wait hint; a
+  `last_login` timestamp stamped on every successful sign-in; and a **change / set
+  password** endpoint (`POST /api/auth/password`) surfaced in a new in-app
+  **Account security** dialog (opened from the app rail) that also shows the
+  signed-in email, role, member-since and last-sign-in. Google/OTP-only accounts
+  can set a first password without a current one.
 - Password recovery: **Forgot password / Reset** flow. `POST /api/auth/forgot`
   issues a single-use, expiring reset token (delivered on-screen in `OTP_MODE=dev`
   as `dev_reset_token`, mirroring the OTP mock delivery); `POST /api/auth/reset`

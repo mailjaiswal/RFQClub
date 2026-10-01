@@ -231,6 +231,8 @@ export interface AuthUser {
   email: string;
   name?: string;
   role: string;
+  has_password?: boolean; // whether this account has an email+password set
+  last_login?: string | null; // stamped on the most recent successful sign-in
   created_at?: string | null;
 }
 
@@ -269,6 +271,11 @@ export function forgotPassword(email: string): Promise<ForgotResult> {
 
 export function resetPassword(token: string, password: string): Promise<VerifyResult> {
   return req("/api/auth/reset", { method: "POST", body: JSON.stringify({ token, password }) });
+}
+
+// change (or, for a Google/OTP-only account, set) the signed-in user's password
+export function changePassword(currentPassword: string, newPassword: string): Promise<{ ok: boolean; user: AuthUser }> {
+  return req("/api/auth/password", { method: "POST", body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) });
 }
 
 // Google Identity Services ID token (the `credential` from Google's button)
