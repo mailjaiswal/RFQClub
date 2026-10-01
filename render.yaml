@@ -33,3 +33,5 @@ services:
         sync: false
       - key: EMAIL_FROM # e.g. RFQClub <no-reply@yourdomain.com>
         sync: false
+      - key: OPERATOR_EMAILS # comma-separated allowlist for the concierge /operator role
+        sync: false # unset = any signed-in account may self-claim it (demo); set it to lock the review gate

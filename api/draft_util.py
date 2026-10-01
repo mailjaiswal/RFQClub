@@ -15,17 +15,17 @@ import sectors
 import util
 
 
-def _norm_title(s: str) -> str:
+def norm_title(s: str) -> str:
     return re.sub(r"[^a-z0-9]", "", (s or "").lower())
 
 
 def dedupe_hit(session, title: str) -> models.Rfq | None:
     """Return a published RFQ whose normalized title already matches (approx)."""
-    nt = _norm_title(title)
+    nt = norm_title(title)
     if not nt:
         return None
     for r in session.query(models.Rfq).all():
-        if _norm_title(r.title) == nt:
+        if norm_title(r.title) == nt:
             return r
     return None
 
@@ -47,7 +47,8 @@ def normalize_fields(parsed: dict) -> dict:
 
 def create_draft(session, raw_text: str, parsed: dict | None = None,
                  confidence: dict | None = None, source_chat_id: int | None = None,
-                 source_msg_id: int | None = None) -> models.PendingDraft:
+                 source_msg_id: int | None = None, user_id: int | None = None,
+                 source: str = "telegram") -> models.PendingDraft:
     if parsed is None:
         parsed = rfq_parser.from_freeform(raw_text)
     parsed = normalize_fields(parsed)
@@ -56,6 +57,7 @@ def create_draft(session, raw_text: str, parsed: dict | None = None,
         status="PENDING", raw_text=raw_text or "",
         parsed=parsed, confidence=confidence,
         source_chat_id=source_chat_id, source_msg_id=source_msg_id,
+        user_id=user_id, source=source,
     )
     session.add(d)
     session.commit()

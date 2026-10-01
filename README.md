@@ -38,7 +38,9 @@ Key endpoints:
 - `POST /api/auth/password` — change (or, for a Google/OTP-only account, set) the signed-in user's password
 - `POST /api/auth/google` — "Continue with Google" (Google Identity Services ID token, verified against `GOOGLE_CLIENT_ID`)
 - `POST /api/auth/otp/request` · `POST /api/auth/otp/verify` — email-OTP sign-in (stateless HMAC bearer token)
-- `GET /api/auth/me` · `GET /api/auth/my/rfqs` · `GET /api/auth/my/bids` — session + per-user lists
+- `GET /api/auth/me` · `GET /api/auth/my/rfqs` · `GET /api/auth/my/bids` · `GET /api/auth/my/submissions` — session + per-user lists
+- `POST /api/rfqs/intake` — the web "Post an RFQ" form files a review draft (never a live board row)
+- `GET /api/operator/queue` · `POST /api/operator/drafts/{id}/approve|reject` · `POST /api/operator/rfqs/{id}/status` — the concierge review gate (operator-only)
 
 ### Auth model
 Every method issues the **same stateless HMAC-SHA256 bearer token**
@@ -83,10 +85,18 @@ register, reset) and surfaced in the account-security dialog.
 returning `429` with a wait hint. It's in-memory because Render runs one free-tier
 process; move it to Redis before scaling horizontally.
 
-Ingestion is human-gated: the Telegram bot (`ingest_bot.py`) parses messy text
-with `rfq_parser.py` (+ optional `llm_structurer.py`) into `pending_draft`
-rows; an operator publishes them with `review.py approve`. Nothing unreviewed
-reaches the board.
+Ingestion is human-gated by a single review service (`api/workflow.py`), shared by
+the `review.py` CLI and the operator HTTP endpoints so they can't drift. Requirements
+arrive two ways — the Telegram bot (`ingest_bot.py`, parsed by `rfq_parser.py`
++ optional `llm_structurer.py`) and the web "Post an RFQ" form (`POST /api/rfqs/intake`)
+— and both land as `pending_draft` rows; structured `POST /api/rfqs` records land as
+`rfq` rows with status `draft`. A concierge reviews them in the `/review` queue
+(correct any field, approve as draft or **publish** to the board, or reject with a
+reason the buyer sees), and duplicate titles are refused unless forced. Nothing
+unreviewed reaches the board. `GET /api/admin/rfqs/{id}/bids` (unblinded supplier
+names) and every `/api/operator/*` action require the `operator` role, which can
+only be claimed by an email listed in `OPERATOR_EMAILS` — leave it empty for a
+self-service demo, set it to lock the gate to real staff.
 
 ## Frontend (`web/`)
 ```bash
@@ -126,6 +136,10 @@ are ported from `design-concepts.html`.
   which only ever delivers to your own Resend account). Alternatively set
   `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `SMTP_SECURITY`.
   `WEB_BASE_URL` (committed) is the origin used to build reset links.
+- Concierge gate: `OPERATOR_EMAILS` (comma-separated) is the allowlist of accounts
+  allowed to claim the `operator` role and reach `/api/operator/*`. Empty (default)
+  means any signed-in account can self-claim it so the workflow is explorable; set
+  it in production to restrict publishing rights to real staff.
 - Set `DATABASE_URL` to empty/omit it to fall back to local SQLite.
 
 ## License

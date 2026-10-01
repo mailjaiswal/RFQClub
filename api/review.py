@@ -1,15 +1,17 @@
 """Concierge review CLI — the mandatory human gate before anything hits the board.
 
-Moves rows in pending_draft (status PENDING, captured by ingest_bot) into the
-live rfq table. New approved RFQs appear on the board immediately (DB-driven,
-no rebuild needed).
+Thin front-end over `workflow.py`, which holds the actual rules and is shared
+with the operator HTTP endpoints (`/api/operator/*`), so CLI and web review can
+never drift apart. Moves rows in pending_draft (status PENDING, captured by
+ingest_bot or the web form) into the live rfq table; approved RFQs appear on the
+board immediately (DB-driven, no rebuild needed).
 
 Commands:
     python review.py list
     python review.py show <draft_id>
-    python review.py approve <draft_id> [--publish]
+    python review.py approve <draft_id> [--publish] [--force] [--title "..." --sector cnc ...]
     python review.py edit <draft_id> --title "..." --qty 500 --budget-low 200 ...
-    python review.py reject <draft_id>
+    python review.py reject <draft_id> [--reason "..."]
 
 `approve` without --publish still writes the rfq row but leaves it as a draft;
 with --publish it goes straight to the board. Default is draft so the operator
@@ -18,12 +20,12 @@ can eyeball it in the DB before flipping it live.
 from __future__ import annotations
 import argparse
 import sys
-from datetime import datetime, timedelta, timezone
 
 import db
 import models
 import sectors
 import util
+import workflow
 from draft_util import draft_to_fields, render_draft
 
 
@@ -49,8 +51,8 @@ def cmd_list(_args):
         for d in rows:
             p = d.parsed or {}
             title = (p.get("title") or "")[:60]
-            low_conf = [k for k, v in (d.confidence or {}).items() if isinstance(v, (int, float)) and v < 0.6]
-            flag = f"  ⚠ low-confidence: {','.join(low_conf)}" if low_conf else ""
+            low_conf = workflow.low_confidence(d)
+            flag = f"  \u26a0 low-confidence: {','.join(low_conf)}" if low_conf else ""
             print(f"  #{d.id:<4} [{p.get('sector_key','?'):<7}] {title}{flag}")
     finally:
         s.close()
@@ -68,62 +70,34 @@ def cmd_show(args):
         s.close()
 
 
-def _apply_edits(fields: dict, args) -> dict:
-    edits = {
+def _edits_from_args(args) -> dict:
+    """Only the flags actually passed on the command line. An unpassed flag stays
+    absent (not null), so workflow.apply_edits leaves the parsed value untouched —
+    null would mean 'clear this field' for the numeric ones."""
+    raw = {
         "title": args.title, "process": args.process, "material": args.material,
         "qty": args.qty, "unit": args.unit, "low": args.budget_low, "high": args.budget_high,
         "closes_in_days": args.days, "sector_key": args.sector, "description": args.description,
     }
-    for k, v in edits.items():
-        if v is not None:
-            fields[k] = v
-    return fields
+    return {k: v for k, v in raw.items() if v is not None}
 
 
-def _write_rfq(session, fields: dict, publish: bool) -> models.Rfq:
-    now = datetime.now(timezone.utc)
-    low = fields.get("low")
-    high = fields.get("high")
-    qty = fields.get("qty")
-    est_total = fields.get("est_total")
-    if est_total is None and qty and low is not None:
-        est_total = round(((low + (high or low)) / 2) * qty, 2)
-    days = fields.get("closes_in_days")
-    rfq = models.Rfq(
-        title=fields.get("title") or "Untitled RFQ",
-        sector_key=fields.get("sector_key") or sectors.classify(fields.get("process", ""), fields.get("title", ""), fields.get("material", "")),
-        process=fields.get("process", ""), material=fields.get("material", ""),
-        qty=qty, unit=fields.get("unit", ""),
-        budget_low=low, budget_high=high, currency=fields.get("cur") or "₹",
-        budget_status="Priced" if low is not None else "Open",
-        est_total=est_total,
-        closes_in_days=days,
-        closes_at=(now + timedelta(days=days)) if days is not None else None,
-        description=fields.get("description") or fields.get("title") or "",
-        clarify=fields.get("clarify", []) or [],
-        spec_notes=fields.get("notes", ""),
-        routing_cap=5,
-        status="published" if publish else "draft",
-    )
-    session.add(rfq)
-    return rfq
+def _fail(msg: str):
+    print(f"error: {msg}", file=sys.stderr)
+    raise SystemExit(1)
 
 
 def cmd_approve(args):
     s = _session()
     try:
-        d = s.get(models.PendingDraft, args.draft_id)
-        if not d:
-            print(f"No draft #{args.draft_id}", file=sys.stderr)
-            return
-        fields = draft_to_fields(d)
-        rfq = _write_rfq(s, fields, publish=args.publish)
-        d.status = "APPROVED"
-        d.reviewed_at = datetime.now(timezone.utc)
-        s.commit()
+        draft, rfq = workflow.approve_draft(
+            s, args.draft_id, edits=_edits_from_args(args),
+            publish=args.publish, force=args.force)
         state = "PUBLISHED" if args.publish else "draft"
-        print(f"Approved #{d.id} -> RFQ {rfq.code} ({state}). "
+        print(f"Approved #{draft.id} -> RFQ {rfq.code} ({state}). "
               f"{rfq.title[:50]} | {sectors.label(rfq.sector_key)} | {util.format_inr(rfq.est_total)}")
+    except workflow.WorkflowError as exc:
+        _fail(str(exc))
     finally:
         s.close()
 
@@ -135,12 +109,13 @@ def cmd_edit(args):
         if not d:
             print(f"No draft #{args.draft_id}", file=sys.stderr)
             return
-        fields = draft_to_fields(d)
-        fields = _apply_edits(fields, args)
+        fields = workflow.apply_edits(draft_to_fields(d), _edits_from_args(args))
         d.parsed = fields
         s.commit()
         print(f"Edited draft #{d.id} (still PENDING). Review again with: python review.py show {d.id}")
         print(render_draft(d))
+    except workflow.WorkflowError as exc:
+        _fail(str(exc))
     finally:
         s.close()
 
@@ -148,16 +123,34 @@ def cmd_edit(args):
 def cmd_reject(args):
     s = _session()
     try:
-        d = s.get(models.PendingDraft, args.draft_id)
-        if not d:
-            print(f"No draft #{args.draft_id}", file=sys.stderr)
-            return
-        d.status = "REJECTED"
-        d.reviewed_at = datetime.now(timezone.utc)
-        s.commit()
+        d = workflow.reject_draft(s, args.draft_id, reason=args.reason or "")
         print(f"Rejected draft #{d.id}.")
+    except workflow.WorkflowError as exc:
+        _fail(str(exc))
     finally:
         s.close()
+
+
+def cmd_publish(args):
+    """Publish / un-publish / close an existing rfq row."""
+    s = _session()
+    try:
+        rfq = workflow.set_rfq_status(s, args.rfq_id, args.status)
+        print(f"RFQ {rfq.code} is now {rfq.status}: {rfq.title[:60]}")
+    except workflow.WorkflowError as exc:
+        _fail(str(exc))
+    finally:
+        s.close()
+
+
+def _add_edit_args(p):
+    """Correction flags shared by `approve` and `edit` so an operator can fix a
+    mis-parsed field at the same moment they approve it."""
+    p.add_argument("--title"); p.add_argument("--process"); p.add_argument("--material")
+    p.add_argument("--qty", type=float); p.add_argument("--unit")
+    p.add_argument("--budget-low", dest="budget_low", type=float)
+    p.add_argument("--budget-high", dest="budget_high", type=float)
+    p.add_argument("--days", type=int); p.add_argument("--sector"); p.add_argument("--description")
 
 
 def build_parser():
@@ -170,22 +163,26 @@ def build_parser():
     p_ap = sub.add_parser("approve")
     p_ap.add_argument("draft_id", type=int)
     p_ap.add_argument("--publish", action="store_true", help="set status=published (default: draft)")
+    p_ap.add_argument("--force", action="store_true", help="approve even if a matching RFQ is already live")
+    _add_edit_args(p_ap)
 
     p_ed = sub.add_parser("edit")
     p_ed.add_argument("draft_id", type=int)
-    p_ed.add_argument("--title"); p_ed.add_argument("--process"); p_ed.add_argument("--material")
-    p_ed.add_argument("--qty", type=float); p_ed.add_argument("--unit")
-    p_ed.add_argument("--budget-low", dest="budget_low", type=float)
-    p_ed.add_argument("--budget-high", dest="budget_high", type=float)
-    p_ed.add_argument("--days", type=int); p_ed.add_argument("--sector"); p_ed.add_argument("--description")
+    _add_edit_args(p_ed)
 
-    p_rj = sub.add_parser("reject"); p_rj.add_argument("draft_id", type=int)
+    p_rj = sub.add_parser("reject")
+    p_rj.add_argument("draft_id", type=int)
+    p_rj.add_argument("--reason", default="")
+
+    p_pb = sub.add_parser("status", help="change an rfq row's status")
+    p_pb.add_argument("rfq_id", type=int)
+    p_pb.add_argument("status", choices=list(workflow.RFQ_STATUSES))
     return ap
 
 
 _HANDLERS = {
     "list": cmd_list, "show": cmd_show, "approve": cmd_approve,
-    "edit": cmd_edit, "reject": cmd_reject,
+    "edit": cmd_edit, "reject": cmd_reject, "status": cmd_publish,
 }
 
 

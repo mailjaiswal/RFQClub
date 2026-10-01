@@ -76,7 +76,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             onClick={() => setTheme(dark ? "light" : "dark")}>
             {SUN}{MOON}
           </button>
-          <Link className="ap-post" href="/how-it-works">Post an RFQ</Link>
+          <Link className="ap-post" href="/post">Post an RFQ</Link>
         </div>
       </div>
 
@@ -100,6 +100,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 <svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z" /></svg>Saved
                 <span className="cnt">{counts.saved}</span>
               </button>
+              {mounted && user?.role === "operator" && (
+                <Link href="/review" className={pathname === "/review" ? "on" : ""}>
+                  <svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8" /><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" /></svg>Review queue
+                </Link>
+              )}
             </div>
 
             <div className="ap-lbl grp">Learn</div>
@@ -116,7 +121,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <h4>How to post</h4>
               <div className="ap-po">
                 <span className="l"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>Post an RFQ</span>
-                <Link className="c" href="/how-it-works">Open form →</Link>
+                <Link className="c" href="/post">Open form →</Link>
               </div>
               <div className="ap-po">
                 <span className="l"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.5-1.1a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z" /></svg>Speak to us</span>

@@ -10,7 +10,7 @@ export default function HowItWorksPage() {
         <Link className="lnk" href="/board">Board</Link>
         <Link className="lnk" href="/how-it-works">How it works</Link>
         <span className="sp" />
-        <Link className="post" href="/board">Post an RFQ</Link>
+        <Link className="post" href="/post">Post an RFQ</Link>
       </div>
 
       <div className="dm-hero">
@@ -39,7 +39,7 @@ export default function HowItWorksPage() {
           <div className="dm-ic"><div className="ic" style={{ background: "rgba(63,67,151,.12)" }}><svg viewBox="0 0 24 24" style={{ stroke: "#3F4397" }}><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg></div><b>Voice note</b><span>Hinglish &amp; vernacular speech-to-text.</span></div>
           <div className="dm-ic"><div className="ic" style={{ background: "rgba(198,92,30,.12)" }}><svg viewBox="0 0 24 24" style={{ stroke: "#C65C1E" }}><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="m21 16-5-5-7 7" /></svg></div><b>Drawing / PDF</b><span>Photo or scan → OCR the title block.</span></div>
           <div className="dm-ic"><div className="ic" style={{ background: "rgba(30,108,120,.12)" }}><svg viewBox="0 0 24 24" style={{ stroke: "#1E6C78" }}><path d="M13 2 3 14h7l-1 8 10-12h-7z" /></svg></div><b>Forwarded msg</b><span>Chained forwards de-duplicated &amp; parsed.</span></div>
-          <div className="dm-ic"><div className="ic" style={{ background: "rgba(58,58,58,.1)" }}><svg viewBox="0 0 24 24" style={{ stroke: "#3A3A3A" }}><path d="M12 5v14M5 12h14" /></svg></div><b>Web form</b><span>Or fill the “Post an RFQ” form directly.</span></div>
+          <div className="dm-ic"><div className="ic" style={{ background: "rgba(58,58,58,.1)" }}><svg viewBox="0 0 24 24" style={{ stroke: "#3A3A3A" }}><path d="M12 5v14M5 12h14" /></svg></div><b>Web form</b><span>Or fill the <Link href="/post" style={{ textDecoration: "underline" }}>“Post an RFQ”</Link> form directly.</span></div>
         </div>
       </section>
 

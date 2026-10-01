@@ -8,6 +8,28 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
 ## [Unreleased]
 
 ### Added
+- **Concierge review workflow — the human gate in front of the board**
+  (`api/workflow.py`). A single service is shared by the `review.py` CLI and new
+  operator HTTP endpoints (`/api/operator/queue`, `/api/operator/drafts/{id}/approve`,
+  `/reject`, `/api/operator/rfqs/{id}/status`), so the two can never drift apart.
+  It converges the two kinds of work-in-progress — Telegram/web `pending_draft`
+  intake and unpublished `rfq` rows — into one queue, lets an operator correct any
+  field while approving, makes **publishing an explicit action**, refuses duplicate
+  titles unless forced, freezes awarded RFQs, and records who reviewed each draft
+  (new `pending_draft` columns `user_id`/`source`/`reviewed_by`/`reject_reason`,
+  added by the same idempotent startup migration).
+- **Web "Post an RFQ" form** at `/post` (`POST /api/rfqs/intake`) — the intake path
+  the how-it-works page already advertised but that never existed. It files a review
+  draft (never a live board row), asks the buyer to clarify what's missing, and
+  surfaces status under **My RFQs → In concierge review** (`GET /api/auth/my/submissions`).
+- A concierge **review queue** UI at `/review` (approve & publish / approve as draft /
+  reject with reason / publish · close unpublished RFQs), operator-gated navigation in
+  the app rail, and a **Concierge / staff** role claim on the login screen.
+- **Authorization hardening:** the unblinded supplier-name endpoint
+  (`GET /api/admin/rfqs/{id}/bids`) is now **operator-only** (it was public), the
+  `operator` role can only be claimed by an email listed in `OPERATOR_EMAILS`
+  (empty allowlist keeps the demo self-service), and `require_operator` guards every
+  concierge action.
 - **Real email delivery** for sign-in codes and password-reset links
   (`api/mailer.py`). **Resend** over HTTPS (`httpx`, already a dependency) when
   `RESEND_API_KEY` is set, otherwise **SMTP** via stdlib `smtplib` (STARTTLS or

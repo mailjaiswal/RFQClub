@@ -4,6 +4,10 @@ Public (supplier/board) endpoints serve published RFQs and accept bids.
 Buyer compare endpoint is blinded: it returns bidder codes, landed cost, lead,
 terms, capability tags and hub city + distance, but never the supplier's name
 until the RFQ is awarded (award flips revealed=True).
+
+The concierge review workflow (`/api/operator/*`, plus the web intake form
+`/api/rfqs/intake`) is the human gate in front of the board; the rules live in
+`workflow.py`, which the `review.py` CLI shares.
 """
 from __future__ import annotations
 from datetime import datetime, timedelta, timezone
@@ -16,12 +20,14 @@ from sqlalchemy.orm import Session
 import config
 import db
 import bootstrap
+import draft_util
 import models
 import sectors
 import util
+import workflow
 import profile_data
-from auth import router as auth_router, optional_user, require_user
-from schemas import BidCreate, RfqCreate, AwardIn
+from auth import router as auth_router, optional_user, require_user, require_operator
+from schemas import ApproveIn, AwardIn, BidCreate, IntakeIn, RejectIn, RfqCreate, RfqStatusIn
 
 app = FastAPI(title="RFQClub API", version="0.1.0")
 app.add_middleware(
@@ -266,8 +272,9 @@ def list_bids(rfq_id: int, db: Session = Depends(db.get_db)):
 
 
 @app.get("/api/admin/rfqs/{rfq_id}/bids")
-def admin_bids(rfq_id: int, db: Session = Depends(db.get_db)):
-    """Unblinded list for the operator/concierge."""
+def admin_bids(rfq_id: int, db: Session = Depends(db.get_db), operator: models.User = Depends(require_operator)):
+    """Unblinded list for the operator/concierge — signed-in operator only, since
+    it exposes supplier identities the buyer must not see before an award."""
     bids = db.query(models.Bid).filter(models.Bid.rfq_id == rfq_id).all()
     out = []
     for b in bids:
@@ -351,7 +358,8 @@ def create_bid(rfq_id: int, payload: BidCreate, db: Session = Depends(db.get_db)
 
 @app.post("/api/rfqs", status_code=201)
 def create_rfq(payload: RfqCreate, db: Session = Depends(db.get_db), user: models.User | None = Depends(optional_user)):
-    """Self-serve / concierge-created RFQ. Lands as a draft unless published."""
+    """Structured RFQ record. Lands as a **draft** — it only reaches the board once
+    a concierge publishes it (`POST /api/operator/rfqs/{id}/status`)."""
     now = datetime.now(timezone.utc)
     rfq = models.Rfq(
         title=payload.title, sector_key=payload.sector_key or sectors.classify(payload.process, payload.title, payload.material),
@@ -367,7 +375,91 @@ def create_rfq(payload: RfqCreate, db: Session = Depends(db.get_db), user: model
     )
     db.add(rfq)
     db.commit()
-    return {"ok": True, "id": rfq.id, "code": rfq.code, "status": rfq.status}
+    return {"ok": True, "id": rfq.id, "code": rfq.code, "status": rfq.status, "next": "awaiting concierge review"}
+
+
+@app.post("/api/rfqs/intake", status_code=201)
+def intake_rfq(payload: IntakeIn, db: Session = Depends(db.get_db), user: models.User = Depends(require_user)):
+    """The web "Post an RFQ" form. Nothing reaches the board from here — this files
+    a review draft, which a concierge structures, corrects and publishes."""
+    title = payload.title.strip()
+    sector_key = payload.sector_key.strip() or sectors.classify(payload.process, title, payload.material)
+    clarify = []
+    if payload.qty is None:
+        clarify.append("Confirm quantity and unit (pcs / kg / sets).")
+    if not payload.material.strip():
+        clarify.append("Which grade / material specification applies?")
+    if not payload.process.strip():
+        clarify.append("Which process should shops quote against (machining, casting, fabrication…)?")
+    if payload.budget_low is None:
+        clarify.append("Is there an indicative budget, or should we route it open?")
+    parsed = draft_util.normalize_fields({
+        "title": title, "process": payload.process, "material": payload.material,
+        "qty": payload.qty, "unit": payload.unit or "pcs",
+        "low": payload.budget_low, "high": payload.budget_high,
+        # a form without a deadline still needs one, so the board never shows a
+        # permanently open listing; the concierge can adjust it during review
+        "closes_in_days": payload.closes_in_days if payload.closes_in_days is not None else 14,
+        "sector_key": sector_key, "description": payload.description, "hub_city": payload.hub_city,
+        "clarify": clarify,
+    })
+    # Self-declared form answers are trustworthy; anything left blank is marked low
+    # so it surfaces in the queue as needing a human look.
+    confidence = {"title": 1.0}
+    for key, val in (("process", payload.process), ("material", payload.material),
+                     ("qty", payload.qty), ("low", payload.budget_low)):
+        confidence[key] = 1.0 if val not in (None, "") else 0.4
+    draft = draft_util.create_draft(db, raw_text=payload.description or title, parsed=parsed,
+                                    confidence=confidence, user_id=user.id, source="web")
+    return {"ok": True, "draft_id": draft.id, "status": "in_review",
+            "sector_label": sectors.label(sector_key), "clarify": clarify}
+
+
+# ---------- concierge review workflow (operator only) ----------
+@app.get("/api/operator/queue")
+def operator_queue(
+    reviewed: int = Query(8, ge=0, le=50),
+    db: Session = Depends(db.get_db),
+    operator: models.User = Depends(require_operator),
+):
+    """Everything awaiting a human: intake drafts + unpublished RFQ records, plus a
+    short trail of recently reviewed drafts."""
+    return workflow.queue(db, include_reviewed=reviewed)
+
+
+@app.post("/api/operator/drafts/{draft_id}/approve")
+def operator_approve(draft_id: int, payload: ApproveIn, db: Session = Depends(db.get_db),
+                     operator: models.User = Depends(require_operator)):
+    """Accept an intake draft (optionally correcting fields) and create the RFQ.
+    `publish=True` puts it straight on the board; otherwise it stays a draft."""
+    try:
+        edits = payload.edits.model_dump(exclude_unset=True) if payload.edits else None
+        draft, rfq = workflow.approve_draft(db, draft_id, edits=edits, publish=payload.publish,
+                                            actor=operator, force=payload.force)
+    except workflow.WorkflowError as exc:
+        raise HTTPException(exc.status, str(exc))
+    return {"ok": True, "draft_id": draft.id, "status": rfq.status, "rfq": _card(rfq)}
+
+
+@app.post("/api/operator/drafts/{draft_id}/reject")
+def operator_reject(draft_id: int, payload: RejectIn, db: Session = Depends(db.get_db),
+                    operator: models.User = Depends(require_operator)):
+    try:
+        draft = workflow.reject_draft(db, draft_id, reason=payload.reason, actor=operator)
+    except workflow.WorkflowError as exc:
+        raise HTTPException(exc.status, str(exc))
+    return {"ok": True, "draft_id": draft.id, "status": draft.status}
+
+
+@app.post("/api/operator/rfqs/{rfq_id}/status")
+def operator_rfq_status(rfq_id: int, payload: RfqStatusIn, db: Session = Depends(db.get_db),
+                        operator: models.User = Depends(require_operator)):
+    """Publish, un-publish (back to draft) or close an existing RFQ record."""
+    try:
+        rfq = workflow.set_rfq_status(db, rfq_id, payload.status, actor=operator)
+    except workflow.WorkflowError as exc:
+        raise HTTPException(exc.status, str(exc))
+    return {"ok": True, "rfq": _card(rfq), "status": rfq.status}
 
 
 @app.post("/api/rfqs/{rfq_id}/award")
@@ -401,6 +493,28 @@ def my_rfqs(db: Session = Depends(db.get_db), user: models.User = Depends(requir
     )
     sids = _saved_ids(db, user)
     return {"count": len(rows), "items": [_card(r, sids) for r in rows]}
+
+
+@app.get("/api/auth/my/submissions")
+def my_submissions(db: Session = Depends(db.get_db), user: models.User = Depends(require_user)):
+    """This account's web intakes and where each stands in concierge review — the
+    buyer-side answer to "where is the RFQ I posted?"."""
+    rows = (db.query(models.PendingDraft).filter(models.PendingDraft.user_id == user.id)
+            .order_by(models.PendingDraft.id.desc()).all())
+    idx = workflow.title_index(db)
+    items = []
+    for d in rows:
+        out = workflow.draft_out(db, d, idx)
+        f = out["fields"]
+        items.append({
+            "draft_id": out["id"], "status": out["status"], "source": out["source"],
+            "created_at": out["created_at"], "reviewed_at": out["reviewed_at"],
+            "reject_reason": out["reject_reason"], "clarify": f["clarify"],
+            "title": f["title"], "sector_label": f["sector_label"],
+            "budget_display": f["budget_display"], "qty": f["qty"], "unit": f["unit"],
+            "duplicate_of": out["duplicate_of"],
+        })
+    return {"count": len(items), "items": items}
 
 
 @app.get("/api/auth/my/bids")

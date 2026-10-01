@@ -22,6 +22,7 @@ export function middleware(req: NextRequest) {
 
 // Only these app routes are protected. Public: / (landing), /login,
 // /how-it-works, /api (Vercel rewrites), and all static assets.
+// (/review is additionally operator-only — enforced by the API, not here.)
 export const config = {
-  matcher: ["/board/:path*", "/rfq/:path*", "/bid/:path*", "/my-rfqs/:path*"],
+  matcher: ["/board/:path*", "/rfq/:path*", "/bid/:path*", "/my-rfqs/:path*", "/post/:path*", "/review/:path*"],
 };

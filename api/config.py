@@ -63,6 +63,16 @@ SMTP_SECURITY = os.getenv("SMTP_SECURITY", "starttls").strip().lower()
 # Public web origin, used to build password-reset links sent by email.
 WEB_BASE_URL = os.getenv("WEB_BASE_URL", "https://rfqclub-web.vercel.app").strip().rstrip("/")
 
+# Emails allowed to take the concierge/operator role (review + publish RFQs).
+# Comma-separated. When empty, any signed-in account may claim operator — which is
+# what makes the demo review queue reachable without a deploy-time config step; set
+# this list for real deployments and the role becomes strictly allowlisted.
+OPERATOR_EMAILS = {e.strip().lower() for e in os.getenv("OPERATOR_EMAILS", "").split(",") if e.strip()}
+
+
+def is_operator_email(email: str) -> bool:
+    return (email or "").strip().lower() in OPERATOR_EMAILS
+
 LLM_ENABLED = os.getenv("LLM_ENABLED", "false").lower() in ("1", "true", "yes")
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "").strip()

@@ -333,3 +333,118 @@ export function getMyRfqs(token?: string | null): Promise<MyRfqsResponse> {
 export function getMyBids(token?: string | null): Promise<MyBidsResponse> {
   return req("/api/auth/my/bids", undefined, token ?? null);
 }
+
+// ---- Web intake ("Post an RFQ") + concierge review workflow ----
+// The web form never posts straight to the board — it files a draft that a
+// concierge must approve. Publishing therefore requires an operator account
+// (see api/workflow.py + the operator-only /api/operator/* endpoints).
+export interface IntakePayload {
+  title: string;
+  description?: string;
+  process?: string;
+  material?: string;
+  qty?: number | null;
+  unit?: string;
+  budget_low?: number | null;
+  budget_high?: number | null;
+  closes_in_days?: number | null;
+  sector_key?: string;
+  hub_city?: string;
+}
+
+export interface IntakeResult {
+  ok: boolean;
+  draft_id: number;
+  status: string; // always "in_review"
+  sector_label: string;
+  clarify: string[];
+}
+
+export function intakeRfq(payload: IntakePayload): Promise<IntakeResult> {
+  return req("/api/rfqs/intake", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export interface SubmissionItem {
+  draft_id: number;
+  status: string; // PENDING | APPROVED | REJECTED
+  source: string;
+  created_at: string | null;
+  reviewed_at: string | null;
+  reject_reason: string;
+  clarify: string[];
+  title: string;
+  sector_label: string;
+  budget_display: string;
+  qty: number | null;
+  unit: string;
+  duplicate_of: { id: number; code: string; title: string } | null;
+}
+
+export interface SubmissionsResponse {
+  count: number;
+  items: SubmissionItem[];
+}
+
+export function getMySubmissions(token?: string | null): Promise<SubmissionsResponse> {
+  return req("/api/auth/my/submissions", undefined, token ?? null);
+}
+
+// Serialized intake draft (mirrors workflow.draft_out).
+export interface ReviewDraft {
+  id: number;
+  status: string;
+  source: string;
+  created_at: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string;
+  reject_reason: string;
+  raw_text: string;
+  fields: {
+    title: string; process: string; material: string;
+    qty: number | null; unit: string; low: number | null; high: number | null;
+    closes_in_days: number | null; sector_key: string; sector_label: string;
+    description: string; notes: string; hub_city: string;
+    clarify: string[]; budget_display: string;
+  };
+  confidence: Record<string, number>;
+  low_confidence: string[];
+  duplicate_of: { id: number; code: string; title: string } | null;
+}
+
+export interface ReviewQueue {
+  pending: ReviewDraft[];
+  recently_reviewed: ReviewDraft[];
+  rfq_drafts: RfqCard[];
+  counts: { pending: number; rfq_drafts: number; published: number };
+}
+
+export interface ReviewEdits {
+  title?: string | null;
+  process?: string | null;
+  material?: string | null;
+  qty?: number | null;
+  unit?: string | null;
+  low?: number | null;
+  high?: number | null;
+  closes_in_days?: number | null;
+  sector_key?: string | null;
+  description?: string | null;
+  notes?: string | null;
+  hub_city?: string | null;
+}
+
+export function getOperatorQueue(reviewed = 8, token?: string | null): Promise<ReviewQueue> {
+  return req<ReviewQueue>(`/api/operator/queue?reviewed=${reviewed}`, undefined, token ?? null);
+}
+
+export function approveDraft(draftId: number, body: { edits?: ReviewEdits; publish?: boolean; force?: boolean }): Promise<{ ok: boolean; draft_id: number; status: string; rfq: RfqCard }> {
+  return req(`/api/operator/drafts/${draftId}/approve`, { method: "POST", body: JSON.stringify(body) });
+}
+
+export function rejectDraft(draftId: number, reason: string): Promise<{ ok: boolean; draft_id: number; status: string }> {
+  return req(`/api/operator/drafts/${draftId}/reject`, { method: "POST", body: JSON.stringify({ reason }) });
+}
+
+export function setRfqStatus(rfqId: number, status: "published" | "draft" | "closed"): Promise<{ ok: boolean; rfq: RfqCard; status: string }> {
+  return req(`/api/operator/rfqs/${rfqId}/status`, { method: "POST", body: JSON.stringify({ status }) });
+}

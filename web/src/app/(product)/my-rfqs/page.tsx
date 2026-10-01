@@ -3,8 +3,10 @@ import {
   getBoard,
   getMyBids,
   getMyRfqs,
+  getMySubmissions,
   type MyBidItem,
   type RfqCard,
+  type SubmissionItem,
 } from "@/lib/api";
 import { reqToken } from "@/lib/server-token";
 
@@ -27,22 +29,36 @@ const BID_CLS: Record<MyBidItem["status"], string> = {
   Closed: "closed",
 };
 
+const SUB_CLS: Record<string, string> = {
+  PENDING: "open",
+  APPROVED: "bids",
+  REJECTED: "closed",
+};
+const SUB_LABEL: Record<string, string> = {
+  PENDING: "In review",
+  APPROVED: "Approved",
+  REJECTED: "Not published",
+};
+
 export default async function MyRfqsPage() {
   const token = await reqToken();
   let items: RfqCard[] = [];
   let bids: MyBidItem[] = [];
+  let submissions: SubmissionItem[] = [];
   let personal = false;
 
   try {
     if (token) {
       // Signed in: show this user's own posts + bids (empty until they act).
-      const [mine, mineBids] = await Promise.all([
+      const [mine, mineBids, mineSubs] = await Promise.all([
         getMyRfqs(token),
         getMyBids(token).catch(() => null),
+        getMySubmissions(token).catch(() => null),
       ]);
       personal = true;
       items = mine.items;
       bids = mineBids?.items ?? [];
+      submissions = mineSubs?.items ?? [];
     } else {
       // Anonymous demo: representative set from the live board.
       const [board, awarded] = await Promise.all([
@@ -58,6 +74,7 @@ export default async function MyRfqsPage() {
     personal = false;
     items = [];
     bids = [];
+    submissions = [];
   }
 
   return (
@@ -82,6 +99,39 @@ export default async function MyRfqsPage() {
             <b>Demo buyer view.</b> Showing {items.length} representative RFQs from the live board —{" "}
             <Link href="/login" style={{ textDecoration: "underline" }}>sign in</Link> to track your own posts and bids.
           </div>
+        )}
+
+        {personal && submissions.length > 0 && (
+          <>
+            <div className="mr-head" style={{ marginTop: 26 }}>
+              <h1>In concierge review</h1>
+              <p>Requirements you filed that a concierge is still structuring — they aren&apos;t on the board yet.</p>
+            </div>
+            <div className="mr-table">
+              <div className="mr-row mr-hd">
+                <span>Filed</span><span>Requirement</span><span>Status</span><span className="r">Action</span>
+              </div>
+              {submissions.map((s) => (
+                <div className="mr-row" key={s.draft_id}>
+                  <span className="mono">#{s.draft_id}</span>
+                  <span className="mr-title">
+                    <span className="mr-sec">{s.sector_label}</span>
+                    <span>{s.title || "(untitled)"}</span>
+                  </span>
+                  <span>
+                    <em className={`mr-st ${SUB_CLS[s.status] ?? "open"}`}>{SUB_LABEL[s.status] ?? s.status}</em>
+                    {s.status === "REJECTED" && s.reject_reason && (
+                      <span className="muted" style={{ display: "block", fontSize: 11.5, marginTop: 3 }}>{s.reject_reason}</span>
+                    )}
+                  </span>
+                  <span className="r mr-act">
+                    {s.duplicate_of && <span className="muted" style={{ fontSize: 11 }}>dup of {s.duplicate_of.code}</span>}
+                    <Link className="mr-post" href="/post">New +</Link>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </>
         )}
 
         <div className="mr-table">
@@ -115,7 +165,7 @@ export default async function MyRfqsPage() {
         )}
         {items.length === 0 && personal && (
           <div className="card" style={{ textAlign: "center", color: "var(--muted)" }}>
-            You haven't posted an RFQ yet — <Link href="/how-it-works" style={{ textDecoration: "underline" }}>post your first requirement</Link>.
+            You haven't posted an RFQ yet — <Link href="/post" style={{ textDecoration: "underline" }}>post your first requirement</Link>.
           </div>
         )}
 

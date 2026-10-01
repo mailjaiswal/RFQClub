@@ -40,3 +40,51 @@ class RfqCreate(BaseModel):
 
 class AwardIn(BaseModel):
     bid_id: int
+
+
+# ---- concierge review workflow ----
+class IntakeIn(BaseModel):
+    """The web "Post an RFQ" form. Lands in the review queue, never straight on
+    the board — publishing requires a concierge (see workflow.approve_draft)."""
+    title: str = Field(min_length=4, max_length=200)
+    description: str = Field(default="", max_length=4000)
+    process: str = Field(default="", max_length=200)
+    material: str = Field(default="", max_length=200)
+    qty: float | None = Field(default=None, gt=0)
+    unit: str = Field(default="", max_length=40)
+    budget_low: float | None = Field(default=None, ge=0)
+    budget_high: float | None = Field(default=None, ge=0)
+    closes_in_days: int | None = Field(default=None, ge=0, le=365)
+    sector_key: str = Field(default="", max_length=20)
+    hub_city: str = Field(default="", max_length=80)
+
+
+class ReviewEdits(BaseModel):
+    """Field corrections an operator makes while reviewing. Only the keys sent are
+    applied; a null on qty/low/high/closes_in_days clears that field."""
+    title: str | None = None
+    process: str | None = None
+    material: str | None = None
+    qty: float | None = None
+    unit: str | None = None
+    low: float | None = None
+    high: float | None = None
+    closes_in_days: int | None = None
+    sector_key: str | None = None
+    description: str | None = None
+    notes: str | None = None
+    hub_city: str | None = None
+
+
+class ApproveIn(BaseModel):
+    edits: ReviewEdits | None = None
+    publish: bool = True
+    force: bool = False  # approve despite a matching RFQ already being live
+
+
+class RejectIn(BaseModel):
+    reason: str = Field(default="", max_length=500)
+
+
+class RfqStatusIn(BaseModel):
+    status: str = Field(pattern="^(published|draft|closed)$")

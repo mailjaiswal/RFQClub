@@ -160,5 +160,11 @@ class PendingDraft(Base):
     confidence: Mapped[dict] = mapped_column(JSON, default=dict)
     source_chat_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     source_msg_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Review-trail additions (concierge gate): who submitted it, where it came
+    # from, and who acted on it with what reason.
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("user.id"), nullable=True, index=True)
+    source: Mapped[str] = mapped_column(String, default="telegram")  # telegram|web|cli
+    reviewed_by: Mapped[str] = mapped_column(String, default="")  # operator email
+    reject_reason: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

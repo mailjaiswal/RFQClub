@@ -1,0 +1,237 @@
+/* Concierge review queue (/review) + web intake (/post) — scoped under .app so
+   they inherit the product shell's tokens and dark-mode flip. */
+.app .rv-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 22px;
+  align-items: start;
+  margin-top: 18px;
+}
+.app .rv-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.app .rv-draft,
+.app .rv-rfq {
+  margin: 0 0 16px;
+}
+.app .rv-dhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.app .rv-badge {
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 999px;
+}
+.app .rv-src {
+  font-size: 10.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.app .rv-title {
+  font-family: var(--font-fraunces), serif;
+  font-weight: 600;
+  font-size: 19px;
+  letter-spacing: -.3px;
+  color: var(--ink);
+  margin: 2px 0 12px;
+}
+.app .rv-title.sm {
+  font-size: 15px;
+  margin: 0 0 10px;
+}
+.app .rv-title a {
+  color: inherit;
+  text-decoration: none;
+}
+.app .rv-title a:hover {
+  text-decoration: underline;
+}
+.app .rv-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 14px;
+  font-size: 12.5px;
+  color: var(--subtle);
+}
+.app .rv-grid span {
+  color: var(--muted);
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  align-self: center;
+}
+.app .rv-grid b {
+  color: var(--ink);
+  font-weight: 600;
+}
+.app .rv-warn {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #9A6414;
+  background: rgba(154, 100, 20, .1);
+  border: 1px solid rgba(154, 100, 20, .28);
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+.app .rv-warn.dup {
+  color: #B23A2B;
+  background: rgba(178, 58, 43, .09);
+  border-color: rgba(178, 58, 43, .26);
+}
+.app .rv-warn a {
+  color: inherit;
+  text-decoration: underline;
+  font-weight: 600;
+}
+.app .rv-clarify {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.app .rv-clarify span {
+  font-size: 11px;
+  color: var(--subtle);
+  background: #EFEBE0;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+.app .rv-rawtoggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 12px;
+  padding: 0;
+  text-decoration: underline;
+}
+.app .rv-raw {
+  margin-top: 8px;
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 11.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  color: var(--subtle);
+  background: #EFEBE0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  max-height: 220px;
+  overflow: auto;
+}
+.app .rv-edits {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--hairline);
+}
+.app .rv-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.app .rv-actions .btn {
+  padding: 8px 14px;
+  font-size: 12.5px;
+}
+.app .rv-reject {
+  margin-top: 8px;
+  align-items: stretch;
+}
+.app .rv-reject .field {
+  flex: 1;
+  min-width: 0;
+}
+.app .rv-acts {
+  display: flex;
+  gap: 6px;
+}
+.app .rv-recent {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11.5px;
+  padding: 4px 0;
+  border-top: 1px solid var(--hairline);
+}
+.app .rv-recent:first-child {
+  border-top: none;
+}
+.app .rv-recent b {
+  font-family: var(--font-jetbrains), monospace;
+  font-size: 9px;
+  letter-spacing: .4px;
+  color: var(--muted);
+  min-width: 66px;
+}
+.app .rv-rt {
+  flex: 1;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app .rv-rb {
+  color: var(--muted);
+  font-size: 10px;
+}
+.app .rv-post-note {
+  font-size: 12.5px;
+  color: var(--subtle);
+}
+.app .mr-post {
+  border: none;
+  border-radius: 999px;
+  background: #2A2C33;
+  color: #fff;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.app .mr-post:hover {
+  background: #1D1C19;
+}
+
+@media (max-width: 900px) {
+  .app .rv-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* dark-mode flip */
+.app.dark .rv-draft,
+.app.dark .rv-rfq {
+  background: #1b1b1f;
+  border-color: #3a3a42;
+}
+.app.dark .rv-title,
+.app.dark .rv-grid b,
+.app.dark .rv-rt {
+  color: #F2F0E9;
+}
+.app.dark .rv-raw,
+.app.dark .rv-clarify span {
+  background: #232327;
+  color: #b9b6ad;
+  border-color: #3a3a42;
+}
+.app.dark .mr-post,
+.app.dark .btn-dark {
+  background: #ECEAE3;
+  color: #141416;
+}

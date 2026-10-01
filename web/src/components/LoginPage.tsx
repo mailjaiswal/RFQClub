@@ -376,6 +376,11 @@ function Inner() {
                 <span>Browse the board, watch sectors, quote on the work your shop makes.</span>
               </button>
             </div>
+            <button className="lg-role lg-role-staff" disabled={busy} onClick={() => chooseRole("operator")}>
+              <b>Concierge / staff</b>
+              <span>Review incoming requirements and publish them to the board. Only works if this account is
+                allowlisted (or the demo allows any staff claim).</span>
+            </button>
             {error && <div className="lg-err">⚠ {error}</div>}
           </>
         )}

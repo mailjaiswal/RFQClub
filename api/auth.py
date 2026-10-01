@@ -295,6 +295,14 @@ def require_user(user: models.User | None = Depends(optional_user)) -> models.Us
     return user
 
 
+def require_operator(user: models.User = Depends(require_user)) -> models.User:
+    """Concierge gate for the review queue. The role itself can only be claimed by
+    an allowlisted email once OPERATOR_EMAILS is configured (see set_role)."""
+    if (user.role or "").strip().lower() != "operator":
+        raise HTTPException(403, "Concierge access only — this account is not an operator")
+    return user
+
+
 def _user_out(u: models.User) -> dict:
     return {"id": u.id, "email": u.email, "name": u.name or "", "role": u.role,
             "has_password": bool(u.password_hash),
@@ -493,6 +501,8 @@ def set_role(payload: RoleIn, user: models.User = Depends(require_user), session
     role = (payload.role or "").strip().lower()
     if role not in ROLES:
         raise HTTPException(400, f"role must be one of {', '.join(ROLES)}")
+    if role == "operator" and config.OPERATOR_EMAILS and not config.is_operator_email(user.email):
+        raise HTTPException(403, "This account can't take the operator role — it must be listed in OPERATOR_EMAILS")
     user.role = role
     session.commit()
     # role is embedded in the token — issue a fresh one
