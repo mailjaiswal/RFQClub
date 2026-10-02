@@ -20,7 +20,7 @@ const LEGEND: { key: string; label: string; color: string }[] = [
 function sortItems(items: RfqCard[], sort: Sort): RfqCard[] {
   const c = [...items];
   if (sort === "value") c.sort((a, b) => (b.est_total ?? 0) - (a.est_total ?? 0));
-  else if (sort === "bidcount") c.sort((a, b) => b.bid_count - a.bid_count);
+  else if (sort === "bidcount") c.sort((a, b) => b.bids_received - a.bids_received);
   else c.sort((a, b) => (a.closes_in_days ?? 1e9) - (b.closes_in_days ?? 1e9));
   return c;
 }

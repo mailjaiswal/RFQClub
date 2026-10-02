@@ -116,7 +116,7 @@ export default function CompareBids({ data }: { data: BidsResponse }) {
             </div>
           </div>
           <div className="cmp-trust">
-            <div className="cmp-count"><b>{bids.length}</b> of ≤{rfq.routing_cap} bids</div>
+            <div className="cmp-count"><b>{bids.length}</b> of ≤{rfq.routing_cap} bids{rfq.bids_received > bids.length ? ` · ${rfq.bids_received} received` : ""}</div>
             <span className="cmp-lock">🔒 Comparison locked · suppliers cannot see each other's prices</span>
             {awardedId != null ? (
               <span className="cmp-blind done">🏆 Awarded — unsuccessful suppliers stay blinded</span>

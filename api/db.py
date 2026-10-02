@@ -37,6 +37,7 @@ def init_db():
     Base.metadata.create_all(engine)
     _ensure_user_columns()
     _ensure_draft_columns()
+    _ensure_rfq_columns()
 
 
 def _ensure_columns(table: str, add: dict[str, str], indexes: tuple[tuple[str, str], ...] = ()) -> None:
@@ -82,3 +83,10 @@ def _ensure_draft_columns():
          "reviewed_by": "VARCHAR DEFAULT ''", "reject_reason": "TEXT DEFAULT ''"},
         (("ix_pending_draft_user_id", "user_id"),),
     )
+
+
+def _ensure_rfq_columns():
+    """Board demand column: `demand_bids` = the real bids-received figure shown
+    on the board, kept separate from `bid_count` (the <=5 blinded quotes the
+    compare screen can actually reveal)."""
+    _ensure_columns("rfq", {"demand_bids": "INTEGER DEFAULT 0"})

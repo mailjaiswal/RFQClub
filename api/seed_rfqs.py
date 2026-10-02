@@ -153,6 +153,7 @@ def _seed_from_workbook(session) -> int:
         except Exception:
             rid = None
         sector_key = classify(process, title, material)
+        real_bids = int(get(r, "Bids") or 0)
         rfq = models.Rfq(
             title=title,
             sector_key=sector_key,
@@ -167,7 +168,8 @@ def _seed_from_workbook(session) -> int:
             est_total=get(r, "Est. Total (native)"),
             closes_in_days=days,
             closes_at=(now + timedelta(days=days) if days is not None else None),
-            bid_count=int(get(r, "Bids") or 0),
+            bid_count=min(real_bids, 5),   # blinded quotes the compare can show (<= cap)
+            demand_bids=real_bids,          # real bids-received shown on the board
             description=title,
             routing_cap=5,
             status="published",
@@ -212,10 +214,12 @@ _DEMO_BID = [
 
 
 def seed_demo_bids(session, n_rfqs: int | None = None):
-    """Give every RFQ whose workbook bid_count is >0 that many REAL blinded
-    bids (capped at the 5-shop routing cap), rotating which demo supplier wins
-    so comparisons vary. bid_count is then set to the number actually created,
-    so the board never advertises bids that the compare screen can't show."""
+    """Give every RFQ that saw real interest up to that many REAL blinded bids
+    (capped at the 5-shop routing cap), rotating which demo supplier wins so
+    comparisons vary. `bid_count` is set to the number of bids actually created
+    (the quotes the compare screen can show), while `demand_bids` keeps the true
+    bids-received figure the board advertises — so the two are intentionally
+    different once interest exceeds the cap."""
     session.query(models.Supplier).delete()
     session.commit()
     sups = []
@@ -232,7 +236,8 @@ def seed_demo_bids(session, n_rfqs: int | None = None):
     letters = "ABCDE"
     covered = 0
     for j, rfq in enumerate(rfqs):
-        k = max(0, min(int(rfq.bid_count or 0), len(sups)))
+        demand = int(rfq.demand_bids or 0) or int(rfq.bid_count or 0)
+        k = max(0, min(demand, len(sups)))
         if k == 0:
             rfq.bid_count = 0
             continue
@@ -254,6 +259,30 @@ def seed_demo_bids(session, n_rfqs: int | None = None):
         covered += 1
     session.commit()
     return covered
+
+
+def sync_demand_bids(session) -> int:
+    """Non-destructive backfill of `demand_bids` for RFQ rows that predate the
+    column (e.g. a hosted DB that already seeded before this field existed).
+
+    Matches by stable RFQ id against the committed snapshot and only fills rows
+    still at 0, so it never touches user-posted RFQs or real bids. Idempotent."""
+    try:
+        rows = json.loads(SEED_JSON.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return 0
+    wanted = {int(d["id"]): int(d.get("demand_bids") or 0)
+              for d in rows if d.get("id") is not None and int(d.get("demand_bids") or 0)}
+    if not wanted:
+        return 0
+    updated = 0
+    for rfq in session.query(models.Rfq).filter(models.Rfq.id.in_(list(wanted))).all():
+        if not (rfq.demand_bids or 0):
+            rfq.demand_bids = wanted[rfq.id]
+            updated += 1
+    if updated:
+        session.commit()
+    return updated
 
 
 def main():

@@ -7,6 +7,18 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
 
 ## [Unreleased]
 
+### Changed
+- **Board now shows real bids-received, not a flat cap.** Previously every seeded
+  RFQ displayed the same "5 bids" because the demo-bid step clamped `bid_count`
+  to the 5-shop routing cap and the board used that single number. The board now
+  advertises the **true bids-received** figure (recovered per-RFQ from the source
+  workbook's `Bids` column, e.g. 36–41) via a new `Rfq.demand_bids` column, while
+  the compare screen keeps revealing only the **top ≤5 blinded quotes**
+  (`bid_count`). Cards render "N bids · top M quoted", the detail/compare pages
+  note the cap, and the "Most bids" sort uses the received figure. `demand_bids`
+  is added idempotently (`db._ensure_rfq_columns`) and non-destructively
+  backfilled on an already-seeded DB (`bootstrap` → `seed_rfqs.sync_demand_bids`).
+
 ### Fixed
 - **`/login` crash — "Application error: a client-side exception has occurred."**
   The Google Identity Services (GSI) button was injected into the **same DOM node

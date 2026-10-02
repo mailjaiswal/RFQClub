@@ -21,7 +21,7 @@ OUT = Path(__file__).with_name("seed_data") / "rfqs.json"
 FIELDS = [
     "id", "title", "sector_key", "process", "material", "qty", "unit",
     "budget_low", "budget_high", "currency", "budget_status", "est_total",
-    "closes_in_days", "bid_count", "description", "attachments", "clarify",
+    "closes_in_days", "bid_count", "demand_bids", "description", "attachments", "clarify",
     "routing_cap", "status", "issuer_name", "matched_supplier", "spec_notes",
     "tags", "hub_city",
 ]

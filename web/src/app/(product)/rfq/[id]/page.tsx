@@ -117,7 +117,7 @@ export default async function RfqDetailPage({ params }: { params: Promise<{ id: 
                   {bidSlots.map((_, i) => <i key={i} className={i < rfq.bid_count ? "on" : ""} />)}
                 </div>
                 <p className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>
-                  Bids are capped at {rfq.routing_cap} shops. {bidsMeta?.locked ? "Slots are full." : "There may still be room."}
+                  {rfq.bids_received} bid{rfq.bids_received === 1 ? "" : "s"} received · quotes are capped at {rfq.routing_cap} shops. {rfq.bids_received > rfq.quotes_shown ? "Only the top quotes are shown here. " : ""}{bidsMeta?.locked ? "Slots are full." : "There may still be room."}
                 </p>
               </div>
 

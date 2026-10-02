@@ -19,6 +19,14 @@ def ensure_seeded(session=None) -> bool:
     s = session or db.SessionLocal()
     try:
         if s.query(models.Rfq).count() > 0:
+            # Already seeded (e.g. a prod DB that predates the demand_bids
+            # column) — non-destructively backfill it so the board can show the
+            # true bids-received figure. No-op once every row is populated.
+            import seed_rfqs
+
+            n = seed_rfqs.sync_demand_bids(s)
+            if n:
+                print(f"[bootstrap] backfilled demand_bids on {n} RFQs")
             return False
         # Import here: seed_rfqs imports openpyxl, which exists only on the
         # workbook path; keep bootstrap cheap for the startup event.

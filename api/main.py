@@ -102,6 +102,9 @@ def _card(rfq: models.Rfq, saved_ids: set[int] | None = None) -> dict:
         "urgency": util.urgency(rfq.closes_in_days),
         "is_open": util.is_open(rfq.closes_at),
         "bid_count": rfq.bid_count or 0,
+        # board headline = real interest; quotes_shown = blinded bids available
+        "bids_received": (rfq.demand_bids or 0) or (rfq.bid_count or 0),
+        "quotes_shown": rfq.bid_count or 0,
         "routing_cap": rfq.routing_cap,
         "status": rfq.status,
         "tags": rfq.tags or [],
@@ -205,7 +208,7 @@ def list_rfqs(
     if sort == "value":
         query = query.order_by(models.Rfq.est_total.desc().nullslast())
     elif sort == "bidcount":
-        query = query.order_by(models.Rfq.bid_count.desc())
+        query = query.order_by(models.Rfq.demand_bids.desc(), models.Rfq.bid_count.desc())
     else:
         query = query.order_by(models.Rfq.closes_at.asc().nullslast())
     rows = query.all()

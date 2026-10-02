@@ -53,7 +53,7 @@ export default function RfqTile({
     <article className="ap-card">
       <div className="apc-top">
         <span className="ap-id">{rfq.code}</span>
-        <span className="ap-dead"><i style={{ background: dot }} />{dead} · {rfq.bid_count} bids</span>
+        <span className="ap-dead"><i style={{ background: dot }} />{dead} · {rfq.bids_received} bids{rfq.bids_received > rfq.quotes_shown ? ` · top ${rfq.quotes_shown} quoted` : ""}</span>
       </div>
 
       <div className="ap-sec" style={{ color: base }}>

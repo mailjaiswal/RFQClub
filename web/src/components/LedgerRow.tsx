@@ -104,7 +104,7 @@ export default function LedgerRow({
       <div className="ap-action">
         <div className="ap-budget">{rfq.budget.range_display}</div>
         <div className="ap-value">Est. {rfq.est_total_display} order</div>
-        <div className="ap-dead"><i style={{ background: dot }} />{dead} · {rfq.bid_count} bids</div>
+        <div className="ap-dead"><i style={{ background: dot }} />{dead} · {rfq.bids_received} bids{rfq.bids_received > rfq.quotes_shown ? ` · top ${rfq.quotes_shown} quoted` : ""}</div>
         <div className="ap-btns">
           <button
             className={`save${rfq.saved ? " saved" : ""}`}

@@ -14,6 +14,7 @@
   "est_total": 4160000.0,
   "closes_in_days": 3,
   "bid_count": 5,
+  "demand_bids": 38,
   "description": "5-axis machined 6061-T6 aluminium heat sinks — 16,000 pcs",
   "attachments": [],
   "clarify": [],
@@ -42,7 +43,7 @@
   ],
   "hub_city": "Pune",
   "created_ago_days": 1,
-  "closes_in_from_now": 2.9964
+  "closes_in_from_now": 3.0
  },
  {
   "id": 2,
@@ -59,6 +60,7 @@
   "est_total": 2925000.0,
   "closes_in_days": 23,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "Pillar-Mounted 360° Motorized Slewing Jib Crane (2-Ton SWL, 5m Arm Outreach)",
   "attachments": [],
   "clarify": [],
@@ -91,7 +93,7 @@
   ],
   "hub_city": "Pune (Bhosari)",
   "created_ago_days": 2,
-  "closes_in_from_now": 22.9964
+  "closes_in_from_now": 23.0
  },
  {
   "id": 3,
@@ -108,6 +110,7 @@
   "est_total": null,
   "closes_in_days": 43,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "Broached and hobbed 20MnCr5 spur gears — 1,400 pcs",
   "attachments": [],
   "clarify": [],
@@ -132,7 +135,7 @@
   ],
   "hub_city": "Burr Ridge, Illinois",
   "created_ago_days": 3,
-  "closes_in_from_now": 42.9964
+  "closes_in_from_now": 43.0
  },
  {
   "id": 4,
@@ -149,6 +152,7 @@
   "est_total": 3875000.0,
   "closes_in_days": 35,
   "bid_count": 5,
+  "demand_bids": 41,
   "description": "CNC machined hydraulic manifolds — 2,500 pcs",
   "attachments": [],
   "clarify": [],
@@ -177,7 +181,7 @@
   ],
   "hub_city": "Ludhiana",
   "created_ago_days": 4,
-  "closes_in_from_now": 34.9964
+  "closes_in_from_now": 35.0
  },
  {
   "id": 5,
@@ -194,6 +198,7 @@
   "est_total": 11500000.0,
   "closes_in_days": 5,
   "bid_count": 5,
+  "demand_bids": 39,
   "description": "CNC turning centers, surface grinder & captive machine shop package",
   "attachments": [],
   "clarify": [],
@@ -222,7 +227,7 @@
   ],
   "hub_city": "Brownhills (Walsall)",
   "created_ago_days": 5,
-  "closes_in_from_now": 4.9964
+  "closes_in_from_now": 5.0
  },
  {
   "id": 6,
@@ -239,6 +244,7 @@
   "est_total": null,
   "closes_in_days": 26,
   "bid_count": 5,
+  "demand_bids": 38,
   "description": "Precision ground SUJ2 bearing races — 11,500 pcs",
   "attachments": [],
   "clarify": [],
@@ -263,7 +269,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 6,
-  "closes_in_from_now": 25.9964
+  "closes_in_from_now": 26.0
  },
  {
   "id": 7,
@@ -280,6 +286,7 @@
   "est_total": null,
   "closes_in_days": 60,
   "bid_count": 0,
+  "demand_bids": 0,
   "description": "CNC-machined heavy flanges and mounting plates (EN8/EN24) — 410 pcs",
   "attachments": [],
   "clarify": [],
@@ -308,7 +315,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 7,
-  "closes_in_from_now": 59.9964
+  "closes_in_from_now": 60.0
  },
  {
   "id": 8,
@@ -325,6 +332,7 @@
   "est_total": 8000000.0,
   "closes_in_days": 30,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "Double-girder EOT cranes and pick-and-carry hydraulic mobile crane for machine shop",
   "attachments": [],
   "clarify": [],
@@ -357,7 +365,7 @@
   ],
   "hub_city": "Ahmedabad (Ramol)",
   "created_ago_days": 8,
-  "closes_in_from_now": 29.9964
+  "closes_in_from_now": 30.0
  },
  {
   "id": 9,
@@ -374,6 +382,7 @@
   "est_total": null,
   "closes_in_days": 7,
   "bid_count": 5,
+  "demand_bids": 37,
   "description": "CNC machined SS316 valve bodies — 1,200 pcs",
   "attachments": [],
   "clarify": [],
@@ -398,7 +407,7 @@
   ],
   "hub_city": "Ahmedabad (Ramol)",
   "created_ago_days": 9,
-  "closes_in_from_now": 6.9964
+  "closes_in_from_now": 7.0
  },
  {
   "id": 10,
@@ -415,6 +424,7 @@
   "est_total": null,
   "closes_in_days": 17,
   "bid_count": 5,
+  "demand_bids": 36,
   "description": "CNC machined hydraulic manifolds — 750 pcs",
   "attachments": [],
   "clarify": [],
@@ -443,7 +453,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 10,
-  "closes_in_from_now": 16.9964
+  "closes_in_from_now": 17.0
  },
  {
   "id": 11,
@@ -460,6 +470,7 @@
   "est_total": 5250.0,
   "closes_in_days": 31,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "CNC turned SS303 bushings and spacers — 10,500 pcs",
   "attachments": [],
   "clarify": [],
@@ -484,7 +495,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 11,
-  "closes_in_from_now": 30.9964
+  "closes_in_from_now": 31.0
  },
  {
   "id": 12,
@@ -501,6 +512,7 @@
   "est_total": null,
   "closes_in_days": 18,
   "bid_count": 5,
+  "demand_bids": 38,
   "description": "5-axis machined 6063 aluminium heat sinks — 7,000 pcs",
   "attachments": [],
   "clarify": [],
@@ -529,7 +541,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 0,
-  "closes_in_from_now": 17.9964
+  "closes_in_from_now": 18.0
  },
  {
   "id": 13,
@@ -546,6 +558,7 @@
   "est_total": null,
   "closes_in_days": 43,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "Broached and hobbed EN353 spur gears — 2,150 pcs",
   "attachments": [],
   "clarify": [],
@@ -570,7 +583,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 1,
-  "closes_in_from_now": 42.9964
+  "closes_in_from_now": 43.0
  },
  {
   "id": 14,
@@ -587,6 +600,7 @@
   "est_total": 3675000.0,
   "closes_in_days": 43,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "5-axis machined 6063 aluminium heat sinks — 15,000 pcs",
   "attachments": [],
   "clarify": [],
@@ -615,7 +629,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 2,
-  "closes_in_from_now": 42.9964
+  "closes_in_from_now": 43.0
  },
  {
   "id": 15,
@@ -632,6 +646,7 @@
   "est_total": null,
   "closes_in_days": 54,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "CNC turned 42CrMo4 shafts — 4,800 pcs",
   "attachments": [],
   "clarify": [],
@@ -656,7 +671,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 3,
-  "closes_in_from_now": 53.9964
+  "closes_in_from_now": 54.0
  },
  {
   "id": 16,
@@ -673,6 +688,7 @@
   "est_total": 24725.0,
   "closes_in_days": 25,
   "bid_count": 5,
+  "demand_bids": 39,
   "description": "CNC machined SS316 valve bodies — 2,150 pcs",
   "attachments": [],
   "clarify": [],
@@ -697,7 +713,7 @@
   ],
   "hub_city": "Tecklenburg",
   "created_ago_days": 4,
-  "closes_in_from_now": 24.9964
+  "closes_in_from_now": 25.0
  },
  {
   "id": 17,
@@ -714,6 +730,7 @@
   "est_total": 630000.0,
   "closes_in_days": 25,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "CNC turned SS303 bushings and spacers — 14,000 pcs",
   "attachments": [],
   "clarify": [],
@@ -738,7 +755,7 @@
   ],
   "hub_city": "Wood Village, OR",
   "created_ago_days": 5,
-  "closes_in_from_now": 24.9964
+  "closes_in_from_now": 25.0
  },
  {
   "id": 18,
@@ -755,6 +772,7 @@
   "est_total": null,
   "closes_in_days": 52,
   "bid_count": 5,
+  "demand_bids": 36,
   "description": "CNC machined CF8M valve bodies — 3,350 pcs",
   "attachments": [],
   "clarify": [],
@@ -779,7 +797,7 @@
   ],
   "hub_city": "Pune (Bhosari)",
   "created_ago_days": 6,
-  "closes_in_from_now": 51.9964
+  "closes_in_from_now": 52.0
  },
  {
   "id": 19,
@@ -796,6 +814,7 @@
   "est_total": null,
   "closes_in_days": 13,
   "bid_count": 5,
+  "demand_bids": 39,
   "description": "CNC turned EN8 shafts — 1,000 pcs",
   "attachments": [],
   "clarify": [],
@@ -820,7 +839,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 7,
-  "closes_in_from_now": 12.9964
+  "closes_in_from_now": 13.0
  },
  {
   "id": 20,
@@ -837,6 +856,7 @@
   "est_total": 3360000.0,
   "closes_in_days": 18,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "5-axis machined 6061-T6 aluminium heat sinks — 14,000 pcs",
   "attachments": [],
   "clarify": [],
@@ -865,7 +885,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 8,
-  "closes_in_from_now": 17.9964
+  "closes_in_from_now": 18.0
  },
  {
   "id": 21,
@@ -882,6 +902,7 @@
   "est_total": 21700.0,
   "closes_in_days": 25,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "VMC milled 6061-T6 aluminium housings — 3,100 pcs",
   "attachments": [],
   "clarify": [],
@@ -910,7 +931,7 @@
   ],
   "hub_city": "Cincinnati, OH",
   "created_ago_days": 9,
-  "closes_in_from_now": 24.9964
+  "closes_in_from_now": 25.0
  },
  {
   "id": 22,
@@ -927,6 +948,7 @@
   "est_total": 2452500.0,
   "closes_in_days": 12,
   "bid_count": 5,
+  "demand_bids": 39,
   "description": "Broached and hobbed EN353 spur gears — 4,500 pcs",
   "attachments": [],
   "clarify": [],
@@ -951,7 +973,7 @@
   ],
   "hub_city": "Högersdorf",
   "created_ago_days": 10,
-  "closes_in_from_now": 11.9964
+  "closes_in_from_now": 12.0
  },
  {
   "id": 23,
@@ -968,6 +990,7 @@
   "est_total": null,
   "closes_in_days": 9,
   "bid_count": 5,
+  "demand_bids": 39,
   "description": "Precision ground SUJ2 bearing races — 2,700 pcs",
   "attachments": [],
   "clarify": [],
@@ -992,7 +1015,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 11,
-  "closes_in_from_now": 8.9964
+  "closes_in_from_now": 9.0
  },
  {
   "id": 24,
@@ -1009,6 +1032,7 @@
   "est_total": 139500.0,
   "closes_in_days": 24,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "CNC turned phosphor bronze bushings and spacers — 3,100 pcs",
   "attachments": [],
   "clarify": [],
@@ -1037,7 +1061,7 @@
   ],
   "hub_city": "Pearisburg, VA",
   "created_ago_days": 0,
-  "closes_in_from_now": 23.9964
+  "closes_in_from_now": 24.0
  },
  {
   "id": 25,
@@ -1054,6 +1078,7 @@
   "est_total": null,
   "closes_in_days": 23,
   "bid_count": 5,
+  "demand_bids": 37,
   "description": "CNC turned brass C36000 bushings and spacers — 2,200 pcs",
   "attachments": [],
   "clarify": [],
@@ -1082,7 +1107,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 1,
-  "closes_in_from_now": 22.9964
+  "closes_in_from_now": 23.0
  },
  {
   "id": 26,
@@ -1099,6 +1124,7 @@
   "est_total": null,
   "closes_in_days": 39,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "CNC turned EN24 shafts — 850 pcs",
   "attachments": [],
   "clarify": [],
@@ -1123,7 +1149,7 @@
   ],
   "hub_city": "Tualatin, OR",
   "created_ago_days": 2,
-  "closes_in_from_now": 38.9964
+  "closes_in_from_now": 39.0
  },
  {
   "id": 27,
@@ -1140,6 +1166,7 @@
   "est_total": 3125000.0,
   "closes_in_days": 16,
   "bid_count": 5,
+  "demand_bids": 38,
   "description": "VMC milled mild steel housings — 5,000 pcs",
   "attachments": [],
   "clarify": [],
@@ -1168,7 +1195,7 @@
   ],
   "hub_city": "Cinnaminson, NJ",
   "created_ago_days": 3,
-  "closes_in_from_now": 15.9964
+  "closes_in_from_now": 16.0
  },
  {
   "id": 28,
@@ -1185,6 +1212,7 @@
   "est_total": 131250.0,
   "closes_in_days": 32,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "VMC milled mild steel housings — 210 pcs",
   "attachments": [],
   "clarify": [],
@@ -1213,7 +1241,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 4,
-  "closes_in_from_now": 31.9964
+  "closes_in_from_now": 32.0
  },
  {
   "id": 29,
@@ -1230,6 +1258,7 @@
   "est_total": null,
   "closes_in_days": 33,
   "bid_count": 5,
+  "demand_bids": 37,
   "description": "5-axis machined 6063 aluminium heat sinks — 7,500 pcs",
   "attachments": [],
   "clarify": [],
@@ -1258,7 +1287,7 @@
   ],
   "hub_city": "Lebanon, KY",
   "created_ago_days": 5,
-  "closes_in_from_now": 32.9964
+  "closes_in_from_now": 33.0
  },
  {
   "id": 30,
@@ -1275,6 +1304,7 @@
   "est_total": 1150000.0,
   "closes_in_days": 10,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "Broached and hobbed 20MnCr5 spur gears — 2,000 pcs",
   "attachments": [],
   "clarify": [],
@@ -1299,7 +1329,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 6,
-  "closes_in_from_now": 9.9964
+  "closes_in_from_now": 10.0
  },
  {
   "id": 31,
@@ -1316,6 +1346,7 @@
   "est_total": null,
   "closes_in_days": 7,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "CNC machined hydraulic manifolds — 170 pcs",
   "attachments": [],
   "clarify": [],
@@ -1344,7 +1375,7 @@
   ],
   "hub_city": "Rancho Cucamonga, CA",
   "created_ago_days": 7,
-  "closes_in_from_now": 6.9964
+  "closes_in_from_now": 7.0
  },
  {
   "id": 32,
@@ -1361,6 +1392,7 @@
   "est_total": 1840000.0,
   "closes_in_days": 53,
   "bid_count": 5,
+  "demand_bids": 37,
   "description": "VMC milled 6061-T6 aluminium housings — 3,200 pcs",
   "attachments": [],
   "clarify": [],
@@ -1389,7 +1421,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 8,
-  "closes_in_from_now": 52.9964
+  "closes_in_from_now": 53.0
  },
  {
   "id": 33,
@@ -1406,6 +1438,7 @@
   "est_total": 1827500.0,
   "closes_in_days": 31,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "Precision ground SUJ2 bearing races — 8,500 pcs",
   "attachments": [],
   "clarify": [],
@@ -1430,7 +1463,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 9,
-  "closes_in_from_now": 30.9964
+  "closes_in_from_now": 31.0
  },
  {
   "id": 34,
@@ -1447,6 +1480,7 @@
   "est_total": 350000.0,
   "closes_in_days": 26,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "CNC turned phosphor bronze bushings and spacers — 7,000 pcs",
   "attachments": [],
   "clarify": [],
@@ -1475,7 +1509,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 10,
-  "closes_in_from_now": 25.9964
+  "closes_in_from_now": 26.0
  },
  {
   "id": 35,
@@ -1492,6 +1526,7 @@
   "est_total": 3100000.0,
   "closes_in_days": 36,
   "bid_count": 5,
+  "demand_bids": 36,
   "description": "EPS pattern tooling for lost foam — railway brake bracket, 4 tools",
   "attachments": [],
   "clarify": [],
@@ -1524,7 +1559,7 @@
   ],
   "hub_city": "Pune (Chakan MIDC)",
   "created_ago_days": 11,
-  "closes_in_from_now": 35.9964
+  "closes_in_from_now": 36.0
  },
  {
   "id": 36,
@@ -1541,6 +1576,7 @@
   "est_total": 144000.0,
   "closes_in_days": 36,
   "bid_count": 5,
+  "demand_bids": 36,
   "description": "Anodising and passivation partner",
   "attachments": [],
   "clarify": [],
@@ -1569,7 +1605,7 @@
   ],
   "hub_city": "Nashik",
   "created_ago_days": 0,
-  "closes_in_from_now": 35.9964
+  "closes_in_from_now": 36.0
  },
  {
   "id": 37,
@@ -1586,6 +1622,7 @@
   "est_total": 840000.0,
   "closes_in_days": 36,
   "bid_count": 5,
+  "demand_bids": 38,
   "description": "Deep hole drilling subcontract",
   "attachments": [],
   "clarify": [],
@@ -1614,7 +1651,7 @@
   ],
   "hub_city": "Pune (Pimpri-Chinchwad)",
   "created_ago_days": 1,
-  "closes_in_from_now": 35.9964
+  "closes_in_from_now": 36.0
  },
  {
   "id": 38,
@@ -1631,6 +1668,7 @@
   "est_total": 336000.0,
   "closes_in_days": null,
   "bid_count": 5,
+  "demand_bids": 38,
   "description": "Heat treatment partner — induction hardening",
   "attachments": [],
   "clarify": [],
@@ -1680,6 +1718,7 @@
   "est_total": 20625.0,
   "closes_in_days": 20,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "5-axis machined 6061-T6 aluminium heat sinks — 7,500 pcs",
   "attachments": [],
   "clarify": [],
@@ -1708,7 +1747,7 @@
   ],
   "hub_city": "Bengaluru",
   "created_ago_days": 3,
-  "closes_in_from_now": 19.9964
+  "closes_in_from_now": 20.0
  },
  {
   "id": 40,
@@ -1725,6 +1764,7 @@
   "est_total": 9900000.0,
   "closes_in_days": 36,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "Duplex and super duplex bar stock",
   "attachments": [],
   "clarify": [],
@@ -1753,7 +1793,7 @@
   ],
   "hub_city": "Thane",
   "created_ago_days": 4,
-  "closes_in_from_now": 35.9964
+  "closes_in_from_now": 36.0
  },
  {
   "id": 41,
@@ -1770,6 +1810,7 @@
   "est_total": null,
   "closes_in_days": null,
   "bid_count": 5,
+  "demand_bids": 36,
   "description": "CNC machined hydraulic manifolds — 2,400 pcs",
   "attachments": [],
   "clarify": [],
@@ -1815,6 +1856,7 @@
   "est_total": 351000.0,
   "closes_in_days": 36,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "Wire EDM subcontract",
   "attachments": [],
   "clarify": [],
@@ -1847,7 +1889,7 @@
   ],
   "hub_city": "Vadodara",
   "created_ago_days": 6,
-  "closes_in_from_now": 35.9964
+  "closes_in_from_now": 36.0
  },
  {
   "id": 43,
@@ -1864,6 +1906,7 @@
   "est_total": null,
   "closes_in_days": 44,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "CNC turned EN19 shafts — 4,350 pcs",
   "attachments": [],
   "clarify": [],
@@ -1888,7 +1931,7 @@
   ],
   "hub_city": "Vasai (Palghar)",
   "created_ago_days": 7,
-  "closes_in_from_now": 43.9964
+  "closes_in_from_now": 44.0
  },
  {
   "id": 44,
@@ -1905,6 +1948,7 @@
   "est_total": 3200000.0,
   "closes_in_days": 36,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "Carbide inserts and holders — annual rate contract",
   "attachments": [],
   "clarify": [],
@@ -1933,7 +1977,7 @@
   ],
   "hub_city": "Coimbatore",
   "created_ago_days": 8,
-  "closes_in_from_now": 35.9964
+  "closes_in_from_now": 36.0
  },
  {
   "id": 45,
@@ -1950,6 +1994,7 @@
   "est_total": 1650000.0,
   "closes_in_days": 36,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "Coolant management and filtration",
   "attachments": [],
   "clarify": [],
@@ -1978,7 +2023,7 @@
   ],
   "hub_city": "Pune",
   "created_ago_days": 9,
-  "closes_in_from_now": 35.9964
+  "closes_in_from_now": 36.0
  },
  {
   "id": 46,
@@ -1995,6 +2040,7 @@
   "est_total": 5125.0,
   "closes_in_days": 46,
   "bid_count": 5,
+  "demand_bids": 39,
   "description": "CNC machined WCB steel valve bodies — 500 pcs",
   "attachments": [],
   "clarify": [],
@@ -2023,7 +2069,7 @@
   ],
   "hub_city": "Fleetwood, Pennsylvania",
   "created_ago_days": 10,
-  "closes_in_from_now": 45.9964
+  "closes_in_from_now": 46.0
  },
  {
   "id": 47,
@@ -2040,6 +2086,7 @@
   "est_total": 5000000.0,
   "closes_in_days": 36,
   "bid_count": 5,
+  "demand_bids": 36,
   "description": "Zero-point workholding system — shop wide",
   "attachments": [],
   "clarify": [],
@@ -2064,7 +2111,7 @@
   ],
   "hub_city": "Chennai",
   "created_ago_days": 11,
-  "closes_in_from_now": 35.9964
+  "closes_in_from_now": 36.0
  },
  {
   "id": 48,
@@ -2081,6 +2128,7 @@
   "est_total": 680000.0,
   "closes_in_days": 28,
   "bid_count": 5,
+  "demand_bids": 39,
   "description": "Precision ground SUJ2 bearing races — 3,400 pcs",
   "attachments": [],
   "clarify": [],
@@ -2105,7 +2153,7 @@
   ],
   "hub_city": "Higashiosaka, Osaka",
   "created_ago_days": 0,
-  "closes_in_from_now": 27.9964
+  "closes_in_from_now": 28.0
  },
  {
   "id": 49,
@@ -2122,6 +2170,7 @@
   "est_total": null,
   "closes_in_days": 28,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "CNC machined hydraulic manifolds — 1,750 pcs",
   "attachments": [],
   "clarify": [],
@@ -2150,7 +2199,7 @@
   ],
   "hub_city": "Paullina, Iowa",
   "created_ago_days": 1,
-  "closes_in_from_now": 27.9964
+  "closes_in_from_now": 28.0
  },
  {
   "id": 50,
@@ -2167,6 +2216,7 @@
   "est_total": 2200000.0,
   "closes_in_days": 21,
   "bid_count": 5,
+  "demand_bids": 37,
   "description": "CNC machined hydraulic manifolds — 1,600 pcs",
   "attachments": [],
   "clarify": [],
@@ -2195,7 +2245,7 @@
   ],
   "hub_city": "Higashiosaka, Osaka",
   "created_ago_days": 2,
-  "closes_in_from_now": 20.9964
+  "closes_in_from_now": 21.0
  },
  {
   "id": 51,
@@ -2212,6 +2262,7 @@
   "est_total": null,
   "closes_in_days": 29,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "5-axis machined 6063 aluminium heat sinks — 13,000 pcs",
   "attachments": [],
   "clarify": [],
@@ -2240,7 +2291,7 @@
   ],
   "hub_city": "Argyle, NY",
   "created_ago_days": 3,
-  "closes_in_from_now": 28.9964
+  "closes_in_from_now": 29.0
  },
  {
   "id": 52,
@@ -2257,6 +2308,7 @@
   "est_total": null,
   "closes_in_days": 15,
   "bid_count": 5,
+  "demand_bids": 39,
   "description": "Broached and hobbed 20MnCr5 spur gears — 6,000 pcs",
   "attachments": [],
   "clarify": [],
@@ -2281,7 +2333,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 4,
-  "closes_in_from_now": 14.9964
+  "closes_in_from_now": 15.0
  },
  {
   "id": 53,
@@ -2298,6 +2350,7 @@
   "est_total": 569750.0,
   "closes_in_days": 12,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "5-axis machined 6063 aluminium heat sinks — 2,150 pcs",
   "attachments": [],
   "clarify": [],
@@ -2326,7 +2379,7 @@
   ],
   "hub_city": "Dewsbury",
   "created_ago_days": 5,
-  "closes_in_from_now": 11.9964
+  "closes_in_from_now": 12.0
  },
  {
   "id": 54,
@@ -2343,6 +2396,7 @@
   "est_total": null,
   "closes_in_days": 18,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "CNC turned EN24 shafts — 5,500 pcs",
   "attachments": [],
   "clarify": [],
@@ -2367,7 +2421,7 @@
   ],
   "hub_city": "Nashik",
   "created_ago_days": 6,
-  "closes_in_from_now": 17.9964
+  "closes_in_from_now": 18.0
  },
  {
   "id": 55,
@@ -2384,6 +2438,7 @@
   "est_total": 720000.0,
   "closes_in_days": 44,
   "bid_count": 5,
+  "demand_bids": 36,
   "description": "VMC milled 6082 aluminium housings — 1,200 pcs",
   "attachments": [],
   "clarify": [],
@@ -2412,7 +2467,7 @@
   ],
   "hub_city": "Pune",
   "created_ago_days": 7,
-  "closes_in_from_now": 43.9964
+  "closes_in_from_now": 44.0
  },
  {
   "id": 56,
@@ -2429,6 +2484,7 @@
   "est_total": null,
   "closes_in_days": 5,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "CNC turned EN24 shafts — 4,550 pcs",
   "attachments": [],
   "clarify": [],
@@ -2453,7 +2509,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 8,
-  "closes_in_from_now": 4.9964
+  "closes_in_from_now": 5.0
  },
  {
   "id": 57,
@@ -2470,6 +2526,7 @@
   "est_total": 1955000.0,
   "closes_in_days": 28,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "Precision ground 100Cr6 bearing steel bearing races — 8,500 pcs",
   "attachments": [],
   "clarify": [],
@@ -2498,7 +2555,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 9,
-  "closes_in_from_now": 27.9964
+  "closes_in_from_now": 28.0
  },
  {
   "id": 58,
@@ -2515,6 +2572,7 @@
   "est_total": 1968750.0,
   "closes_in_days": 32,
   "bid_count": 5,
+  "demand_bids": 39,
   "description": "CNC machined hydraulic manifolds — 1,250 pcs",
   "attachments": [],
   "clarify": [],
@@ -2543,7 +2601,7 @@
   ],
   "hub_city": "Cradley Heath",
   "created_ago_days": 10,
-  "closes_in_from_now": 31.9964
+  "closes_in_from_now": 32.0
  },
  {
   "id": 59,
@@ -2560,6 +2618,7 @@
   "est_total": 2450.0,
   "closes_in_days": 18,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "CNC turned brass C36000 bushings and spacers — 4,900 pcs",
   "attachments": [],
   "clarify": [],
@@ -2588,7 +2647,7 @@
   ],
   "hub_city": "Kalol (Ahmedabad)",
   "created_ago_days": 11,
-  "closes_in_from_now": 17.9964
+  "closes_in_from_now": 18.0
  },
  {
   "id": 60,
@@ -2605,6 +2664,7 @@
   "est_total": null,
   "closes_in_days": 20,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "5-axis machined 6061-T6 aluminium heat sinks — 6,500 pcs",
   "attachments": [],
   "clarify": [],
@@ -2633,7 +2693,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 0,
-  "closes_in_from_now": 19.9964
+  "closes_in_from_now": 20.0
  },
  {
   "id": 61,
@@ -2650,6 +2710,7 @@
   "est_total": 38700.0,
   "closes_in_days": 51,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "CNC machined hydraulic manifolds — 2,150 pcs",
   "attachments": [],
   "clarify": [],
@@ -2678,7 +2739,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 1,
-  "closes_in_from_now": 50.9964
+  "closes_in_from_now": 51.0
  },
  {
   "id": 62,
@@ -2695,6 +2756,7 @@
   "est_total": 3990000.0,
   "closes_in_days": 25,
   "bid_count": 5,
+  "demand_bids": 39,
   "description": "CNC machined hydraulic manifolds — 2,850 pcs",
   "attachments": [],
   "clarify": [],
@@ -2723,7 +2785,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 2,
-  "closes_in_from_now": 24.9964
+  "closes_in_from_now": 25.0
  },
  {
   "id": 63,
@@ -2740,6 +2802,7 @@
   "est_total": null,
   "closes_in_days": 24,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "CNC machined SS316 valve bodies — 2,200 pcs",
   "attachments": [],
   "clarify": [],
@@ -2764,7 +2827,7 @@
   ],
   "hub_city": "Jamnagar (Hapa)",
   "created_ago_days": 3,
-  "closes_in_from_now": 23.9964
+  "closes_in_from_now": 24.0
  },
  {
   "id": 64,
@@ -2781,6 +2844,7 @@
   "est_total": 7500.0,
   "closes_in_days": 19,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "CNC turned SS303 bushings and spacers — 15,000 pcs",
   "attachments": [],
   "clarify": [],
@@ -2805,7 +2869,7 @@
   ],
   "hub_city": "Augustdorf",
   "created_ago_days": 4,
-  "closes_in_from_now": 18.9964
+  "closes_in_from_now": 19.0
  },
  {
   "id": 65,
@@ -2822,6 +2886,7 @@
   "est_total": null,
   "closes_in_days": 52,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "VMC milled 6061-T6 aluminium housings — 1,750 pcs",
   "attachments": [],
   "clarify": [],
@@ -2850,7 +2915,7 @@
   ],
   "hub_city": "",
   "created_ago_days": 5,
-  "closes_in_from_now": 51.9964
+  "closes_in_from_now": 52.0
  },
  {
   "id": 66,
@@ -2867,6 +2932,7 @@
   "est_total": null,
   "closes_in_days": 37,
   "bid_count": 5,
+  "demand_bids": 36,
   "description": "Broached and hobbed SCM420 spur gears — 5,500 pcs",
   "attachments": [],
   "clarify": [],
@@ -2891,7 +2957,7 @@
   ],
   "hub_city": "Bengaluru",
   "created_ago_days": 6,
-  "closes_in_from_now": 36.9964
+  "closes_in_from_now": 37.0
  },
  {
   "id": 67,
@@ -2908,6 +2974,7 @@
   "est_total": null,
   "closes_in_days": 44,
   "bid_count": 5,
+  "demand_bids": 40,
   "description": "Precision ground 100Cr6 bearing steel bearing races — 6,000 pcs",
   "attachments": [],
   "clarify": [],
@@ -2936,6 +3003,6 @@
   ],
   "hub_city": "",
   "created_ago_days": 7,
-  "closes_in_from_now": 43.9964
+  "closes_in_from_now": 44.0
  }
 ]

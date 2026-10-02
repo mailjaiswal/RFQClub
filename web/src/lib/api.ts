@@ -36,6 +36,8 @@ export interface RfqCard {
   urgency: "green" | "amber" | "red";
   is_open: boolean;
   bid_count: number;
+  bids_received: number; // real bids-received (source interest) shown on the board
+  quotes_shown: number;   // blinded quotes the compare can reveal (<= routing_cap)
   routing_cap: number;
   status: string;
   tags: RfqTag[];
