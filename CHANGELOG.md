@@ -18,6 +18,17 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
   note the cap, and the "Most bids" sort uses the received figure. `demand_bids`
   is added idempotently (`db._ensure_rfq_columns`) and non-destructively
   backfilled on an already-seeded DB (`bootstrap` → `seed_rfqs.sync_demand_bids`).
+- **Guest "Saved" bookmarks are now private to the browser.** The board toggle
+  previously flipped a single shared `rfq.saved` flag on the server, so one guest
+  saving an RFQ marked it saved for *every* visitor. Guests now keep their
+  watchlist in `localStorage` (`web/src/lib/guestSaved.ts`); the API no longer
+  reads or writes any global flag — `_card` returns `saved=false` for anonymous
+  visitors and `POST /api/rfqs/{id}/save` is a no-op for guests (signed-in users
+  still use the per-user `SaveItem` table, which was already private).
+- **Google sign-in opted into FedCM.** `accounts.id.initialize` now passes
+  `use_fedcm_for_button: true` so the button keeps working once Google makes
+  FedCM mandatory and the GSI "displayMoment / skippedMoment" deprecation
+  warning is cleared from the console (`LoginPage.tsx`).
 
 ### Fixed
 - **`/login` crash — "Application error: a client-side exception has occurred."**
@@ -34,6 +45,19 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
   missing/empty stored `rc_user.email` can never throw on the signed-in path.
 
 ### Added
+- **Post-award trust tracking (escrow · managed QC · milestones).** The
+  "Live at launch" promises on How-it-works are now real state, not copy. A new
+  set of columns on the `award` row (`escrow_status`, `qc_status`, `milestones`
+  JSON, `order_updated_at`, added idempotently via `db._ensure_award_columns`)
+  is seeded with the four canonical delivery milestones when an RFQ is awarded.
+  Two endpoints drive it: `GET /api/rfqs/{id}/order` (buyer, signed-in) returns
+  the escrow/QC/milestone state plus the now-revealed supplier, and
+  `POST /api/operator/rfqs/{id}/order` (concierge only) advances escrow, QC and
+  any single milestone with strict state validation. A buyer-side
+  `OrderTracker` card renders the timeline on awarded RFQ detail pages.
+- **`POST /api/admin/purge-users`** — AUTH_SECRET-guarded maintenance endpoint
+  to delete test/demo sign-ups (and their bids/awards/saves) by email prefix;
+  used to clean up smoke-test accounts without touching real data.
 - **Concierge review workflow — the human gate in front of the board**
   (`api/workflow.py`). A single service is shared by the `review.py` CLI and new
   operator HTTP endpoints (`/api/operator/queue`, `/api/operator/drafts/{id}/approve`,

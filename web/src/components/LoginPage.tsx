@@ -135,7 +135,7 @@ function Inner() {
     function render() {
       const grp = (window as unknown as {
         google?: { accounts?: { id?: {
-          initialize: (o: { client_id: string; callback: (r: GoogleCredentialResponse) => void }) => void;
+          initialize: (o: { client_id: string; callback: (r: GoogleCredentialResponse) => void; use_fedcm_for_button?: boolean }) => void;
           renderButton: (el: HTMLElement, o: Record<string, unknown>) => void;
         } } };
       }).google;
@@ -143,6 +143,10 @@ function Inner() {
       grp.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
         callback: (resp) => handleGoogle(resp?.credential),
+        // Opt into FedCM so sign-in keeps working once Google makes it
+        // mandatory (silences the GSI "display_moment / skipped_moment"
+        // deprecation warning); we render only the button, never One Tap.
+        use_fedcm_for_button: true,
       });
       // Mount the button into a host we create imperatively. React never owns
       // children of `node`, so it can't try to removeChild a node GSI replaced
@@ -151,7 +155,7 @@ function Inner() {
       const host = document.createElement("div");
       node.appendChild(host);
       try {
-        grp.accounts.id.renderButton(host, { theme: "outline", size: "large", width: 300, text: "continue_with" });
+        grp.accounts.id.renderButton(host, { theme: "outline", size: "large", width: 300, text: "continue_with", logo_alignment: "left" });
       } catch {
         /* GSI failed to render — leave the fallback visible, don't throw */
       }

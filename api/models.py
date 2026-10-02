@@ -120,6 +120,13 @@ class Award(Base):
     bid_id: Mapped[int] = mapped_column(ForeignKey("bid.id"))
     awarded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     revealed: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Post-award trust/escrow tracking (the "Live at launch" promises on the
+    # How-it-works page): payment held by RFQClub and released against delivery
+    # milestones, with optional managed QC gating the final release.
+    escrow_status: Mapped[str] = mapped_column(String, default="not_started")  # not_started|funded|part_released|released
+    qc_status: Mapped[str] = mapped_column(String, default="n/a")  # n/a|scheduled|in_progress|passed|failed
+    milestones: Mapped[list] = mapped_column(JSON, default=list)  # [{key,label,state}] state pending|active|done
+    order_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class User(Base):

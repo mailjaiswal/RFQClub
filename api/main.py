@@ -28,7 +28,7 @@ import util
 import workflow
 import profile_data
 from auth import router as auth_router, optional_user, require_user, require_operator
-from schemas import ApproveIn, AwardIn, BidCreate, ClarifyIn, ImportBnSIn, IntakeIn, RejectIn, RfqCreate, RfqStatusIn
+from schemas import ApproveIn, AwardIn, AwardOrderIn, BidCreate, ClarifyIn, ImportBnSIn, IntakeIn, RejectIn, RfqCreate, RfqStatusIn
 
 app = FastAPI(title="RFQClub API", version="0.1.0")
 app.add_middleware(
@@ -109,7 +109,7 @@ def _card(rfq: models.Rfq, saved_ids: set[int] | None = None) -> dict:
         "status": rfq.status,
         "tags": rfq.tags or [],
         "hub_city": rfq.hub_city or "",
-        "saved": (rfq.id in saved_ids) if saved_ids is not None else bool(rfq.saved),
+        "saved": (rfq.id in saved_ids) if saved_ids is not None else False,
         "posted_days_ago": _posted_days(rfq.created_at),
     }
 
@@ -162,6 +162,25 @@ def _award_of(db: Session, rfq_id: int):
     return db.query(models.Award).filter(models.Award.rfq_id == rfq_id).first()
 
 
+# Canonical post-award delivery/escrow stages (mirrors the How-it-works trust
+# design). Created when an RFQ is awarded, then advanced by the operator.
+_DEFAULT_MILESTONES = [
+    {"key": "advance", "label": "Advance held in escrow", "state": "pending"},
+    {"key": "production", "label": "Manufacturing & in-process check", "state": "pending"},
+    {"key": "qc", "label": "Managed QC at dispatch", "state": "pending"},
+    {"key": "release", "label": "Final payment released", "state": "pending"},
+]
+
+
+def _order_state(aw: models.Award) -> dict:
+    return {
+        "escrow_status": aw.escrow_status or "not_started",
+        "qc_status": aw.qc_status or "n/a",
+        "milestones": aw.milestones or [],
+        "updated_at": aw.order_updated_at.isoformat() if aw.order_updated_at else None,
+    }
+
+
 # ---------- read endpoints ----------
 @app.get("/api/health")
 def health():
@@ -175,6 +194,28 @@ def admin_seed(key: str = Query("")):
     if not key or key != config.AUTH_SECRET:
         raise HTTPException(status_code=403, detail="bad admin key")
     return {"ok": True, "seeded": bootstrap.ensure_seeded()}
+
+
+@app.post("/api/admin/purge-users")
+def admin_purge_users(prefix: str = Query("", min_length=3),
+                      db: Session = Depends(db.get_db), key: str = Query("")):
+    """Maintenance: delete test/demo accounts (and their bids/awards/saves) whose
+    email starts with `prefix`. Guarded by the same AUTH_SECRET as /admin/seed, and
+    the min_length=3 prefix stops an accidental full wipe. Used to clean up
+    smoke-test sign-ups (e.g. `rcprobe_`)."""
+    if not key or key != config.AUTH_SECRET:
+        raise HTTPException(status_code=403, detail="bad admin key")
+    uids = [u.id for u in db.query(models.User).filter(models.User.email.startswith(prefix)).all()]
+    if not uids:
+        return {"ok": True, "removed_users": 0, "removed_bids": 0}
+    bid_ids = [b.id for b in db.query(models.Bid).filter(models.Bid.user_id.in_(uids)).all()]
+    if bid_ids:
+        db.query(models.Award).filter(models.Award.bid_id.in_(bid_ids)).delete(synchronize_session=False)
+    db.query(models.Bid).filter(models.Bid.user_id.in_(uids)).delete(synchronize_session=False)
+    db.query(models.SaveItem).filter(models.SaveItem.user_id.in_(uids)).delete(synchronize_session=False)
+    db.query(models.User).filter(models.User.id.in_(uids)).delete(synchronize_session=False)
+    db.commit()
+    return {"ok": True, "removed_users": len(uids), "removed_bids": len(bid_ids)}
 
 
 @app.get("/api/sectors")
@@ -299,22 +340,23 @@ def admin_bids(rfq_id: int, db: Session = Depends(db.get_db), operator: models.U
 # ---------- write endpoints ----------
 @app.post("/api/rfqs/{rfq_id}/save")
 def toggle_save(rfq_id: int, db: Session = Depends(db.get_db), user: models.User | None = Depends(optional_user)):
-    """Toggle the watchlist flag. Per-user SaveItem when signed in; legacy global flag otherwise."""
+    """Toggle the watchlist. Per-user SaveItem when signed in. Guests are kept
+    entirely client-side (a private localStorage list), so we no longer write the
+    legacy global `rfq.saved` flag here — that flag was shared across every
+    visitor, which leaked one guest's bookmarks to everyone."""
     rfq = db.get(models.Rfq, rfq_id)
     if not rfq:
         raise HTTPException(404, "RFQ not found")
-    if user is not None:
-        item = db.query(models.SaveItem).filter(models.SaveItem.user_id == user.id, models.SaveItem.rfq_id == rfq_id).first()
-        if item:
-            db.delete(item)
-            db.commit()
-            return {"ok": True, "saved": False}
-        db.add(models.SaveItem(user_id=user.id, rfq_id=rfq_id))
+    if user is None:
+        return {"ok": True, "saved": False, "guest": True}
+    item = db.query(models.SaveItem).filter(models.SaveItem.user_id == user.id, models.SaveItem.rfq_id == rfq_id).first()
+    if item:
+        db.delete(item)
         db.commit()
-        return {"ok": True, "saved": True}
-    rfq.saved = not bool(rfq.saved)
+        return {"ok": True, "saved": False}
+    db.add(models.SaveItem(user_id=user.id, rfq_id=rfq_id))
     db.commit()
-    return {"ok": True, "saved": rfq.saved}
+    return {"ok": True, "saved": True}
 
 
 @app.post("/api/rfqs/{rfq_id}/bid", status_code=201)
@@ -514,12 +556,79 @@ def award(rfq_id: int, payload: AwardIn, db: Session = Depends(db.get_db)):
         aw.bid_id = bid.id
         aw.revealed = True
     else:
-        db.add(models.Award(rfq_id=rfq_id, bid_id=bid.id, revealed=True))
+        db.add(models.Award(rfq_id=rfq_id, bid_id=bid.id, revealed=True,
+                            escrow_status="not_started", qc_status="n/a",
+                            milestones=[dict(m) for m in _DEFAULT_MILESTONES]))
     rfq.status = "awarded"
     db.commit()
     name = bid.supplier.name if bid.supplier else ""
     return {"ok": True, "rfq_id": rfq_id, "awarded_bid_id": bid.id, "revealed_name": name,
             "tlc_display": util.format_inr(util.cents_to_rupees(bid.tlc_cents), "₹")}
+
+
+@app.get("/api/rfqs/{rfq_id}/order")
+def get_order(rfq_id: int, db: Session = Depends(db.get_db), user: models.User = Depends(require_user)):
+    """Buyer-side escrow / managed-QC / milestone tracker. Only exists once the
+    RFQ is awarded; supplier identity is revealed to the buyer at that point."""
+    rfq = db.get(models.Rfq, rfq_id)
+    if not rfq:
+        raise HTTPException(404, "RFQ not found")
+    aw = _award_of(db, rfq_id)
+    if not aw:
+        return {"exists": False}
+    bid = db.get(models.Bid, aw.bid_id)
+    sup = bid.supplier if bid else None
+    return {
+        "exists": True,
+        "rfq": _card(rfq, _saved_ids(db, user)),
+        "awarded_bid_id": aw.bid_id,
+        "supplier_name": sup.name if sup else "",
+        "supplier_hub": sup.hub_city if sup else "",
+        "tlc_rupees": util.cents_to_rupees(bid.tlc_cents) if bid else 0,
+        "tlc_display": util.format_inr(util.cents_to_rupees(bid.tlc_cents), "₹") if bid else "",
+        "awarded_at": aw.awarded_at.isoformat() if aw.awarded_at else None,
+        **_order_state(aw),
+    }
+
+
+_ESCROW_STATES = {"not_started", "funded", "part_released", "released"}
+_QC_STATES = {"n/a", "scheduled", "in_progress", "passed", "failed"}
+_MILESTONE_STATES = {"pending", "active", "done"}
+
+
+@app.post("/api/operator/rfqs/{rfq_id}/order")
+def update_order(rfq_id: int, payload: AwardOrderIn,
+                 db: Session = Depends(db.get_db), operator: models.User = Depends(require_operator)):
+    """Concierge/operator advances the post-award escrow, QC and milestones."""
+    aw = _award_of(db, rfq_id)
+    if not aw:
+        raise HTTPException(404, "RFQ not awarded yet")
+    if payload.escrow_status is not None:
+        if payload.escrow_status not in _ESCROW_STATES:
+            raise HTTPException(422, f"bad escrow_status; use one of {sorted(_ESCROW_STATES)}")
+        aw.escrow_status = payload.escrow_status
+    if payload.qc_status is not None:
+        if payload.qc_status not in _QC_STATES:
+            raise HTTPException(422, f"bad qc_status; use one of {sorted(_QC_STATES)}")
+        aw.qc_status = payload.qc_status
+    if payload.milestone_key is not None:
+        state = payload.milestone_state or "done"
+        if state not in _MILESTONE_STATES:
+            raise HTTPException(422, f"bad milestone_state; use one of {sorted(_MILESTONE_STATES)}")
+        ms = [dict(m) for m in (aw.milestones or _DEFAULT_MILESTONES)]
+        hit = False
+        for m in ms:
+            if m["key"] == payload.milestone_key:
+                m["state"] = state
+                hit = True
+        if not hit:
+            raise HTTPException(422, "unknown milestone_key")
+        aw.milestones = ms
+    if aw.milestones is None:
+        aw.milestones = [dict(m) for m in _DEFAULT_MILESTONES]
+    aw.order_updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return {"ok": True, **_order_state(aw)}
 
 
 # ---------- signed-in user views ----------

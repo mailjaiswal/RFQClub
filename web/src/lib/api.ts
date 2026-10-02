@@ -180,6 +180,32 @@ export function awardBid(id: number | string, bid_id: number): Promise<{ ok: boo
   return req(`/api/rfqs/${id}/award`, { method: "POST", body: JSON.stringify({ bid_id }) });
 }
 
+export interface OrderMilestone {
+  key: string;
+  label: string;
+  state: "pending" | "active" | "done";
+}
+
+export interface OrderState {
+  exists: boolean;
+  rfq?: RfqCard;
+  awarded_bid_id?: number;
+  supplier_name?: string;
+  supplier_hub?: string;
+  tlc_rupees?: number;
+  tlc_display?: string;
+  awarded_at?: string | null;
+  escrow_status?: string;
+  qc_status?: string;
+  milestones?: OrderMilestone[];
+  updated_at?: string | null;
+}
+
+// Buyer-side escrow / managed-QC / milestone tracker (only present post-award).
+export function getRfqOrder(id: number | string, token?: string | null): Promise<OrderState> {
+  return req(`/api/rfqs/${id}/order`, undefined, token ?? null);
+}
+
 // ---- Profile (representative supplier record; block-based panels) ----
 // Loosely typed to mirror api/profile_data.py — the client renders generically
 // from block.type, so unknown extra fields are tolerated.

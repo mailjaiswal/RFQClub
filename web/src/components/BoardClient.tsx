@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import LedgerRow, { tagKey } from "@/components/LedgerRow";
 import RfqTile from "@/components/RfqTile";
 import { toggleSave, type BoardResponse, type RfqCard } from "@/lib/api";
+import { getToken } from "@/lib/session";
+import { getGuestSaved, toggleGuestSaved } from "@/lib/guestSaved";
 
 type Sort = "deadline" | "value" | "bidcount";
 type View = "all" | "saved" | "myrfqs" | "mybids";
@@ -38,6 +40,7 @@ export default function BoardClient({
   const [sort, setSort] = useState<Sort>("deadline");
   const [mode, setMode] = useState<Mode>("cards");
   const [activeTag, setActiveTag] = useState<{ key: string; label: string } | null>(null);
+  const [isGuest, setIsGuest] = useState(false);
 
   // Board publishes live counts (open + saved) to the left rail. Child effects
   // run before the parent AppShell's listener is attached, so we also stash the
@@ -49,11 +52,28 @@ export default function BoardClient({
     window.dispatchEvent(new CustomEvent("ap:counts", { detail }));
   }, [openTotal, savedCount]);
 
+  // Guests keep their watchlist in this browser only (localStorage); signed-in
+  // users get `saved` straight from the server's per-user SaveItem. Overlay the
+  // guest list once on mount so hydration (server sends saved=false) stays clean.
+  useEffect(() => {
+    const guest = !getToken();
+    setIsGuest(guest);
+    if (guest) {
+      const set = new Set(getGuestSaved());
+      if (set.size) setItems((prev) => prev.map((r) => ({ ...r, saved: set.has(r.id) })));
+    }
+  }, []);
+
   function onTag(key: string, label: string) {
     setActiveTag((cur) => (cur && cur.key === key ? null : { key, label }));
   }
 
   function onToggleSave(id: number) {
+    if (isGuest) {
+      const nowSaved = toggleGuestSaved(id);
+      setItems((prev) => prev.map((r) => (r.id === id ? { ...r, saved: nowSaved } : r)));
+      return;
+    }
     let next = false;
     setItems((prev) =>
       prev.map((r) => {

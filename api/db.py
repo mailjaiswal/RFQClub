@@ -38,6 +38,7 @@ def init_db():
     _ensure_user_columns()
     _ensure_draft_columns()
     _ensure_rfq_columns()
+    _ensure_award_columns()
 
 
 def _ensure_columns(table: str, add: dict[str, str], indexes: tuple[tuple[str, str], ...] = ()) -> None:
@@ -90,3 +91,14 @@ def _ensure_rfq_columns():
     on the board, kept separate from `bid_count` (the <=5 blinded quotes the
     compare screen can actually reveal)."""
     _ensure_columns("rfq", {"demand_bids": "INTEGER DEFAULT 0"})
+
+
+def _ensure_award_columns():
+    """Post-award escrow / managed-QC / milestone tracking on `award`."""
+    _ensure_columns(
+        "award",
+        {"escrow_status": "VARCHAR DEFAULT 'not_started'",
+         "qc_status": "VARCHAR DEFAULT 'n/a'",
+         "milestones": "JSON DEFAULT '[]'",
+         "order_updated_at": "TIMESTAMP"},
+    )

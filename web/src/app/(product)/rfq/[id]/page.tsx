@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getRfq, getBids } from "@/lib/api";
 import { reqToken } from "@/lib/server-token";
 import { deadlineLabel } from "@/lib/format";
+import OrderTracker from "@/components/OrderTracker";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,8 @@ export default async function RfqDetailPage({ params }: { params: Promise<{ id: 
                 </div>
               </div>
             </div>
+
+            {rfq.status === "awarded" && <OrderTracker rfqId={rfq.id} />}
 
             {rfq.clarify?.length > 0 && (
               <div className="card saffron">

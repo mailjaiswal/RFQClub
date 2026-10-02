@@ -42,6 +42,14 @@ class AwardIn(BaseModel):
     bid_id: int
 
 
+class AwardOrderIn(BaseModel):
+    """Operator update of the post-award escrow / managed-QC / milestone state."""
+    escrow_status: str | None = None   # not_started|funded|part_released|released
+    qc_status: str | None = None       # n/a|scheduled|in_progress|passed|failed
+    milestone_key: str | None = None
+    milestone_state: str | None = None  # pending|active|done
+
+
 # ---- concierge review workflow ----
 class IntakeIn(BaseModel):
     """The web "Post an RFQ" form. Lands in the review queue, never straight on
