@@ -49,6 +49,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const view = (searchParams.get("view") as View) || "all";
   const onBoard = pathname === "/board";
   const dark = mounted && resolvedTheme === "dark";
+  // A returning session can carry an older/malformed rc_user with a missing email;
+  // guard so the avatar block can never throw (this was crashing /login client-side).
+  const uEmail = String(user?.email ?? "").trim();
 
   function goView(v: View) {
     router.push(v === "all" ? "/board" : `/board?view=${v}`);
@@ -141,8 +144,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           {user ? (
             <div className="ap-user">
               <Link className="ap-userrow" href="/profile" title="Open my profile">
-                <span className="ap-ava">{user.email[0].toUpperCase()}</span>
-                <span className="ap-una"><b>{user.email.split("@")[0]}</b><span>{user.role || "member"} · RFQClub</span></span>
+                <span className="ap-ava">{(uEmail[0] || "?").toUpperCase()}</span>
+                <span className="ap-una"><b>{uEmail.split("@")[0] || "member"}</b><span>{user.role || "member"} · RFQClub</span></span>
                 <span className="ap-ugear" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.3 1a7 7 0 0 0-1.7-1l-.3-2.5h-4l-.3 2.5a7 7 0 0 0-1.7 1l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.3 2.5h4l.3-2.5a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.5c.1-.3.1-.7.1-1z" /></svg></span>
               </Link>
               <div className="ap-uroles">

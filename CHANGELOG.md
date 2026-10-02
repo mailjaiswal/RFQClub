@@ -7,6 +7,14 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
 
 ## [Unreleased]
 
+### Fixed
+- **`/login` client-side crash:** `AppShell` rendered the signed-in avatar with
+  `user.email[0].toUpperCase()` and `user.email.split("@")` unguarded, so a
+  returning session with an older/malformed `rc_user` (missing or empty email) in
+  `localStorage` threw a `TypeError` during hydration → "Application error: a
+  client-side exception". The email is now coerced to a safe string with `?` /
+  `member` fallbacks, so the shell can never crash on account state.
+
 ### Added
 - **Concierge review workflow — the human gate in front of the board**
   (`api/workflow.py`). A single service is shared by the `review.py` CLI and new
