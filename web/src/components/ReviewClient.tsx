@@ -14,6 +14,7 @@ import {
   type RfqCard,
 } from "@/lib/api";
 import { SECTOR_LIST, sectorMeta } from "@/lib/sectors";
+import OrderOps from "@/components/OrderOps";
 
 // The concierge gate. An operator reviews every incoming requirement here and
 // is the only path by which an RFQ reaches the public board. All actions call
@@ -169,6 +170,8 @@ export default function ReviewClient({ initial }: { initial: ReviewQueue }) {
             )}
           </aside>
         </div>
+
+        <OrderOps />
       </div>
     </>
   );

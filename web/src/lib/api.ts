@@ -206,6 +206,18 @@ export function getRfqOrder(id: number | string, token?: string | null): Promise
   return req(`/api/rfqs/${id}/order`, undefined, token ?? null);
 }
 
+export interface OrderUpdate {
+  escrow_status?: string;
+  qc_status?: string;
+  milestone_key?: string;
+  milestone_state?: string;
+}
+
+// Concierge/operator only: advance escrow, QC, or one milestone (422 on bad state).
+export function updateRfqOrder(id: number | string, body: OrderUpdate, token?: string | null): Promise<OrderState & { ok: boolean }> {
+  return req(`/api/operator/rfqs/${id}/order`, { method: "POST", body: JSON.stringify(body) }, token ?? null);
+}
+
 // ---- Profile (representative supplier record; block-based panels) ----
 // Loosely typed to mirror api/profile_data.py — the client renders generically
 // from block.type, so unknown extra fields are tolerated.

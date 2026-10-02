@@ -7,6 +7,17 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
 
 ## [Unreleased]
 
+### Added
+- **Concierge Order-Ops desk on `/review`.** A new `OrderOps` section renders one
+  `OpsCard` per awarded RFQ (`GET /api/rfqs?status=awarded`): escrow state,
+  managed-QC state and each payment milestone are advanced via dropdowns that
+  call the operator-only `POST /api/operator/rfqs/{id}/order` (same validated
+  state vocabulary the API enforces server-side), with optimistic local updates
+  and per-card error banners. Mirrors the buyer-facing `OrderTracker` but with
+  the controls; hidden entirely when nothing is awarded yet
+  (`web/src/components/OrderOps.tsx`, `OrderUpdate`/`updateRfqOrder` in
+  `web/src/lib/api.ts`, mounted in `ReviewClient.tsx`).
+
 ### Changed
 - **Board now shows real bids-received, not a flat cap.** Previously every seeded
   RFQ displayed the same "5 bids" because the demo-bid step clamped `bid_count`
