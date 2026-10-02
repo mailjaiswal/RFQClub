@@ -12,6 +12,7 @@ Commands:
     python review.py approve <draft_id> [--publish] [--force] [--title "..." --sector cnc ...]
     python review.py edit <draft_id> --title "..." --qty 500 --budget-low 200 ...
     python review.py reject <draft_id> [--reason "..."]
+    python review.py import-bns --file <path> [--dry-run]   # or --text "<paste>"
 
 `approve` without --publish still writes the rfq row but leaves it as a draft;
 with --publish it goes straight to the board. Default is draft so the operator
@@ -26,6 +27,7 @@ import models
 import sectors
 import util
 import workflow
+import bns_import
 from draft_util import draft_to_fields, render_draft
 
 
@@ -153,6 +155,29 @@ def _add_edit_args(p):
     p.add_argument("--days", type=int); p.add_argument("--sector"); p.add_argument("--description")
 
 
+def cmd_import_bns(args):
+    """Parse a BnS page-extract (paste or file) and file each entry as a PENDING
+    concierge-review draft. Never publishes; the human gate still decides."""
+    text = args.text if args.text else open(args.file, encoding="utf-8").read()
+    s = _session()
+    try:
+        r = bns_import.import_extract(s, text, source="bns", dry_run=args.dry_run)
+        verb = "would file" if r["dry_run"] else "filed"
+        print(f"Parsed {r['parsed']} entries — {verb} {r['created_count']} draft(s).")
+        for t in r["skipped_duplicate_live"]:
+            print(f"  skip (already on board): {t[:60]}")
+        for t in r["skipped_duplicate_pending"]:
+            print(f"  skip (already queued):  {t[:60]}")
+        if r["dry_run"]:
+            for t in r["created"]:
+                print(f"  would file: {t[:70]}")
+        elif r["created"]:
+            print(f"  draft ids: {', '.join(str(i) for i in r['created'])}")
+            print("Review with: python review.py list")
+    finally:
+        s.close()
+
+
 def build_parser():
     ap = argparse.ArgumentParser(prog="review", description="RFQClub concierge review gate")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -177,12 +202,20 @@ def build_parser():
     p_pb = sub.add_parser("status", help="change an rfq row's status")
     p_pb.add_argument("rfq_id", type=int)
     p_pb.add_argument("status", choices=list(workflow.RFQ_STATUSES))
+
+    p_imp = sub.add_parser("import-bns", help="import a BnS page-extract as review drafts")
+    src = p_imp.add_mutually_exclusive_group(required=True)
+    src.add_argument("--file", help="path to the BnS extract text file")
+    src.add_argument("--text", help="the extract pasted inline")
+    p_imp.add_argument("--dry-run", dest="dry_run", action="store_true",
+                       help="report what would be filed without writing")
     return ap
 
 
 _HANDLERS = {
     "list": cmd_list, "show": cmd_show, "approve": cmd_approve,
     "edit": cmd_edit, "reject": cmd_reject, "status": cmd_publish,
+    "import-bns": cmd_import_bns,
 }
 
 

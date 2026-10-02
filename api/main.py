@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 import config
 import db
 import bootstrap
+import bns_import
 import draft_util
 import models
 import sectors
@@ -27,7 +28,7 @@ import util
 import workflow
 import profile_data
 from auth import router as auth_router, optional_user, require_user, require_operator
-from schemas import ApproveIn, AwardIn, BidCreate, ClarifyIn, IntakeIn, RejectIn, RfqCreate, RfqStatusIn
+from schemas import ApproveIn, AwardIn, BidCreate, ClarifyIn, ImportBnSIn, IntakeIn, RejectIn, RfqCreate, RfqStatusIn
 
 app = FastAPI(title="RFQClub API", version="0.1.0")
 app.add_middleware(
@@ -485,6 +486,16 @@ def operator_rfq_status(rfq_id: int, payload: RfqStatusIn, db: Session = Depends
     except workflow.WorkflowError as exc:
         raise HTTPException(exc.status, str(exc))
     return {"ok": True, "rfq": _card(rfq), "status": rfq.status}
+
+
+@app.post("/api/operator/import/bns")
+def operator_import_bns(payload: ImportBnSIn, db: Session = Depends(db.get_db),
+                        operator: models.User = Depends(require_operator)):
+    """Paste a BnS page-extract and file each entry as a concierge-review draft
+    (source=bns) — never straight to the board. Duplicates of live RFQs or of
+    drafts already in the queue are skipped. `dry_run` previews without writing."""
+    summary = bns_import.import_extract(db, payload.text, actor=operator, dry_run=payload.dry_run)
+    return {"ok": True, **summary}
 
 
 @app.post("/api/rfqs/{rfq_id}/award")

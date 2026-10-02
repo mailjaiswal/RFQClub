@@ -42,6 +42,7 @@ Key endpoints:
 - `POST /api/rfqs/intake` — the web "Post an RFQ" form files a review draft (never a live board row)
 - `GET /api/rfqs/intake/{id}` · `POST /api/rfqs/intake/{id}/clarify` — the buyer's own draft and its clarify loop (owner-only, while pending)
 - `GET /api/operator/queue` · `POST /api/operator/drafts/{id}/approve|reject` · `POST /api/operator/rfqs/{id}/status` — the concierge review gate (operator-only)
+- `POST /api/operator/import/bns` — paste a BnS page-extract; each entry is filed as a review draft (dupes skipped, nothing auto-published)
 
 ### Auth model
 Every method issues the **same stateless HMAC-SHA256 bearer token**
@@ -88,9 +89,11 @@ process; move it to Redis before scaling horizontally.
 
 Ingestion is human-gated by a single review service (`api/workflow.py`), shared by
 the `review.py` CLI and the operator HTTP endpoints so they can't drift. Requirements
-arrive two ways — the Telegram bot (`ingest_bot.py`, parsed by `rfq_parser.py`
-+ optional `llm_structurer.py`) and the web "Post an RFQ" form (`POST /api/rfqs/intake`)
-— and both land as `pending_draft` rows; structured `POST /api/rfqs` records land as
+arrive three ways — the Telegram bot (`ingest_bot.py`, parsed by `rfq_parser.py`
++ optional `llm_structurer.py`), the web "Post an RFQ" form (`POST /api/rfqs/intake`),
+and a pasted BnS page-extract (`bns_import.py`, reused `parse_rfq` logic; `review.py
+import-bns` / `POST /api/operator/import/bns`) — and all land as `pending_draft` rows;
+structured `POST /api/rfqs` records land as
 `rfq` rows with status `draft`. A concierge reviews them in the `/review` queue
 (correct any field, approve as draft or **publish** to the board, or reject with a
 reason the buyer sees), and duplicate titles are refused unless forced. Anything the

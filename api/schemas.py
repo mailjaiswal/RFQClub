@@ -92,5 +92,11 @@ class RejectIn(BaseModel):
     reason: str = Field(default="", max_length=500)
 
 
+class ImportBnSIn(BaseModel):
+    """A pasted BnS page-extract to import into the review queue as drafts."""
+    text: str = Field(min_length=1, max_length=200000)
+    dry_run: bool = False
+
+
 class RfqStatusIn(BaseModel):
     status: str = Field(pattern="^(published|draft|closed)$")

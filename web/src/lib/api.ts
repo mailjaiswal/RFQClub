@@ -467,6 +467,22 @@ export function setRfqStatus(rfqId: number, status: "published" | "draft" | "clo
   return req(`/api/operator/rfqs/${rfqId}/status`, { method: "POST", body: JSON.stringify({ status }) });
 }
 
+// Paste a BnS page-extract; each entry is filed as a concierge-review draft
+// (never straight to the board). Duplicates of live/queued items are skipped.
+export interface BnsImportResult {
+  ok: boolean;
+  parsed: number;
+  dry_run: boolean;
+  created: number[] | string[];
+  created_count: number;
+  skipped_duplicate_live: string[];
+  skipped_duplicate_pending: string[];
+}
+
+export function importBns(text: string, dryRun = false): Promise<BnsImportResult> {
+  return req<BnsImportResult>("/api/operator/import/bns", { method: "POST", body: JSON.stringify({ text, dry_run: dryRun }) });
+}
+
 // ---- buyer-side clarify loop (owner of an intake draft) ----
 export function getIntakeDraft(draftId: number, token?: string | null): Promise<{ ok: boolean; draft: ReviewDraft }> {
   return req(`/api/rfqs/intake/${draftId}`, undefined, token ?? null);

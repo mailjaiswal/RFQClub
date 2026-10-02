@@ -34,6 +34,16 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
   `POST /api/rfqs/intake/{id}/clarify` back a `/draft/{id}` "add the missing details"
   page; captured answers (and who gave them) now appear on each card in the
   concierge queue.
+- **BnS page-extract importer** (`api/bns_import.py`). Turns a pasted copy of the
+  members-only BnS RFQ listing into concierge-review drafts — reusing the exact
+  chunking and `rfq_parser.parse_rfq` logic that produced the original seed — so
+  each entry lands in the `/review` queue as a `pending_draft` (`source="bns"`),
+  **never** straight on the board. Entries already live or already queued are
+  skipped; throwaway issuers are dropped. Reachable three ways sharing one service:
+  `review.py import-bns --file <path> [--dry-run]`, operator `POST
+  /api/operator/import/bns`, and an "Import BnS page-extract" panel on `/review`.
+  This is only the *parse-and-file* half; no live website fetch is wired in (that
+  needs the site URL, automated-access permission, and login if gated).
 - **Authorization hardening:** the unblinded supplier-name endpoint
   (`GET /api/admin/rfqs/{id}/bids`) is now **operator-only** (it was public), the
   `operator` role can only be claimed by an email listed in `OPERATOR_EMAILS`

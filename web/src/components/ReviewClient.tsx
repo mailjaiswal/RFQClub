@@ -4,8 +4,10 @@ import { useState } from "react";
 import {
   approveDraft,
   getOperatorQueue,
+  importBns,
   rejectDraft,
   setRfqStatus,
+  type BnsImportResult,
   type ReviewDraft,
   type ReviewEdits,
   type ReviewQueue,
@@ -21,6 +23,25 @@ export default function ReviewClient({ initial }: { initial: ReviewQueue }) {
   const [queue, setQueue] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [showImport, setShowImport] = useState(false);
+  const [bnsText, setBnsText] = useState("");
+  const [bnsBusy, setBnsBusy] = useState(false);
+  const [bnsResult, setBnsResult] = useState<BnsImportResult | null>(null);
+
+  async function runBns(dry: boolean) {
+    if (!bnsText.trim()) return;
+    setBnsBusy(true);
+    setMsg(null);
+    try {
+      const r = await importBns(bnsText, dry);
+      setBnsResult(r);
+      if (!dry) await refresh();
+    } catch (err) {
+      setMsg(err instanceof Error ? `⚠ ${err.message}` : "Import failed.");
+    } finally {
+      setBnsBusy(false);
+    }
+  }
 
   async function refresh() {
     try {
@@ -58,6 +79,53 @@ export default function ReviewClient({ initial }: { initial: ReviewQueue }) {
             values are flagged so you know what to double-check against the buyer&apos;s raw text.</p>
         </div>
         {msg && <div className="mr-note ok" role="status">{msg}</div>}
+
+        {/* ---- BnS page-extract importer ---- */}
+        <div className="card rv-import">
+          <button className="rv-rawtoggle" onClick={() => setShowImport((o) => !o)}>
+            {showImport ? "Hide" : "Import"} BnS page-extract
+          </button>
+          {showImport && (
+            <div className="rv-import-body">
+              <p className="rv-import-hint">
+                Paste a copy of the BnS RFQ listing (entries separated by “Submit a bid”).
+                Each one is filed as an <b>intake draft for review</b> — nothing is published to the board from here.
+                Live or already-queued duplicates are skipped.
+              </p>
+              <textarea
+                className="field rv-import-text"
+                rows={8}
+                value={bnsText}
+                onChange={(e) => setBnsText(e.target.value)}
+                placeholder="Paste the BnS extract here…"
+                disabled={bnsBusy}
+              />
+              <div className="rv-actions">
+                <button className="btn btn-outline" disabled={bnsBusy || !bnsText.trim()} onClick={() => runBns(true)}>
+                  Preview (no write)
+                </button>
+                <button className="btn btn-primary" disabled={bnsBusy || !bnsText.trim()} onClick={() => runBns(false)}>
+                  File as review drafts
+                </button>
+              </div>
+              {bnsResult && (
+                <div className="rv-import-result">
+                  <div className="mono">
+                    Parsed {bnsResult.parsed} · {bnsResult.dry_run ? "would file" : "filed"} {bnsResult.created_count}
+                    {bnsResult.skipped_duplicate_live.length > 0 && <> · {bnsResult.skipped_duplicate_live.length} already on board</>}
+                    {bnsResult.skipped_duplicate_pending.length > 0 && <> · {bnsResult.skipped_duplicate_pending.length} already queued</>}
+                  </div>
+                  {(bnsResult.skipped_duplicate_live.length > 0 || bnsResult.skipped_duplicate_pending.length > 0) && (
+                    <ul className="rv-import-skips">
+                      {bnsResult.skipped_duplicate_live.map((t, i) => <li key={`l${i}`} className="rv-skip-dup">on board: {t}</li>)}
+                      {bnsResult.skipped_duplicate_pending.map((t, i) => <li key={`p${i}`} className="rv-skip-que">queued: {t}</li>)}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="rv-cols">
           {/* ---- intake drafts ---- */}
