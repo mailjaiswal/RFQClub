@@ -144,8 +144,17 @@ function Inner() {
         client_id: GOOGLE_CLIENT_ID,
         callback: (resp) => handleGoogle(resp?.credential),
       });
-      node.innerHTML = "";
-      grp.accounts.id.renderButton(node, { theme: "outline", size: "large", width: 300, text: "continue_with" });
+      // Mount the button into a host we create imperatively. React never owns
+      // children of `node`, so it can't try to removeChild a node GSI replaced
+      // (that mismatch was crashing /login with a 'removeChild' NotFoundError).
+      node.textContent = "";
+      const host = document.createElement("div");
+      node.appendChild(host);
+      try {
+        grp.accounts.id.renderButton(host, { theme: "outline", size: "large", width: 300, text: "continue_with" });
+      } catch {
+        /* GSI failed to render — leave the fallback visible, don't throw */
+      }
       setGoogleReady(true);
     }
     if (g()?.accounts?.id) { render(); return; }
@@ -214,9 +223,10 @@ function Inner() {
 
   const googleBlock = GOOGLE_CLIENT_ID && (view === "signin" || view === "register") ? (
     <div className="lg-google">
-      <div className="lg-google-btn" ref={googleBtnRef}>
-        {!googleReady && <span className="lg-google-fallback">Loading Google sign-in…</span>}
-      </div>
+      {/* React renders this node EMPTY and never reconciles its children — GSI
+          owns everything inside. The loading fallback is a sibling. */}
+      <div className="lg-google-btn" ref={googleBtnRef} />
+      {!googleReady && <span className="lg-google-fallback">Loading Google sign-in…</span>}
     </div>
   ) : null;
 

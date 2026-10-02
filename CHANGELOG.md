@@ -8,12 +8,18 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
 ## [Unreleased]
 
 ### Fixed
-- **`/login` client-side crash:** `AppShell` rendered the signed-in avatar with
-  `user.email[0].toUpperCase()` and `user.email.split("@")` unguarded, so a
-  returning session with an older/malformed `rc_user` (missing or empty email) in
-  `localStorage` threw a `TypeError` during hydration → "Application error: a
-  client-side exception". The email is now coerced to a safe string with `?` /
-  `member` fallbacks, so the shell can never crash on account state.
+- **`/login` crash — "Application error: a client-side exception has occurred."**
+  The Google Identity Services (GSI) button was injected into the **same DOM node
+  React also owned children of** (`googleBtnRef` held the `!googleReady` loading
+  `<span>`). When GSI cleared the node (`node.innerHTML = ""`) and rendered its
+  iframe, React later tried to remove its own span — which was no longer a child —
+  and threw `NotFoundError: Failed to execute 'removeChild'` during the commit
+  phase, blanking the whole page (`LoginPage.tsx`). The GSI button now mounts into
+  an imperative host div inside a node React renders **empty** (the loading
+  fallback moved to a sibling), and the `renderButton` call is wrapped in try/catch.
+  Reproduced and verified against the live deploy with headless Chrome (`/login`
+  now renders the app with zero page errors). Also hardened `AppShell`'s avatar so a
+  missing/empty stored `rc_user.email` can never throw on the signed-in path.
 
 ### Added
 - **Concierge review workflow — the human gate in front of the board**
