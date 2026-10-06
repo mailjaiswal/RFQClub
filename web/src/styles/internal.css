@@ -160,6 +160,9 @@
 /* ---- table ---- */
 .in-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .in-table th { text-align: left; color: var(--faint); font-weight: 700; font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; padding: 10px 12px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
+.in-table th.sortable { cursor: pointer; user-select: none; transition: color 0.15s; }
+.in-table th.sortable:hover { color: var(--accent); }
+.in-table th.sortable .sort-caret { font-weight: 700; color: var(--accent); }
 .in-table td { padding: 11px 12px; border-bottom: 1px solid var(--line-2); vertical-align: middle; }
 .in-table tr.row { cursor: pointer; }
 .in-table tr.row:hover td { background: var(--panel-2); }

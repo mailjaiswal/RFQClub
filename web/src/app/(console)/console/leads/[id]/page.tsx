@@ -108,6 +108,9 @@ export default function LeadDetailPage() {
         </div>
       </div>
 
+      {/* ---- quick-action toolbar: one-tap follow-up scheduling for the rep ---- */}
+      <QuickFollowUps d={d} busy={busy} canWork={canWork} onSave={(b) => run(() => setNextStep(d.id, b))} />
+
       <div className="in-detail">
         {/* ================= LEFT COLUMN ================= */}
         <div className="in-col">
@@ -422,6 +425,42 @@ function NextStepEditor({ d, busy, canWork, onSave }: {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ quick actions
+// One-tap follow-up presets so a rep can schedule the next step without touching
+// the date picker; preserves any existing note (or seeds a sensible default).
+function QuickFollowUps({ d, busy, canWork, onSave }: {
+  d: LeadDetail; busy: boolean; canWork: boolean;
+  onSave: (b: { next_action_at: string | null; next_action_note: string }) => void;
+}) {
+  if (!canWork) return null;
+  const at = (dayOffset: number, hour: number) => {
+    const dt = new Date(); dt.setDate(dt.getDate() + dayOffset); dt.setHours(hour, 0, 0, 0);
+    return dt.toISOString();
+  };
+  const note = d.next_action_note || "Follow up";
+  const presets: { label: string; iso: string }[] = [
+    { label: "Today 5pm", iso: at(0, 17) },
+    { label: "Tomorrow AM", iso: at(1, 10) },
+    { label: "+3 days", iso: at(3, 10) },
+    { label: "+7 days", iso: at(7, 10) },
+  ];
+  return (
+    <div className="in-card" style={{ padding: "10px 14px", marginBottom: 14 }}>
+      <div className="in-row in-wrap" style={{ gap: 8 }}>
+        <span className="in-kind">Quick</span>
+        {presets.map((p) => (
+          <button key={p.label} className="in-step" disabled={busy}
+            onClick={() => onSave({ next_action_at: p.iso, next_action_note: note })}>⟳ {p.label}</button>
+        ))}
+        {d.next_action_at && (
+          <button className="in-btn sm" disabled={busy}
+            onClick={() => onSave({ next_action_at: null, next_action_note: "" })}>Clear next step</button>
+        )}
+      </div>
     </div>
   );
 }

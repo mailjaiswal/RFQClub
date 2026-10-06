@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useConsole } from "@/components/console/ConsoleApp";
 import { StatusPill, fmtDate, relTime } from "@/components/console/ui";
-import { assignLeads, getLeads, type LeadRow, type SalesView } from "@/lib/sales-api";
+import { assignLeads, getLeads, getTeam, type LeadRow, type SalesView, type TeamUser } from "@/lib/sales-api";
 
 const VIEWS = [
   { key: "mine", label: "My queue" },
@@ -24,24 +24,31 @@ function Queue() {
   const contactedFilter = sp.get("contacted") || "";
   const callableFilter = sp.get("callable") || "";
   const ownerFilter = sp.get("owner_email") || "";
+  const categoryFilter = sp.get("category") || "";
+  const sort = sp.get("sort") || "priority";
+  const dir = sp.get("dir") || "";
 
   const [rows, setRows] = useState<LeadRow[]>([]);
   const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [team, setTeam] = useState<TeamUser[]>([]);
 
   const load = useCallback(async (offset = 0) => {
     setBusy(true); setErr("");
     try {
-      const r = await getLeads({ view, status: statusFilter, track: trackFilter, contacted: contactedFilter, callable: callableFilter, owner_email: ownerFilter, q: q.trim() || undefined, limit: 100, offset });
+      const r = await getLeads({ view, status: statusFilter, track: trackFilter, category: categoryFilter, contacted: contactedFilter, callable: callableFilter, owner_email: ownerFilter, sort, dir, q: q.trim() || undefined, limit: 100, offset });
       setTotal(r.total);
       setRows((prev) => (offset === 0 ? r.items : [...prev, ...r.items]));
     } catch (e) { setErr(String((e as Error)?.message || e)); }
     finally { setBusy(false); }
-  }, [view, statusFilter, trackFilter, contactedFilter, callableFilter, ownerFilter, q]);
+  }, [view, statusFilter, trackFilter, categoryFilter, contactedFilter, callableFilter, ownerFilter, sort, dir, q]);
 
   useEffect(() => { load(0); }, [load]);
+
+  // managers get the owner dropdown from the team roster (reps can't read it)
+  useEffect(() => { if (isManager) getTeam().then((t) => setTeam(t.items)).catch(() => {}); }, [isManager]);
 
   function setParam(patch: Record<string, string>) {
     const usp = new URLSearchParams(sp.toString());
@@ -57,6 +64,18 @@ function Queue() {
   }
 
   const activeView = VIEWS.find((v) => v.key === view && (!v.mgr || isManager)) ? view : "mine";
+
+  // clicking a column header sorts by it; clicking the active header flips the
+  // direction. Both live in the URL so the queue is shareable/back-button-stable.
+  const toggleSort = (key: string) => {
+    if (sort === key) setParam({ dir: dir === "asc" ? "desc" : "asc" });
+    else setParam({ sort: key, dir: "" });
+  };
+  const head = (label: string, key: string) => (
+    <th className="sortable" onClick={() => toggleSort(key)} title={`Sort by ${label.toLowerCase()}`}>
+      {label}<span className="sort-caret">{sort === key ? (dir === "desc" ? " ↓" : " ↑") : ""}</span>
+    </th>
+  );
 
   return (
     <>
@@ -78,6 +97,17 @@ function Queue() {
           <option value="">Any status</option>
           {(meta?.statuses || []).map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
         </select>
+        <select className="in-field" style={{ maxWidth: 200 }} value={categoryFilter} onChange={(e) => setParam({ category: e.target.value })}>
+          <option value="">All categories</option>
+          {(meta?.categories || []).map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+        </select>
+        {isManager && (
+          <select className="in-field" style={{ maxWidth: 210 }} value={ownerFilter} onChange={(e) => setParam({ owner_email: e.target.value })}>
+            <option value="">Anyone assigned</option>
+            <option value="__unassigned__">Unassigned only</option>
+            {team.map((t) => <option key={t.email} value={t.email}>{t.email}</option>)}
+          </select>
+        )}
         <span className="in-faint" style={{ marginLeft: "auto" }}>{total} leads</span>
       </div>
 
@@ -87,7 +117,8 @@ function Queue() {
         if (trackFilter) chips.push({ k: "track", label: trackFilter });
         if (contactedFilter) chips.push({ k: "contacted", label: "contacted" });
         if (callableFilter) chips.push({ k: "callable", label: "callable now" });
-        if (ownerFilter) chips.push({ k: "owner_email", label: `owner: ${ownerFilter}` });
+        if (categoryFilter) chips.push({ k: "category", label: `category: ${(meta?.categories || []).find((c) => c.key === categoryFilter)?.label || categoryFilter}` });
+        if (ownerFilter) chips.push({ k: "owner_email", label: ownerFilter === "__unassigned__" ? "unassigned only" : `owner: ${ownerFilter}` });
         if (!chips.length) return null;
         return (
           <div className="in-drillbar">
@@ -109,9 +140,9 @@ function Queue() {
         <table className="in-table">
           <thead>
             <tr>
-              <th>Company</th><th>Hub</th><th>Status</th>
-              {isManager && <th>Owner</th>}
-              <th>Next action</th><th>Last touch</th><th></th>
+              {head("Company", "company")}{head("Hub", "hub_city")}{head("Status", "status")}
+              {isManager && head("Owner", "owner")}
+              {head("Next action", "next_action")}{head("Last touch", "contacted")}<th></th>
             </tr>
           </thead>
           <tbody>

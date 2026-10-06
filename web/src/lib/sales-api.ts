@@ -34,6 +34,7 @@ export interface SalesMeta {
   funnel_order: string[];
   stepper: StatusMeta[];
   tracks: string[];
+  categories?: StatusMeta[];
   activity_kinds: string[];
   activity_outcomes: string[];
   views: string[];
@@ -97,7 +98,8 @@ export interface LeadDetail extends Omit<LeadRow, "company"> {
 
 export interface LeadQuery {
   view?: SalesView; status?: string; track?: string; category?: string;
-  hub_city?: string; owner_email?: string; q?: string; sort?: string; limit?: number; offset?: number;
+  hub_city?: string; owner_email?: string; q?: string; sort?: string; dir?: string;
+  limit?: number; offset?: number;
   contacted?: string; callable?: string;
 }
 function qs(p: LeadQuery): string {

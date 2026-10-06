@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 import config  # noqa: F401  (kept for parity / future allowlist checks)
 import db
@@ -222,12 +222,20 @@ def _active_filters(query, *, include_excluded: bool):
 # GET /api/sales/meta — controlled vocabularies for the UI (statuses, kinds, tracks)
 # ---------------------------------------------------------------------------
 @router.get("/meta")
-def sales_meta():
+def sales_meta(session: Session = Depends(db.get_db)):
+    # the active category list is small and stable, so the queue's "Category"
+    # filter can offer it without a round-trip per keystroke.
+    cats = session.execute(
+        select(lm.Category.key, lm.Category.label)
+        .where(lm.Category.is_active.is_(True))
+        .order_by(lm.Category.sort_order, lm.Category.label)
+    ).all()
     return {
         "statuses": [{"key": s, "label": STATUS_LABELS.get(s, s)} for s in lm.STATUSES],
         "funnel_order": FUNNEL_ORDER,
         "stepper": [{"key": k, "label": v} for k, v in STEPPER_STAGES],
         "tracks": list(lm.TRACKS),
+        "categories": [{"key": k, "label": (lab or k)} for k, lab in cats],
         "activity_kinds": list(lm.ACTIVITY_KINDS),
         "activity_outcomes": list(lm.ACTIVITY_OUTCOMES),
         "views": ["mine", "unassigned", "followups", "all", "excluded"],
@@ -326,14 +334,22 @@ def list_leads(
     contacted: bool = Query(False),
     callable_f: bool = Query(False, alias="callable"),
     q: str | None = Query(None),
-    sort: str = Query("priority", pattern="^(priority|next_action|company|status|recent)$"),
+    sort: str = Query("priority", pattern="^(priority|next_action|company|status|recent|hub_city|category|owner|contacted)$"),
+    dir: str = Query("", pattern="^(asc|desc)$"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     session: Session = Depends(db.get_db),
     user: models.User = Depends(require_sales),
 ):
     is_manager = (user.role or "").strip().lower() == "sales_manager"
-    query = session.query(lm.Lead)
+    # Eager-load the per-row relationships the serializer touches (company, that
+    # company's contacts, and the owner) so a 100-row page costs ~3 batched SELECTs
+    # instead of ~300 lazy round-trips. On hosted Postgres this N+1 was THE dominant
+    # page-load cost.
+    query = session.query(lm.Lead).options(
+        selectinload(lm.Lead.company).selectinload(lm.Company.contacts),
+        selectinload(lm.Lead.owner),
+    )
 
     # --- view scoping ---
     if view == "mine":
@@ -390,17 +406,40 @@ def list_leads(
                                             func.lower(lm.Company.hub_city).like(like)))))
 
     total = query.count()
-    if sort == "next_action":
-        query = query.order_by(lm.Lead.next_action_at.asc().nullslast(), lm.Lead.id.asc())
-    elif sort == "company":
-        query = query.order_by(lm.Lead.id.asc())
+
+    # --- ordering: every queue column header is a sorter; `dir` flips asc/desc ---
+    desc = dir == "desc"
+    secondary = lm.Lead.id.desc() if desc else lm.Lead.id.asc()
+    if sort == "company":
+        query = query.outerjoin(lm.Company, lm.Lead.company_id == lm.Company.id)
+        query = query.order_by(lm.Company.name.desc() if desc else lm.Company.name.asc(), secondary)
+    elif sort == "hub_city":
+        query = query.outerjoin(lm.Company, lm.Lead.company_id == lm.Company.id)
+        query = query.order_by(lm.Company.hub_city.desc() if desc else lm.Company.hub_city.asc(), secondary)
+    elif sort == "category":
+        query = query.outerjoin(lm.Company, lm.Lead.company_id == lm.Company.id)
+        query = query.order_by(lm.Company.category_primary.desc() if desc else lm.Company.category_primary.asc(), secondary)
+    elif sort == "owner":
+        query = query.outerjoin(models.User, lm.Lead.owner_id == models.User.id)
+        em = models.User.email.desc() if desc else models.User.email.asc()
+        query = query.order_by(em.nullslast(), secondary)
     elif sort == "status":
-        query = query.order_by(lm.Lead.status.asc(), lm.Lead.id.asc())
+        query = query.order_by(lm.Lead.status.desc() if desc else lm.Lead.status.asc(), secondary)
+    elif sort == "next_action":
+        na = lm.Lead.next_action_at.desc() if desc else lm.Lead.next_action_at.asc()
+        query = query.order_by(na.nullslast(), secondary)
+    elif sort == "contacted":
+        lc = lm.Lead.last_contacted_at.desc() if desc else lm.Lead.last_contacted_at.asc()
+        query = query.order_by(lc.nullslast(), secondary)
     elif sort == "recent":
-        query = query.order_by(lm.Lead.updated_at.desc(), lm.Lead.id.desc())
-    else:  # priority
-        query = query.order_by(lm.Lead.priority_rank.asc().nullslast(),
-                               lm.Lead.next_action_at.asc().nullslast(), lm.Lead.id.asc())
+        query = query.order_by(lm.Lead.updated_at.asc() if desc else lm.Lead.updated_at.desc(), secondary)
+    else:  # priority (default): lowest rank first, then soonest next action
+        if desc:
+            query = query.order_by(lm.Lead.priority_rank.desc().nullsfirst(),
+                                   lm.Lead.next_action_at.desc().nullsfirst(), secondary)
+        else:
+            query = query.order_by(lm.Lead.priority_rank.asc().nullslast(),
+                                   lm.Lead.next_action_at.asc().nullslast(), secondary)
 
     rows = query.offset(offset).limit(limit).all()
     return {"total": total, "offset": offset, "limit": limit,

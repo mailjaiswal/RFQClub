@@ -8,6 +8,26 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
 ## [Unreleased]
 
 ### Added
+- **Sortable queue headers + more filters.** Every column header on the lead
+  queue (`Company`, `Hub`, `Status`, `Owner`, `Next action`, `Last touch`) is now
+  a sorter (click to sort, click again to flip direction); `GET /api/sales/leads`
+  gained `dir` (asc/desc) and the sort keys `hub_city`, `category`, `owner`,
+  `contacted`. The filter bar adds a **Category** dropdown (fed by a new
+  `categories` list in `/api/sales/meta`) and, for managers, an **Assigned to**
+  owner dropdown (incl. *Unassigned only*). All sort/filter state lives in the
+  URL so a view is shareable and back-button stable.
+- **Lead-detail quick-action toolbar.** A one-tap **Quick** row above the columns
+  schedules the next step instantly (Today 5pm / Tomorrow AM / +3 days / +7 days,
+  plus Clear) without touching the date picker.
+
+### Performance
+- **Killed the queue N+1.** `list_leads` now eager-loads each row's `company`,
+  the company's `contacts`, and the `owner` via `selectinload`, turning a
+  100-row page from ~300 lazy per-row round-trips into ~3 batched queries. On
+  hosted Neon (where every round-trip has real latency) this is the dominant
+  page-load fix.
+
+### Added
 - **Cross-linked dashboard drill-down.** Every summary tile on `/console` is now
   a link into the exact queue behind its number, and leaderboard rows link to a
   rep's book. The queue accepts three new filters (`status` was joined by
