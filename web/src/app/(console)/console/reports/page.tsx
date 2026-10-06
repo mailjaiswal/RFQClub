@@ -1,9 +1,10 @@
 "use client";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { useConsole } from "@/components/console/ConsoleApp";
-import { getReports, getTeam, type ReportData, type TeamUser } from "@/lib/sales-api";
+import { useCached } from "@/lib/cache";
+import { getReports, getTeam, reportsCacheKey, teamCacheKey, type ReportData } from "@/lib/sales-api";
 
 const KIND_LABELS: Record<string, string> = {
   call: "Calls", whatsapp: "WhatsApp", email: "Emails", meeting: "Meetings",
@@ -33,28 +34,22 @@ function ReportsInner() {
   const router = useRouter();
   const sp = useSearchParams();
   const { isManager, user } = useConsole();
-  const [data, setData] = useState<ReportData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
-  const [team, setTeam] = useState<TeamUser[]>([]);
 
   const from = sp.get("from") || daysAgo(6);
   const to = sp.get("to") || todayStr();
   const ownerEmail = sp.get("owner_email") || "";
 
-  const load = useCallback(async () => {
-    setLoading(true); setErr("");
-    try {
-      const r = await getReports({ from, to, owner_email: ownerEmail || undefined });
-      setData(r);
-    } catch (e) { setErr(String((e as Error)?.message || e)); }
-    finally { setLoading(false); }
-  }, [from, to, ownerEmail]);
+  // Same cached shape as the queue: a period you have already opened paints at
+  // once, and re-opening "This month" after editing a date is a background hit.
+  const { data, error: err, pending } = useCached<ReportData>(
+    reportsCacheKey(from, to, ownerEmail),
+    () => getReports({ from, to, owner_email: ownerEmail || undefined }),
+  );
+  const loading = pending && !data;
 
-  useEffect(() => { load(); }, [load]);
-
-  // Load team roster for manager dropdown
-  useEffect(() => { if (isManager) getTeam().then((t) => setTeam(t.items)).catch(() => {}); }, [isManager]);
+  // Manager dropdown roster, shared with the console shell's copy
+  const { data: teamData } = useCached(teamCacheKey(), getTeam, { maxAgeMs: 120_000, enabled: isManager });
+  const team = teamData?.items ?? [];
 
   function setParams(patch: Record<string, string>) {
     const usp = new URLSearchParams(sp.toString());

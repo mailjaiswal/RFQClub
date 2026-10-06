@@ -519,14 +519,23 @@ def lead_detail(
     user: models.User = Depends(require_sales),
 ):
     user = _resolve_act_as(session, user, x_act_as)
-    lead = session.get(lm.Lead, lead_id)
+    # One batched read for the lead + the three relationships the serializer touches
+    # (company, its contacts, the owner). Left lazy, the hosted DB served them as
+    # separate round-trips *after* the record queries, which is what made a click
+    # on a lead feel slow even though every individual query was fast.
+    lead = session.scalar(
+        select(lm.Lead).where(lm.Lead.id == lead_id).options(
+            selectinload(lm.Lead.company).selectinload(lm.Company.contacts),
+            selectinload(lm.Lead.owner),
+        )
+    )
     if not lead:
         raise HTTPException(404, "Lead not found")
     is_manager = _is_manager(user)
     if lead.excluded_from_sales and not is_manager:
         raise HTTPException(404, "Lead not found")  # don't leak excluded rows to reps
     activities = session.query(lm.LeadActivity).filter(
-        lm.LeadActivity.lead_id == lead_id).order_by(lm.LeadActivity.created_at.desc()).all()
+        lm.LeadActivity.lead_id == lead_id).order_by(lm.LeadActivity.created_at.desc()).limit(200).all()
     tasks = session.query(lm.LeadTask).filter(lm.LeadTask.lead_id == lead_id).order_by(
         lm.LeadTask.due_at.asc().nullslast()).all()
     history = session.query(lm.LeadStatusHistory).filter(

@@ -1,10 +1,15 @@
 "use client";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useConsole } from "@/components/console/ConsoleApp";
 import { StatusPill, fmtDate, relTime } from "@/components/console/ui";
-import { assignLeads, getLeads, getTeam, type LeadRow, type SalesView, type TeamUser } from "@/lib/sales-api";
+import { useCached } from "@/lib/cache";
+import {
+  assignLeads, dropRows, getLeads, getTeam, markQueuesStale, patchRows, prefetchLead,
+  queueKey, rememberRows, teamCacheKey,
+  type LeadQuery, type LeadRow, type LeadsResponse, type SalesView,
+} from "@/lib/sales-api";
 
 const VIEWS = [
   { key: "mine", label: "My queue" },
@@ -28,27 +33,52 @@ function Queue() {
   const sort = sp.get("sort") || "priority";
   const dir = sp.get("dir") || "";
 
-  const [rows, setRows] = useState<LeadRow[]>([]);
-  const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [qDeb, setQDeb] = useState("");
   const [err, setErr] = useState("");
-  const [team, setTeam] = useState<TeamUser[]>([]);
+  const [more, setMore] = useState<LeadRow[]>([]);
+  const [moreBusy, setMoreBusy] = useState(false);
+  const [claiming, setClaiming] = useState<number | null>(null);
 
-  const load = useCallback(async (offset = 0) => {
-    setBusy(true); setErr("");
-    try {
-      const r = await getLeads({ view, status: statusFilter, track: trackFilter, category: categoryFilter, contacted: contactedFilter, callable: callableFilter, owner_email: ownerFilter, sort, dir, q: q.trim() || undefined, limit: 100, offset });
-      setTotal(r.total);
-      setRows((prev) => (offset === 0 ? r.items : [...prev, ...r.items]));
-    } catch (e) { setErr(String((e as Error)?.message || e)); }
-    finally { setBusy(false); }
-  }, [view, statusFilter, trackFilter, categoryFilter, contactedFilter, callableFilter, ownerFilter, sort, dir, q]);
+  // Search settles before it hits the queue: a request per keystroke used to
+  // stampede the hosted API while the user was still typing.
+  useEffect(() => {
+    const t = setTimeout(() => setQDeb(q.trim()), 300);
+    return () => clearTimeout(t);
+  }, [q]);
 
-  useEffect(() => { load(0); }, [load]);
+  const query: LeadQuery = {
+    view, status: statusFilter, track: trackFilter, category: categoryFilter,
+    contacted: contactedFilter, callable: callableFilter, owner_email: ownerFilter,
+    sort, dir, q: qDeb || undefined, limit: 100, offset: 0,
+  };
+  const key = queueKey(query);
+  // SWR: the cached page paints the moment this screen mounts (returning from a
+  // lead, or re-opening a filter you already viewed), while a background
+  // revalidate brings it up to date a beat later.
+  const { data, error: apiErr, pending, revalidate } = useCached<LeadsResponse>(
+    key,
+    () => getLeads(query).then((r) => { rememberRows(r.items); return r; }),
+  );
+  useEffect(() => { setMore([]); }, [key]);
 
   // managers get the owner dropdown from the team roster (reps can't read it)
-  useEffect(() => { if (isManager) getTeam().then((t) => setTeam(t.items)).catch(() => {}); }, [isManager]);
+  const { data: teamData } = useCached(teamCacheKey(), getTeam, { maxAgeMs: 60_000, enabled: isManager });
+  const team = teamData?.items ?? [];
+
+  const rows = useMemo(() => [...(data?.items ?? []), ...more], [data, more]);
+  const total = data?.total ?? 0;
+  const busy = pending && !data;
+
+  async function loadMore() {
+    setMoreBusy(true); setErr("");
+    try {
+      const r = await getLeads({ ...query, offset: rows.length });
+      rememberRows(r.items);
+      setMore((prev) => [...prev, ...r.items]);
+    } catch (e) { setErr(String((e as Error)?.message || e)); }
+    finally { setMoreBusy(false); }
+  }
 
   function setParam(patch: Record<string, string>) {
     const usp = new URLSearchParams(sp.toString());
@@ -57,13 +87,46 @@ function Queue() {
   }
 
   async function claim(id: number) {
-    setBusy(true);
-    try { await assignLeads([id]); await load(0); }
+    setClaiming(id); setErr("");
+    // Write the outcome through to the cache first: the row leaves the unclaimed
+    // pool (or shows your name) the instant you click, then the revalidate after
+    // the server confirms keeps the counts honest.
+    if (view === "unassigned") dropRows(id);
+    else patchRows(id, { owner_email: (user?.email || "").toLowerCase() });
+    markQueuesStale();
+    try { await assignLeads([id]); }
     catch (e) { setErr(String((e as Error)?.message || e)); }
-    finally { setBusy(false); }
+    finally { setClaiming(null); }
+    revalidate();
   }
 
   const activeView = VIEWS.find((v) => v.key === view && (!v.mgr || isManager)) ? view : "mine";
+
+  // Hovering a row warms both halves of the next screen: the route payload (Next
+  // renders /console/leads/[id] on demand) and the lead record itself. By the
+  // time the click lands, the page has nothing left to fetch.
+  //
+  // Debounced, because a pointer travelling down 100 rows would otherwise queue a
+  // prefetch per row and bury the free-tier API — only the row you pause on wins.
+  const warmTimer = useRef<number | null>(null);
+  const warmed = useRef<number>(0);
+  function warm(id: number) {
+    if (warmTimer.current) window.clearTimeout(warmTimer.current);
+    warmTimer.current = window.setTimeout(() => {
+      warmed.current = id;
+      prefetchLead(id);
+      router.prefetch(`/console/leads/${id}`);
+    }, 150);
+  }
+  function cancelWarm() {
+    if (warmTimer.current) window.clearTimeout(warmTimer.current);
+  }
+  // A click must not wait for the debounce — warm synchronously if it beats it.
+  function openLead(id: number) {
+    cancelWarm();
+    if (warmed.current !== id) prefetchLead(id);
+    router.push(`/console/leads/${id}`);
+  }
 
   // clicking a column header sorts by it; clicking the active header flips the
   // direction. Both live in the URL so the queue is shareable/back-button-stable.
@@ -108,7 +171,9 @@ function Queue() {
             {team.map((t) => <option key={t.email} value={t.email}>{t.email}</option>)}
           </select>
         )}
-        <span className="in-faint" style={{ marginLeft: "auto" }}>{total} leads</span>
+        <span className="in-faint" style={{ marginLeft: "auto" }}>
+          {total} leads{pending && data ? " · updating" : ""}
+        </span>
       </div>
 
       {(() => {
@@ -134,7 +199,7 @@ function Queue() {
         );
       })()}
 
-      {err && <p className="in-err">{err}</p>}
+      {(err || apiErr) && <p className="in-err">{err || apiErr}</p>}
 
       <div className="in-card in-scroll-x" style={{ overflow: "hidden" }}>
         <table className="in-table">
@@ -149,7 +214,8 @@ function Queue() {
             {rows.map((l) => {
               const na = relTime(l.next_action_at);
               return (
-                <tr key={l.id} className="row" onClick={() => router.push(`/console/leads/${l.id}`)}>
+                <tr key={l.id} className="row" onClick={() => openLead(l.id)}
+                  onMouseEnter={() => warm(l.id)} onMouseLeave={cancelWarm}>
                   <td>
                     <div className="co">{l.company || <span className="in-faint">(no name)</span>}</div>
                     <div className="sub">{l.track} · {l.category_label}{l.priority_rank ? ` · #${l.priority_rank}` : ""}{!l.reachable ? " · ⚠ no contact" : ""}</div>
@@ -165,15 +231,19 @@ function Queue() {
                   <td className="sub">{l.last_contacted_at ? fmtDate(l.last_contacted_at) : <span className="in-faint">never</span>}</td>
                   <td>
                     {!l.owner_email && view !== "excluded" && (
-                      <button className="in-btn sm" onClick={(e) => { e.stopPropagation(); claim(l.id); }}>Claim</button>
+                      <button className="in-btn sm" disabled={claiming === l.id}
+                        onClick={(e) => { e.stopPropagation(); claim(l.id); }}>
+                        {claiming === l.id ? "Claiming…" : "Claim"}
+                      </button>
                     )}
                   </td>
                 </tr>
               );
             })}
-            {!rows.length && !busy && (
+            {!rows.length && (
               <tr><td colSpan={isManager ? 7 : 6}><div className="in-empty">
-                {view === "mine" ? <>No leads in your book yet. <Link className="in-link" href="/console/leads?view=unassigned">Claim from Unclaimed →</Link></>
+                {busy ? "Loading leads…"
+                  : view === "mine" ? <>No leads in your book yet. <Link className="in-link" href="/console/leads?view=unassigned">Claim from Unclaimed →</Link></>
                   : "No leads match this view."}
               </div></td></tr>
             )}
@@ -183,8 +253,8 @@ function Queue() {
 
       {rows.length < total && (
         <div style={{ marginTop: 12 }}>
-          <button className="in-btn" onClick={() => load(rows.length)} disabled={busy}>
-            {busy ? "Loading…" : `Load more (${total - rows.length} left)`}
+          <button className="in-btn" onClick={loadMore} disabled={moreBusy}>
+            {moreBusy ? "Loading…" : `Load more (${total - rows.length} left)`}
           </button>
         </div>
       )}

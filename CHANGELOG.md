@@ -7,6 +7,35 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
 
 ## [Unreleased]
 
+### Performance
+- **Console navigation is now cache-first (stale-while-revalidate).** Added
+  `web/src/lib/cache.ts`, a small SWR store shared by the console screens. Queue
+  pages, the lead record, the dashboard/rail counters, the team roster and reports
+  now paint instantly from the last response while a background revalidate brings
+  them up to date, instead of blanking and waiting on a 1-2s hosted round-trip
+  every time a screen mounts. `meta` is additionally mirrored into sessionStorage
+  so a reload renders before the API answers.
+- **A lead opens the moment you click it.** Hovering a queue row warms both the
+  Next.js route payload and the lead's own API record (debounced 150 ms so
+  sweeping the pointer down 100 rows can't bury the free-tier API), and a cold
+  deep link still renders the header at once from the row snapshot the queue
+  already has.
+- **Changes no longer block the next action.** Stage changes, claims/reassignment,
+  next-step scheduling and logged touchpoints/tasks write their outcome straight
+  into the cache (detail *and* every cached queue row) before the request is sent,
+  so the screen is already correct when you navigate to the dashboard, All leads
+  or anywhere else; the server confirmation revalidates behind that.
+- **Per-request DB connection churn fixed.** `pool_recycle` was 20s on the hosted
+  Postgres, which meant nearly every console click rebuilt a Neon connection
+  (TCP + TLS + auth, ~0.5-1s). Recycling is now a patient 1800s with a real pool
+  (`pool_size=5`, `max_overflow=10`), while `pool_pre_ping` still retires dead
+  handles (`api/db.py`).
+- **Payloads and queries trimmed.** `GZipMiddleware` added (a 100-row queue page
+  ships at roughly a fifth of 43KB); `GET /api/sales/leads/{id}` batch-eager-loads
+  company → contacts and owner instead of paying four extra round-trips, and caps
+  the activity feed at 200 rows; console search now debounces 300ms instead of
+  issuing a queue request per keystroke.
+
 ### Added
 - **Activity Reports tab.** New `/console/reports` page with a configurable date
   range (Today / Last 7 days / This week / This month / Last 30 days / custom)

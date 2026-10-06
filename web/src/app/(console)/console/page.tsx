@@ -1,9 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useConsole } from "@/components/console/ConsoleApp";
 import { StatusPill } from "@/components/console/ui";
-import { exportCsv, getSummary, type Summary } from "@/lib/sales-api";
+import { useCached } from "@/lib/cache";
+import { exportCsv, getSummary, summaryCacheKey, type Summary } from "@/lib/sales-api";
 
 const TILE_ORDER: { key: string; label: string; hint: string; icon: string; tint: string }[] = [
   { key: "mine", label: "My book", hint: "leads you own", icon: "★", tint: "var(--accent)" },
@@ -18,21 +19,22 @@ const TILE_ORDER: { key: string; label: string; hint: string; icon: string; tint
 
 export default function ConsoleDashboard() {
   const { user, isManager } = useConsole();
-  const [data, setData] = useState<Summary | null>(null);
-  const [err, setErr] = useState("");
+  // Cached first, verified second: coming back to the dashboard (or bouncing off
+  // a lead you just worked) paints the numbers you already saw, then refreshes.
+  const { data, error, pending } = useCached<Summary>(summaryCacheKey(), getSummary);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => { getSummary().then(setData).catch((e) => setErr(String(e?.message || e))); }, []);
+  const [csvErr, setCsvErr] = useState("");
+  const err = error || csvErr;
 
   async function download() {
-    setBusy(true); setErr("");
+    setBusy(true); setCsvErr("");
     try {
       const blob = await exportCsv({ view: "all" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url; a.download = `rfqclub_console_${new Date().toISOString().slice(0, 10)}.csv`;
       a.click(); URL.revokeObjectURL(url);
-    } catch (e) { setErr(String((e as Error)?.message || e)); }
+    } catch (e) { setCsvErr(String((e as Error)?.message || e)); }
     finally { setBusy(false); }
   }
 
@@ -62,7 +64,7 @@ export default function ConsoleDashboard() {
         </div>
       </div>
       {err && <p className="in-err">{err}</p>}
-      {!data && !err && <p className="in-faint">Loading dashboard…</p>}
+      {!data && !err && <p className="in-faint">{pending ? "Loading dashboard…" : ""}</p>}
 
       {data && (<>
         <div className="in-grid in-tiles">

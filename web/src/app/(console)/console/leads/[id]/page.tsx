@@ -1,11 +1,13 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useConsole } from "@/components/console/ConsoleApp";
 import { StatusPill, fmtDate, relTime, KIND_ICON } from "@/components/console/ui";
+import { useCached } from "@/lib/cache";
 import {
-  addActivity, addTask, assignLeads, completeTask, getLead, setNextStep, setStatus,
+  addActivity, addTask, assignLeads, completeTask, detailKey, getLead, markQueuesStale,
+  mutateDetail, patchDetail, patchRows, peekRow, setNextStep, setStatus,
   type Activity, type Contact, type LeadDetail, type Task,
 } from "@/lib/sales-api";
 
@@ -23,33 +25,126 @@ export default function LeadDetailPage() {
   const { meta, isManager, user } = useConsole();
   const id = Number(params?.id);
 
-  const [d, setD] = useState<LeadDetail | null>(null);
+  // A hovered queue row has usually prefetched this record already, so the click
+  // paints the whole page with no wait. A cold deep link falls back to the queue
+  // row snapshot for the header while the payload streams in.
+  const { data: d, error: apiErr, revalidate } = useCached<LeadDetail>(
+    detailKey(id), () => getLead(id), { enabled: !!id },
+  );
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const refresh = useCallback(async () => {
-    if (!id) return;
-    try { setD(await getLead(id)); }
-    catch (e) { setErr(String((e as Error)?.message || e)); }
-  }, [id]);
-
-  useEffect(() => { refresh(); }, [refresh]);
-
-  async function run<T>(fn: () => Promise<T>, then?: (r: T) => void) {
-    setBusy(true); setErr("");
-    try { const r = await fn(); then?.(r); await refresh(); }
+  /**
+   * Send a write whose outcome the caller has already painted into the cache.
+   * Nothing here gates the UI on the response, so the user can navigate away the
+   * instant they click; the queues are flagged stale so wherever they land next
+   * shows fresh data behind an instant cached paint.
+   */
+  async function run(fn: () => Promise<unknown>) {
+    setErr(""); setBusy(true); markQueuesStale();
+    try { await fn(); }
     catch (e) { setErr(String((e as Error)?.message || e)); }
     finally { setBusy(false); }
+    revalidate();
   }
 
-  if (!d && err)
+  const me = (user?.email || "").toLowerCase();
+  const labelFor = (key: string) =>
+    (meta?.statuses || []).find((s) => s.key === key)?.label || key;
+
+  function changeStatus(key: string) {
+    const label = labelFor(key);
+    patchDetail(id, { status: key, status_label: label });
+    patchRows(id, { status: key, status_label: label });
+    run(() => setStatus(id, key));
+  }
+  function saveNextStep(b: { next_action_at: string | null; next_action_note: string }) {
+    patchDetail(id, b); patchRows(id, b);
+    run(() => setNextStep(id, b));
+  }
+  function claimSelf() {
+    patchDetail(id, { owner_email: me }); patchRows(id, { owner_email: me });
+    run(() => assignLeads([id]));
+  }
+  function releaseToPool() {
+    patchDetail(id, { owner_email: "" }); patchRows(id, { owner_email: "" });
+    run(() => assignLeads([id], ""));
+  }
+  function reassign(email: string) {
+    patchDetail(id, { owner_email: email }); patchRows(id, { owner_email: email });
+    run(() => assignLeads([id], email));
+  }
+
+  /** A touchpoint shows up in the timeline immediately from what was typed; the
+   *  revalidate swaps the placeholder for the stored record. */
+  function logActivity(b: Parameters<typeof addActivity>[1]) {
+    const nowIso = new Date().toISOString();
+    const draft: Activity = {
+      id: -Date.now(), kind: b.kind, direction: b.direction || "outbound", outcome: b.outcome || "",
+      summary: b.summary || "", pain_point: b.pain_point || "", objection: b.objection || "",
+      competitor: b.competitor || "", duration_seconds: b.duration_seconds ?? null,
+      contact_id: b.contact_id ?? null, by_email: me, created_at: nowIso,
+    };
+    const touched = b.direction !== "inbound" && ["call", "whatsapp", "email", "meeting"].includes(b.kind);
+    const stage = b.set_status || "";
+    mutateDetail(id, (cur) => ({
+      ...cur,
+      status: stage || cur.status,
+      status_label: stage ? labelFor(stage) : cur.status_label,
+      next_action_at: b.next_action_at !== undefined ? b.next_action_at : cur.next_action_at,
+      next_action_note: b.next_action_note !== undefined ? b.next_action_note : cur.next_action_note,
+      last_contacted_at: touched ? nowIso : cur.last_contacted_at,
+      followup_count: touched ? (cur.followup_count || 0) + 1 : cur.followup_count,
+      activities: [draft, ...cur.activities],
+    }));
+    patchRows(id, {
+      status: stage || undefined, status_label: stage ? labelFor(stage) : undefined,
+      last_contacted_at: touched ? nowIso : undefined,
+      next_action_at: b.next_action_at ?? undefined,
+    });
+    run(() => addActivity(id, b));
+  }
+  function addTaskOpt(b: { title: string; due_at?: string | null }) {
+    const draft: Task = { id: -Date.now(), title: b.title, due_at: b.due_at ?? null, status: "open", overdue: false, completed_at: null };
+    mutateDetail(id, (cur) => ({ ...cur, tasks: [...cur.tasks, draft] }));
+    run(() => addTask(id, b));
+  }
+  function completeTaskOpt(taskId: number) {
+    mutateDetail(id, (cur) => ({
+      ...cur,
+      tasks: cur.tasks.map((t) => (t.id === taskId ? { ...t, status: "done", overdue: false, completed_at: new Date().toISOString() } : t)),
+    }));
+    run(() => completeTask(taskId));
+  }
+
+  if (!d) {
+    const stub = peekRow(id);
+    if (apiErr && !stub)
+      return (
+        <>
+          <Link className="in-link" href="/console/leads">← Back to queue</Link>
+          <div className="in-empty">Could not load this lead.<div className="in-err" style={{ marginTop: 8 }}>{apiErr}</div></div>
+        </>
+      );
+    if (!stub) return <div className="in-empty">Loading lead…</div>;
+    // Instant skeleton from the queue row the user just clicked.
     return (
       <>
-        <Link className="in-link" href="/console/leads">← Back to queue</Link>
-        <div className="in-empty">Could not load this lead.<div className="in-err" style={{ marginTop: 8 }}>{err}</div></div>
+        <div className="in-row in-wrap" style={{ marginBottom: 12 }}>
+          <button className="in-btn sm" onClick={() => router.back()}>← Back</button>
+          <h1 className="display" style={{ fontSize: 19, margin: 0 }}>{stub.company || "(no name)"}</h1>
+          <StatusPill status={stub.status} label={stub.status_label} />
+          <span className="in-right in-faint" style={{ fontSize: 11 }}>
+            {stub.track}{stub.hub_city ? ` · ${stub.hub_city}` : ""}{stub.priority_rank ? ` · priority #${stub.priority_rank}` : ""}
+          </span>
+        </div>
+        <div className="in-card in-pad">
+          <div className="in-kind">Lead record</div>
+          <p className="in-faint" style={{ margin: "6px 0 0" }}>Loading the full record…</p>
+        </div>
       </>
     );
-  if (!d) return <div className="in-empty">Loading lead…</div>;
+  }
 
   const co = d.company;
   const ownedByMe = !!d.owner_email && d.owner_email.toLowerCase() === (user?.email || "").toLowerCase();
@@ -68,7 +163,7 @@ export default function LeadDetailPage() {
         </span>
       </div>
 
-      {err && <p className="in-err" style={{ marginBottom: 10 }}>{err}</p>}
+      {(err || apiErr) && <p className="in-err" style={{ marginBottom: 10 }}>{err || apiErr}</p>}
 
       {/* ---- ownership / claim bar ---- */}
       <div className="in-card" style={{ padding: "10px 14px", marginBottom: 14 }}>
@@ -78,9 +173,9 @@ export default function LeadDetailPage() {
             ? <b style={{ color: "var(--txt)" }}>{d.owner_email}</b>
             : <span className="in-faint">unclaimed</span>}
           <div className="in-right in-row in-wrap">
-            {!d.owner_email && <button className="in-btn primary sm" disabled={busy} onClick={() => run(() => assignLeads([d.id]))}>Claim to me</button>}
-            {ownedByMe && <button className="in-btn sm" disabled={busy} onClick={() => run(() => assignLeads([d.id], ""))}>Release to pool</button>}
-            {isManager && <AssignControl leadId={d.id} current={d.owner_email} busy={busy} onDone={refresh} />}
+            {!d.owner_email && <button className="in-btn primary sm" disabled={busy} onClick={claimSelf}>Claim to me</button>}
+            {ownedByMe && <button className="in-btn sm" disabled={busy} onClick={releaseToPool}>Release to pool</button>}
+            {isManager && <AssignControl current={d.owner_email} busy={busy} onAssign={reassign} />}
           </div>
         </div>
       </div>
@@ -97,25 +192,25 @@ export default function LeadDetailPage() {
               : curIdx >= 0 && myIdx >= 0 && myIdx < curIdx ? "done" : "";
             return (
               <button key={s.key} className={`in-step ${cls}`} disabled={busy || !canWork}
-                onClick={() => run(() => setStatus(d.id, s.key))}>{s.label}</button>
+                onClick={() => changeStatus(s.key)}>{s.label}</button>
             );
           })}
           <span className="in-faint" style={{ padding: "0 6px" }}>|</span>
           {DEAD_ENDS.map((s) => (
             <button key={s.key} className={`in-btn sm ${s.cls}`} disabled={busy || !canWork}
-              onClick={() => run(() => setStatus(d.id, s.key))}>{s.label}</button>
+              onClick={() => changeStatus(s.key)}>{s.label}</button>
           ))}
         </div>
       </div>
 
       {/* ---- quick-action toolbar: one-tap follow-up scheduling for the rep ---- */}
-      <QuickFollowUps d={d} busy={busy} canWork={canWork} onSave={(b) => run(() => setNextStep(d.id, b))} />
+      <QuickFollowUps d={d} busy={busy} canWork={canWork} onSave={saveNextStep} />
 
       <div className="in-detail">
         {/* ================= LEFT COLUMN ================= */}
         <div className="in-col">
           {/* Next step — pinned to the top so the key action is always in view */}
-          <NextStepEditor d={d} busy={busy} canWork={canWork} onSave={(b) => run(() => setNextStep(d.id, b))} />
+          <NextStepEditor d={d} busy={busy} canWork={canWork} onSave={saveNextStep} />
 
           {/* Company (read-only, compacted) */}
           <div className="in-card in-pad">
@@ -144,14 +239,13 @@ export default function LeadDetailPage() {
           {/* Log a touchpoint */}
           <div className="in-card in-pad">
             <div className="in-kind" style={{ marginBottom: 8 }}>Log a touchpoint</div>
-            <ActivityForm d={d} meta={meta} busy={busy} canWork={canWork}
-              onSubmit={(b) => run(() => addActivity(d.id, b))} />
+            <ActivityForm d={d} meta={meta} busy={busy} canWork={canWork} onSubmit={logActivity} />
           </div>
 
           {/* Tasks */}
           <TaskPanel d={d} busy={busy} canWork={canWork}
-            onAdd={(b) => run(() => addTask(d.id, b))}
-            onComplete={(t) => run(() => completeTask(t))} />
+            onAdd={addTaskOpt}
+            onComplete={completeTaskOpt} />
 
           {/* Timeline */}
           <div className="in-card in-pad">
@@ -480,14 +574,16 @@ function ScriptPanel({ script }: { script: NonNullable<LeadDetail["script"]> }) 
 }
 
 // ------------------------------------------------------------------ manager assign
-function AssignControl({ leadId, current, busy, onDone }: { leadId: number; current: string; busy: boolean; onDone: () => void }) {
+function AssignControl({ current, busy, onAssign }: {
+  current: string; busy: boolean; onAssign: (email: string) => void;
+}) {
   const [email, setEmail] = useState(current || "");
   const [err, setErr] = useState("");
   const [open, setOpen] = useState(false);
-  async function go(owner: string) {
+  function go(owner: string) {
     setErr("");
-    try { await assignLeads([leadId], owner); await onDone(); setOpen(false); }
-    catch (e) { setErr(String((e as Error)?.message || e)); }
+    if (!owner && !current) { setErr("Enter a rep email, or use Release to pool"); return; }
+    onAssign(owner); setOpen(false);
   }
   if (!open) return <button className="in-btn sm" onClick={() => setOpen(true)}>Reassign</button>;
   return (

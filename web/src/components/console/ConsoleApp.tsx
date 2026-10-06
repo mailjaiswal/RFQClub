@@ -18,7 +18,11 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { authMe, changePassword, type AuthUser } from "@/lib/api";
 import { clearSession, getToken } from "@/lib/session";
-import { getMeta, getSummary, getTeam, type SalesMeta, type Summary, type TeamUser } from "@/lib/sales-api";
+import { ageOf, peek, refresh, useCached } from "@/lib/cache";
+import {
+  getMeta, getSummary, getTeam, summaryCacheKey, teamCacheKey,
+  type SalesMeta, type Summary, type TeamUser,
+} from "@/lib/sales-api";
 
 type Status = "checking" | "needs_login" | "not_provisioned" | "must_change" | "ready" | "denied";
 
@@ -44,12 +48,13 @@ export default function ConsoleApp({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const [status, setStatus] = useState<Status>("checking");
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [meta, setMeta] = useState<SalesMeta | null>(null);
+  // `meta` is a stable vocabulary, so a sessionStorage copy lets a reload render
+  // the console at once instead of waiting on the API to answer first.
+  const [meta, setMeta] = useState<SalesMeta | null>(() => peek<SalesMeta>("meta") ?? null);
   const [deniedMsg, setDeniedMsg] = useState("");
   const [actAs, setActAsRaw] = useState(() =>
     typeof window !== "undefined" ? localStorage.getItem("rfqclub_act_as") || "" : ""
   );
-  const [teamList, setTeamList] = useState<TeamUser[]>([]);
 
   const boot = useCallback(async () => {
     if (!getToken()) { setStatus("needs_login"); return; }
@@ -66,7 +71,15 @@ export default function ConsoleApp({ children }: { children: React.ReactNode }) 
       }
       // Still on its temporary password — force a rotation before opening the console.
       if (u.must_change_password) { setStatus("must_change"); return; }
-      setMeta(await getMeta());
+      const cached = peek<SalesMeta>("meta");
+      if (cached) {
+        // Already have the vocabularies: render now, refresh quietly.
+        setMeta(cached);
+        refresh("meta", getMeta, { persist: true }).then(setMeta).catch(() => {});
+      } else {
+        // A 403 from getMeta is the stale-token signal the catch below relies on.
+        setMeta(await refresh("meta", getMeta, { persist: true }));
+      }
       setStatus("ready");
     } catch (e) {
       // A 403 from getMeta means a stale token for an account no longer allowed in.
@@ -87,14 +100,16 @@ export default function ConsoleApp({ children }: { children: React.ReactNode }) 
     setTimeout(() => window.location.reload(), 50);
   }
 
-  // Fetch team roster for the impersonation dropdown (owner-only)
-  useEffect(() => {
-    if (isOwner) getTeam().then((t) => setTeamList(t.items.filter((u) => u.email !== user?.email))).catch(() => {});
-  }, [isOwner, user?.email]);
+  // Team roster for the impersonation dropdown and the queue's owner filter.
+  // Cached (it changes rarely) and shared with the queue screen via the key, and
+  // never requested by a plain rep — /api/sales/team is manager-gated server-side.
+  const isManagerNow = (user?.role || "").toLowerCase() === "sales_manager" || !!user?.is_console_admin;
+  const { data: teamData } = useCached(teamCacheKey(), getTeam, { maxAgeMs: 120_000, enabled: isManagerNow });
+  const teamList: TeamUser[] = (teamData?.items || []).filter((u) => u.email !== user?.email);
 
   const ctx = useMemo<Ctx>(
-    () => ({ user, isManager: (user?.role || "").toLowerCase() === "sales_manager" || !!user?.is_console_admin, isOwner, actAs, setActAs, meta, reload: boot }),
-    [user, meta, boot, actAs, isOwner],
+    () => ({ user, isManager: isManagerNow, isOwner, actAs, setActAs, meta, reload: boot }),
+    [user, meta, boot, actAs, isOwner, isManagerNow],
   );
 
   function signOut() { clearSession(); router.push("/login"); }
@@ -261,11 +276,17 @@ function Shell({ children, teamList }: { children: React.ReactNode; teamList: Te
   const pathname = usePathname();
   const sp = useSearchParams();
   const { user, isManager, isOwner, actAs, setActAs, meta, reload } = useConsole();
-  const [counts, setCounts] = useState<Record<string, number>>({});
+  // The rail's counters come from the same cached summary the dashboard reads, so
+  // they paint the moment a screen mounts; the route-change revalidate below is
+  // what used to cost a blocking round-trip on every single navigation.
+  const { data: summary, revalidate: revalidateSummary } = useCached<Summary>(summaryCacheKey(), getSummary);
+  const counts = summary?.tiles ?? {};
 
+  // Refresh the counters when the user moves between screens, but only if the
+  // cached copy has gone cold — rapid clicking shouldn't queue a request each.
   useEffect(() => {
-    getSummary().then((s: Summary) => setCounts(s.tiles)).catch(() => {});
-  }, [pathname, reload]);
+    if (ageOf(summaryCacheKey()) > 10_000) revalidateSummary();
+  }, [pathname, reload, revalidateSummary]);
 
   const view = sp.get("view") || "";
   const isLeads = pathname.startsWith("/console/leads");

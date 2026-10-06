@@ -3,6 +3,7 @@
 // Every call is server-gated by require_sales, so a non-allowlisted token 403s
 // here exactly as it does at the route — the client never has to "trust" itself.
 import { getToken } from "@/lib/session";
+import { cacheKeys, markStale, patch, peek, put, refresh } from "@/lib/cache";
 
 export const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000").replace(/\/+$/, "");
 
@@ -220,3 +221,85 @@ export const getReports = (p: { from?: string; to?: string; owner_email?: string
   const s = usp.toString();
   return req<ReportData>(`/api/sales/reports${s ? `?${s}` : ""}`);
 };
+
+// ---------------------------------------------------------------------------
+// Cache keys + write-through helpers (see lib/cache.ts)
+//
+// Keys carry the impersonation scope, so an owner's "View As" data can never
+// bleed into their own cached screens. Switching scope reloads the page, which
+// also clears the in-memory store.
+// ---------------------------------------------------------------------------
+const LEADS_PREFIX = "leads:";
+function scopeTag(): string {
+  const actAs = typeof window !== "undefined" ? localStorage.getItem("rfqclub_act_as") || "" : "";
+  return actAs ? `@${actAs}` : "";
+}
+export const queueKey = (p: LeadQuery): string => {
+  const parts = [p.view || "mine", p.status || "", p.track || "", p.category || "", p.contacted || "",
+    p.callable || "", p.owner_email || "", p.sort || "", p.dir || "", (p.q || "").trim(),
+    String(p.offset ?? 0), String(p.limit ?? 100)];
+  return `${LEADS_PREFIX}${scopeTag()}|${parts.join("|")}`;
+};
+export const detailKey = (id: number | string) => `lead:${scopeTag()}|${id}`;
+export const rowKey = (id: number | string) => `leadrow:${scopeTag()}|${id}`;
+export const summaryCacheKey = () => `summary:${scopeTag()}`;
+export const teamCacheKey = () => `team:${scopeTag()}`;
+export const reportsCacheKey = (from: string, to: string, owner: string) =>
+  `reports:${scopeTag()}|${from}|${to}|${owner || "me"}`;
+
+/** Stash the queue's rows so a click can paint the lead header from them instantly. */
+export function rememberRows(items: LeadRow[]) {
+  for (const r of items) put(rowKey(r.id), r);
+}
+
+/** Drop keys whose value is `undefined` so a partial write can never blank out a
+ *  field the caller didn't actually change. */
+function defined<T extends object>(p: T): Partial<T> {
+  return Object.fromEntries(Object.entries(p).filter(([, v]) => v !== undefined)) as Partial<T>;
+}
+
+/** Apply a field change to every cached queue page that shows this lead. */
+export function patchRows(id: number, p: Partial<LeadRow>) {
+  const clean = defined(p);
+  if (!Object.keys(clean).length) return;
+  for (const key of cacheKeys(LEADS_PREFIX)) {
+    patch<LeadsResponse>(key, (cur) => ({ ...cur, items: cur.items.map((r) => (r.id === id ? { ...r, ...clean } : r)) }));
+  }
+}
+
+/** Remove a lead from every cached queue — it has left those views entirely. */
+export function dropRows(id: number) {
+  for (const key of cacheKeys(LEADS_PREFIX)) {
+    patch<LeadsResponse>(key, (cur) => (cur.items.some((r) => r.id === id)
+      ? { ...cur, total: Math.max(0, cur.total - 1), items: cur.items.filter((r) => r.id !== id) }
+      : cur));
+  }
+}
+
+/** A write happened somewhere: the next queue mount must revalidate. */
+export function markQueuesStale() {
+  markStale(LEADS_PREFIX);
+}
+
+/** Apply a field change to the cached detail record (and mark counts dirty). */
+export function patchDetail(id: number, p: Partial<LeadDetail>) {
+  const clean = defined(p);
+  if (Object.keys(clean).length) patch<LeadDetail>(detailKey(id), (cur) => ({ ...cur, ...clean }));
+  markStale(`summary:${scopeTag()}`);
+}
+
+/** Functional edit of the cached detail — for lists (activities, tasks) that a
+ *  write appends to and that the server will confirm on revalidate. */
+export function mutateDetail(id: number, fn: (cur: LeadDetail) => LeadDetail) {
+  patch<LeadDetail>(detailKey(id), fn);
+  markStale(`summary:${scopeTag()}`);
+}
+
+/** Read the row snapshot for a lead (used for the instant header on deep links). */
+export const peekRow = (id: number | string) => peek<LeadRow>(rowKey(id));
+
+/** Warm the detail cache ahead of a click (hover / focus). Safe to repeat. */
+export function prefetchLead(id: number) {
+  if (peek<LeadDetail>(detailKey(id)) !== undefined) return;
+  refresh(detailKey(id), () => getLead(id)).catch(() => { /* best effort */ });
+}

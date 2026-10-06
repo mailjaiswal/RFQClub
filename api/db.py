@@ -15,14 +15,25 @@ def _url() -> str:
     return u
 
 
-connect_args = {"check_same_thread": False} if _url().startswith("sqlite") else {}
+sqlite_only = _url().startswith("sqlite")
+connect_args = {"check_same_thread": False} if sqlite_only else {}
+
+# Managed Postgres (Neon) poolers close long-lived/idle-in-transaction
+# connections, which killed a bulk import mid-run. pre_ping validates a
+# pooled connection before checkout so a stale handle is transparently replaced
+# instead of erroring mid-transaction.
+#
+# `pool_recycle` is the console's latency lever: a recycled-out connection is
+# rebuilt on checkout, and a fresh Neon connection costs TCP + TLS + auth
+# (~0.5-1s from Render). At the old 20s, low-traffic consoles paid that rebuild
+# on almost every click. pre_ping already catches dead handles, so recycling can
+# be patient; the pool stays warm between requests instead.
 engine = create_engine(
     _url(), connect_args=connect_args, future=True,
-    # Managed Postgres (Neon) poolers close long-lived/idle-in-transaction
-    # connections, which killed a bulk import mid-run. pre_ping validates a
-    # pooled connection before checkout and recycle refreshes it periodically, so
-    # a stale handle is transparently replaced instead of erroring mid-transaction.
-    pool_pre_ping=True, pool_recycle=20,
+    pool_pre_ping=True,
+    pool_recycle=1800 if not sqlite_only else 20,
+    # SQLite ignores pool sizing, so only hand these to Postgres (QueuePool).
+    **({} if sqlite_only else {"pool_size": 5, "max_overflow": 10, "pool_timeout": 15}),
 )
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 

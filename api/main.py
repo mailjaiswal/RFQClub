@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -35,6 +36,10 @@ from schemas import ApproveIn, AwardIn, AwardOrderIn, BidCreate, ClarifyIn, Impo
 from sales_api import router as sales_router
 
 app = FastAPI(title="RFQClub API", version="0.1.0")
+# A 100-row queue page is ~43KB of JSON; gzipped it ships at roughly a fifth of
+# that. On the free tier the transfer, not the query, was a visible slice of the
+# click-to-paint time, so compress anything worth compressing.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 app.add_middleware(
     CORSMiddleware, allow_origins=config.CORS_ORIGINS,
     allow_origin_regex=config.CORS_ORIGIN_REGEX or None,
