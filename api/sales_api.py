@@ -99,6 +99,15 @@ def _reachable(company: lm.Company | None) -> bool:
     return any((c.phone_primary or c.email or c.whatsapp) for c in company.contacts)
 
 
+def _is_manager(user: models.User) -> bool:
+    """Manager scope for the read/queue endpoints. Mirrors auth.require_sales_manager:
+    a sales_manager role OR a CONSOLE_ADMIN_EMAILS allowlisted account. Without the
+    allowlist branch the console owner (who keeps a marketplace role like `operator`)
+    would fall into the rep-only scoping — e.g. view=all filtering to owner_id==self,
+    which reads as an empty queue."""
+    return (user.role or "").strip().lower() == "sales_manager" or config.is_console_admin(user.email)
+
+
 def _company_out(company: lm.Company | None) -> dict:
     if company is None:
         return {}
@@ -292,7 +301,7 @@ def sales_summary(
         },
     }
 
-    if (user.role or "").strip().lower() == "sales_manager":
+    if _is_manager(user):
         rows = session.execute(
             select(lm.Lead.owner_id, lm.Lead.status, func.count())
             .where(lm.Lead.excluded_from_sales.is_(False))
@@ -341,7 +350,7 @@ def list_leads(
     session: Session = Depends(db.get_db),
     user: models.User = Depends(require_sales),
 ):
-    is_manager = (user.role or "").strip().lower() == "sales_manager"
+    is_manager = _is_manager(user)
     # Eager-load the per-row relationships the serializer touches (company, that
     # company's contacts, and the owner) so a 100-row page costs ~3 batched SELECTs
     # instead of ~300 lazy round-trips. On hosted Postgres this N+1 was THE dominant
@@ -477,7 +486,7 @@ def lead_detail(
     lead = session.get(lm.Lead, lead_id)
     if not lead:
         raise HTTPException(404, "Lead not found")
-    is_manager = (user.role or "").strip().lower() == "sales_manager"
+    is_manager = _is_manager(user)
     if lead.excluded_from_sales and not is_manager:
         raise HTTPException(404, "Lead not found")  # don't leak excluded rows to reps
     activities = session.query(lm.LeadActivity).filter(
@@ -653,7 +662,7 @@ def assign_leads(
 ):
     if not payload.lead_ids:
         raise HTTPException(422, "lead_ids required")
-    is_manager = (user.role or "").strip().lower() == "sales_manager"
+    is_manager = _is_manager(user)
     # owner_email=None => claim to self; owner_email="" => unassign to the pool
     # (manager only); any other value => assign to that rep (manager only).
     sentinel = payload.owner_email

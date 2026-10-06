@@ -20,6 +20,17 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
   schedules the next step instantly (Today 5pm / Tomorrow AM / +3 days / +7 days,
   plus Clear) without touching the date picker.
 
+### Fixed
+- **"All leads" tab was empty for the console owner.** The queue's `is_manager`
+  scope derived purely from `role == "sales_manager"`, but the site owner's
+  allowlisted account (`CONSOLE_ADMIN_EMAILS`) keeps a *marketplace* role (e.g.
+  `operator`) — so in production they fell into the rep-only branch that filters
+  `view=all` to `owner_id == self` (empty, since leads belong to reps). Added a
+  `_is_manager()` helper that mirrors `auth.require_sales_manager` (role **or**
+  allowlist) and routed the four scope checks (queue scoping, excluded leak-guard,
+  assign, summary leaderboard) through it, so the owner's console access behaves
+  identically in local SQLite and hosted Postgres.
+
 ### Performance
 - **Killed the queue N+1.** `list_leads` now eager-loads each row's `company`,
   the company's `contacts`, and the `owner` via `selectinload`, turning a
