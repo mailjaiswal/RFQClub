@@ -15,7 +15,7 @@ in lead_models.py, keeping the two lifecycles separate.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import func, or_, select
@@ -894,3 +894,150 @@ def set_team_role(
     u.role = role
     session.commit()
     return {"ok": True, "user": _team_out(u)}
+
+
+# ---------------------------------------------------------------------------
+# GET /api/sales/reports — time-period activity report
+# ---------------------------------------------------------------------------
+@router.get("/reports")
+def reports(
+    from_date: str = Query("", alias="from"),
+    to_date: str = Query("", alias="to"),
+    owner_email: str | None = Query(None),
+    session: Session = Depends(db.get_db),
+    user: models.User = Depends(require_sales),
+):
+    """Return aggregated activity metrics for a given time period.
+    Reps see their own stats; managers can view any rep or the whole team."""
+    is_mgr = _is_manager(user)
+
+    # --- resolve date range (default: last 7 days) ---
+    today = date.today()
+    if to_date:
+        try:
+            end_date = date.fromisoformat(to_date)
+        except ValueError:
+            raise HTTPException(422, "'to' must be YYYY-MM-DD")
+    else:
+        end_date = today
+    if from_date:
+        try:
+            start_date = date.fromisoformat(from_date)
+        except ValueError:
+            raise HTTPException(422, "'from' must be YYYY-MM-DD")
+    else:
+        start_date = end_date - timedelta(days=6)
+
+    start_dt = datetime(start_date.year, start_date.month, start_date.day, tzinfo=timezone.utc)
+    end_dt = datetime(end_date.year, end_date.month, end_date.day, 23, 59, 59, tzinfo=timezone.utc)
+
+    # --- resolve target user(s) ---
+    target_uid: int | None = user.id
+    if owner_email and is_mgr:
+        if owner_email == "__team__":
+            target_uid = None  # all users
+        elif owner_email == "__unassigned__":
+            target_uid = None
+        else:
+            ouid = session.scalar(select(models.User.id).where(models.User.email == owner_email.lower()))
+            if not ouid:
+                raise HTTPException(404, f"User {owner_email} not found")
+            target_uid = ouid
+
+    def _activity_scoping(q, model, user_col):
+        """Apply date + user filters to a query on a model with user_col, created_at."""
+        q = q.filter(model.created_at >= start_dt, model.created_at <= end_dt)
+        if target_uid is not None:
+            q = q.filter(user_col == target_uid)
+        return q
+
+    # --- 1. Activities by kind ---
+    act_q = session.query(lm.LeadActivity.kind, func.count(lm.LeadActivity.id)).filter(
+        lm.LeadActivity.created_at >= start_dt, lm.LeadActivity.created_at <= end_dt)
+    if target_uid is not None:
+        act_q = act_q.filter(lm.LeadActivity.created_by == target_uid)
+    activities_by_kind = dict(act_q.group_by(lm.LeadActivity.kind).all())
+
+    # --- 2. Status transitions (from LeadStatusHistory) ---
+    hist_q = session.query(lm.LeadStatusHistory.to_status, func.count(lm.LeadStatusHistory.id)).filter(
+        lm.LeadStatusHistory.changed_at >= start_dt, lm.LeadStatusHistory.changed_at <= end_dt)
+    if target_uid is not None:
+        hist_q = hist_q.filter(lm.LeadStatusHistory.changed_by == target_uid)
+    status_changes = dict(hist_q.group_by(lm.LeadStatusHistory.to_status).all())
+
+    # --- 3. Tasks completed ---
+    task_q = session.query(func.count(lm.LeadTask.id)).filter(
+        lm.LeadTask.completed_at >= start_dt, lm.LeadTask.completed_at <= end_dt,
+        lm.LeadTask.status == "done")
+    if target_uid is not None:
+        task_q = task_q.filter(lm.LeadTask.assigned_to == target_uid)
+    tasks_completed = task_q.scalar() or 0
+
+    # --- 4. Unique leads contacted (any activity in period) ---
+    uniq_q = session.query(func.count(func.distinct(lm.LeadActivity.lead_id))).filter(
+        lm.LeadActivity.created_at >= start_dt, lm.LeadActivity.created_at <= end_dt)
+    if target_uid is not None:
+        uniq_q = uniq_q.filter(lm.LeadActivity.created_by == target_uid)
+    unique_leads_contacted = uniq_q.scalar() or 0
+
+    # --- 5. Current pipeline snapshot (for target user) ---
+    pipe_q = session.query(lm.Lead.status, func.count(lm.Lead.id)).filter(
+        lm.Lead.excluded_from_sales.is_(False))
+    if target_uid is not None:
+        pipe_q = pipe_q.filter(lm.Lead.owner_id == target_uid)
+    current_pipeline = dict(pipe_q.group_by(lm.Lead.status).all())
+
+    # --- 6. Total activities count ---
+    total_activities = sum(activities_by_kind.values())
+    total_status_changes = sum(status_changes.values())
+
+    result = {
+        "period": {"from": start_date.isoformat(), "to": end_date.isoformat()},
+        "owner_email": (owner_email if (owner_email and is_mgr) else user.email),
+        "summary": {
+            "total_activities": total_activities,
+            "total_status_changes": total_status_changes,
+            "tasks_completed": tasks_completed,
+            "unique_leads_contacted": unique_leads_contacted,
+        },
+        "activities_by_kind": activities_by_kind,
+        "status_changes": status_changes,
+        "current_pipeline": current_pipeline,
+    }
+
+    # --- 7. Team breakdown (manager only, when viewing team) ---
+    if is_mgr and target_uid is None:
+        team_act = session.query(
+            models.User.email, func.count(lm.LeadActivity.id)
+        ).join(lm.LeadActivity, lm.LeadActivity.created_by == models.User.id).filter(
+            lm.LeadActivity.created_at >= start_dt, lm.LeadActivity.created_at <= end_dt
+        ).group_by(models.User.email).all()
+
+        team_hist = session.query(
+            lm.LeadStatusHistory.changed_by_email, func.count(lm.LeadStatusHistory.id)
+        ).filter(
+            lm.LeadStatusHistory.changed_at >= start_dt, lm.LeadStatusHistory.changed_at <= end_dt
+        ).group_by(lm.LeadStatusHistory.changed_by_email).all()
+
+        team_tasks = session.query(
+            models.User.email, func.count(lm.LeadTask.id)
+        ).join(lm.LeadTask, lm.LeadTask.assigned_to == models.User.id).filter(
+            lm.LeadTask.completed_at >= start_dt, lm.LeadTask.completed_at <= end_dt,
+            lm.LeadTask.status == "done"
+        ).group_by(models.User.email).all()
+
+        act_map = dict(team_act)
+        hist_map = dict(team_hist)
+        task_map = dict(team_tasks)
+        all_emails = set(act_map) | set(k for k in hist_map if k) | set(task_map)
+        team_breakdown = []
+        for em in sorted(all_emails):
+            team_breakdown.append({
+                "owner_email": em,
+                "activities": act_map.get(em, 0),
+                "status_changes": hist_map.get(em, 0),
+                "tasks_completed": task_map.get(em, 0),
+            })
+        result["team_breakdown"] = team_breakdown
+
+    return result

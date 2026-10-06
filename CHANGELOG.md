@@ -8,6 +8,13 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
 ## [Unreleased]
 
 ### Added
+- **Activity Reports tab.** New `/console/reports` page with a configurable date
+  range (Today / Last 7 days / This week / This month / Last 30 days / custom)
+  showing: summary tiles (activities logged, unique leads contacted, status
+  changes, tasks completed), bar charts for activity type and status-transition
+  breakdown, current pipeline snapshot, and — for managers — a per-rep team
+  table. Backed by `GET /api/sales/reports?from=&to=&owner_email=`
+  (`sales_api.py`, `reports/page.tsx`, `ConsoleApp.tsx`).
 - **Sortable queue headers + more filters.** Every column header on the lead
   queue (`Company`, `Hub`, `Status`, `Owner`, `Next action`, `Last touch`) is now
   a sorter (click to sort, click again to flip direction); `GET /api/sales/leads`

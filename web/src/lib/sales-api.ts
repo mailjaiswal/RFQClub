@@ -184,3 +184,36 @@ export const setTeamActive = (email: string, is_active: boolean) =>
 export const setTeamRole = (email: string, role: string) =>
   req<{ ok: boolean; user: TeamUser }>("/api/sales/team/role",
     { method: "POST", body: JSON.stringify({ email, role }) });
+
+// ---------------------------------------------------------------------------
+// Reports — time-period activity aggregation
+// ---------------------------------------------------------------------------
+export interface ReportSummary {
+  total_activities: number;
+  total_status_changes: number;
+  tasks_completed: number;
+  unique_leads_contacted: number;
+}
+export interface TeamBreakRow {
+  owner_email: string;
+  activities: number;
+  status_changes: number;
+  tasks_completed: number;
+}
+export interface ReportData {
+  period: { from: string; to: string };
+  owner_email: string;
+  summary: ReportSummary;
+  activities_by_kind: Record<string, number>;
+  status_changes: Record<string, number>;
+  current_pipeline: Record<string, number>;
+  team_breakdown?: TeamBreakRow[];
+}
+export const getReports = (p: { from?: string; to?: string; owner_email?: string } = {}) => {
+  const usp = new URLSearchParams();
+  if (p.from) usp.set("from", p.from);
+  if (p.to) usp.set("to", p.to);
+  if (p.owner_email) usp.set("owner_email", p.owner_email);
+  const s = usp.toString();
+  return req<ReportData>(`/api/sales/reports${s ? `?${s}` : ""}`);
+};

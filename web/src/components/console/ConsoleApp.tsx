@@ -248,6 +248,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const view = sp.get("view") || "";
   const isLeads = pathname.startsWith("/console/leads");
   const isTeam = pathname.startsWith("/console/team");
+  const isReports = pathname.startsWith("/console/reports");
   const linkActive = (href: string, v?: string) => {
     if (href === "/console") return pathname === "/console";
     if (!isLeads) return false;
@@ -267,6 +268,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
           <div className="sect">Workspace</div>
           <Link className={`in-navlink${linkActive("/console") ? " on" : ""}`} href="/console">◧ Dashboard</Link>
+          <Link className={`in-navlink${isReports ? " on" : ""}`} href="/console/reports">⊞ Reports</Link>
           <div className="sect">Queues</div>
           <a className={`in-navlink${linkActive("/console/leads", "mine") ? " on" : ""}`} onClick={() => go("/console/leads?view=mine")}>☰ My queue{counts.mine ? <span className="k">{counts.mine}</span> : null}</a>
           <a className={`in-navlink${linkActive("/console/leads", "unassigned") ? " on" : ""}`} onClick={() => go("/console/leads?view=unassigned")}>◨ Unclaimed{counts.unassigned ? <span className="k">{counts.unassigned}</span> : null}</a>
