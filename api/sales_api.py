@@ -323,6 +323,8 @@ def list_leads(
     category: str | None = Query(None),
     hub_city: str | None = Query(None),
     owner_email: str | None = Query(None),
+    contacted: bool = Query(False),
+    callable_f: bool = Query(False, alias="callable"),
     q: str | None = Query(None),
     sort: str = Query("priority", pattern="^(priority|next_action|company|status|recent)$"),
     limit: int = Query(50, ge=1, le=200),
@@ -371,6 +373,16 @@ def list_leads(
     if owner_email and is_manager:
         ouid = session.scalar(select(models.User.id).where(models.User.email == owner_email.lower()))
         query = query.filter(lm.Lead.owner_id == ouid)
+    # drill-down tiles from the dashboard: "contacted" = has been dialled at least
+    # once; "callable" = the company has at least one real contact channel (mirrors
+    # the summary's callable_now definition so the box and the queue always agree).
+    if contacted:
+        query = query.filter(lm.Lead.last_contacted_at.is_not(None))
+    if callable_f:
+        query = query.filter(lm.Lead.company_id.in_(
+            select(lm.Company.id).join(lm.Contact).where(
+                (lm.Contact.phone_primary != "") | (lm.Contact.email != "")
+                | (lm.Contact.whatsapp != "")).distinct()))
     if q:
         like = f"%{q.lower()}%"
         query = query.filter(lm.Lead.company_id.in_(

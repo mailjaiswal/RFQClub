@@ -21,6 +21,9 @@ function Queue() {
   const view = (sp.get("view") || "mine") as SalesView;
   const statusFilter = sp.get("status") || "";
   const trackFilter = sp.get("track") || "";
+  const contactedFilter = sp.get("contacted") || "";
+  const callableFilter = sp.get("callable") || "";
+  const ownerFilter = sp.get("owner_email") || "";
 
   const [rows, setRows] = useState<LeadRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -31,12 +34,12 @@ function Queue() {
   const load = useCallback(async (offset = 0) => {
     setBusy(true); setErr("");
     try {
-      const r = await getLeads({ view, status: statusFilter, track: trackFilter, q: q.trim() || undefined, limit: 100, offset });
+      const r = await getLeads({ view, status: statusFilter, track: trackFilter, contacted: contactedFilter, callable: callableFilter, owner_email: ownerFilter, q: q.trim() || undefined, limit: 100, offset });
       setTotal(r.total);
       setRows((prev) => (offset === 0 ? r.items : [...prev, ...r.items]));
     } catch (e) { setErr(String((e as Error)?.message || e)); }
     finally { setBusy(false); }
-  }, [view, statusFilter, trackFilter, q]);
+  }, [view, statusFilter, trackFilter, contactedFilter, callableFilter, ownerFilter, q]);
 
   useEffect(() => { load(0); }, [load]);
 
@@ -77,6 +80,28 @@ function Queue() {
         </select>
         <span className="in-faint" style={{ marginLeft: "auto" }}>{total} leads</span>
       </div>
+
+      {(() => {
+        const chips: { k: string; label: string }[] = [];
+        if (statusFilter) chips.push({ k: "status", label: (meta?.statuses || []).find((s) => s.key === statusFilter)?.label || statusFilter });
+        if (trackFilter) chips.push({ k: "track", label: trackFilter });
+        if (contactedFilter) chips.push({ k: "contacted", label: "contacted" });
+        if (callableFilter) chips.push({ k: "callable", label: "callable now" });
+        if (ownerFilter) chips.push({ k: "owner_email", label: `owner: ${ownerFilter}` });
+        if (!chips.length) return null;
+        return (
+          <div className="in-drillbar">
+            <span>Drilling into</span>
+            {chips.map((c) => (
+              <span key={c.k} className="in-dchip">{c.label}
+                <button title="Remove filter" onClick={() => setParam({ [c.k]: "" })}>×</button>
+              </span>
+            ))}
+            <a className="in-link" style={{ cursor: "pointer" }}
+              onClick={() => setParam(Object.fromEntries(chips.map((c) => [c.k, ""])))}>clear all</a>
+          </div>
+        );
+      })()}
 
       {err && <p className="in-err">{err}</p>}
 

@@ -8,6 +8,25 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
 ## [Unreleased]
 
 ### Added
+- **Cross-linked dashboard drill-down.** Every summary tile on `/console` is now
+  a link into the exact queue behind its number, and leaderboard rows link to a
+  rep's book. The queue accepts three new filters (`status` was joined by
+  `contacted`, `callable`, `owner_email`) and shows removable *"Drilling into…"*
+  chips for the active slice. `GET /api/sales/leads` gained `contacted` /
+  `callable` flags mirroring the summary's `callable_now` definition so a box and
+  the list it opens always agree (`api/sales_api.py`, `sales-api.ts`,
+  `console/page.tsx`, `console/leads/page.tsx`).
+
+### Changed
+- **Console visual pass (Duotone Soft).** Dashboard/funnel boxes gained the soft
+  tinted "corner blob", a per-metric icon chip, centered numbers, and a
+  GPU-safe staggered entry + hover lift (all under `prefers-reduced-motion`).
+- **Contact detail page restructure.** The "Next step" box is pinned to the top
+  of the left column (it no longer falls off the page) and the read-only Company
+  block is compacted from a tall key/value list into a tight two-column grid
+  (`internal.css`, `console/leads/[id]/page.tsx`).
+
+### Added
 - **Admin-managed console access (Team & access).** The inside-sales area moved
   from `/internal` to a readable **`/console`** path and its membership model
   switched from an env allowlist to **100% DB-managed**: only accounts an admin

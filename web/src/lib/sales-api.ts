@@ -98,6 +98,7 @@ export interface LeadDetail extends Omit<LeadRow, "company"> {
 export interface LeadQuery {
   view?: SalesView; status?: string; track?: string; category?: string;
   hub_city?: string; owner_email?: string; q?: string; sort?: string; limit?: number; offset?: number;
+  contacted?: string; callable?: string;
 }
 function qs(p: LeadQuery): string {
   const usp = new URLSearchParams();

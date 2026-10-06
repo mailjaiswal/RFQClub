@@ -111,9 +111,12 @@ export default function LeadDetailPage() {
       <div className="in-detail">
         {/* ================= LEFT COLUMN ================= */}
         <div className="in-col">
-          {/* Company */}
+          {/* Next step — pinned to the top so the key action is always in view */}
+          <NextStepEditor d={d} busy={busy} canWork={canWork} onSave={(b) => run(() => setNextStep(d.id, b))} />
+
+          {/* Company (read-only, compacted) */}
           <div className="in-card in-pad">
-            <div className="in-kind" style={{ marginBottom: 8 }}>Company</div>
+            <div className="in-kind" style={{ marginBottom: 6 }}>Company</div>
             <CompanyPanel d={d} />
           </div>
 
@@ -123,9 +126,6 @@ export default function LeadDetailPage() {
             {!d.contacts.length && <p className="in-faint" style={{ margin: 0 }}>No contacts recorded.</p>}
             {d.contacts.map((c) => <ContactRow key={c.id} c={c} />)}
           </div>
-
-          {/* Next step */}
-          <NextStepEditor d={d} busy={busy} canWork={canWork} onSave={(b) => run(() => setNextStep(d.id, b))} />
 
           {/* Script */}
           {d.script && (
@@ -189,25 +189,35 @@ function CompanyPanel({ d }: { d: LeadDetail }) {
   if (co?.website) links.push({ label: "Website", href: co.website });
   if (co?.gmb_link) links.push({ label: "Google", href: co.gmb_link });
   if (co?.linkedin_url) links.push({ label: "LinkedIn", href: co.linkedin_url });
+  // read-only reference data → tight 2-column grid (full-width for long values)
+  const fields: { k: string; v: string; wide?: boolean }[] = [];
+  fields.push({ k: "Category", v: `${co?.category_primary || "—"}${co?.category_tier ? ` · t${co.category_tier}` : ""}` });
+  fields.push({ k: "Size", v: co?.size_band || "—" });
+  if (co?.category_tags?.length) fields.push({ k: "Tags", v: co.category_tags.join(", "), wide: true });
+  if (co?.address) fields.push({ k: "Address", v: co.address, wide: true });
+  if (co?.cin) fields.push({ k: "CIN", v: co.cin });
+  if (co?.gst) fields.push({ k: "GST", v: co.gst });
+  if (co?.review_rating) fields.push({ k: "Reviews", v: `${co.review_rating}★ (${co.review_count})` });
   return (
-    <>
-      {co?.what_they_do && <p className="in-muted" style={{ margin: "0 0 10px" }}>{co.what_they_do}</p>}
-      <div className="in-kv"><span className="k">Category</span><span>{co?.category_primary || "—"}{co?.category_tier ? ` · t${co.category_tier}` : ""}</span></div>
-      {co?.category_tags?.length ? <div className="in-kv"><span className="k">Tags</span><span>{co.category_tags.join(", ")}</span></div> : null}
-      <div className="in-kv"><span className="k">Size</span><span>{co?.size_band || "—"}</span></div>
-      {co?.address && <div className="in-kv"><span className="k">Address</span><span>{co.address}</span></div>}
-      {co?.cin && <div className="in-kv"><span className="k">CIN</span><span>{co.cin}</span></div>}
-      {co?.gst && <div className="in-kv"><span className="k">GST</span><span>{co.gst}</span></div>}
-      {co?.review_rating ? <div className="in-kv"><span className="k">Reviews</span><span>{co.review_rating}★ ({co.review_count})</span></div> : null}
+    <div className="in-co">
+      {co?.what_they_do && <p className="in-co-desc">{co.what_they_do}</p>}
+      <div className="in-co-grid">
+        {fields.map((f) => (
+          <div key={f.k} className={f.wide ? "span2" : undefined}>
+            <span className="k">{f.k}</span>
+            <span className="v">{f.v}</span>
+          </div>
+        ))}
+      </div>
       {links.length > 0 && (
         <div className="in-row in-wrap" style={{ marginTop: 10 }}>
           {links.map((l) => <a key={l.label} className="in-btn sm" href={withProto(l.href)} target="_blank" rel="noreferrer">↗ {l.label}</a>)}
         </div>
       )}
-      <div className="in-faint" style={{ marginTop: 12, fontSize: 11 }}>
+      <div className="in-co-src">
         Source: {co?.source_system || d.source || "—"}{co?.source_note ? ` · ${co.source_note}` : ""}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -394,7 +404,7 @@ function NextStepEditor({ d, busy, canWork, onSave }: {
   useEffect(() => { setAt(localIso(d.next_action_at)); setNote(d.next_action_note || ""); }, [d.id, d.next_action_at, d.next_action_note]);
   const rel = d.next_action_at ? relTime(d.next_action_at) : null;
   return (
-    <div className="in-card in-pad">
+    <div className="in-card in-pad in-nextstep">
       <div className="in-kind" style={{ marginBottom: 6 }}>Next step</div>
       {d.next_action_at ? (
         <div className="in-muted" style={{ marginBottom: 8, fontSize: 12 }}>
