@@ -8,11 +8,13 @@ export const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const auth = typeof window !== "undefined" ? getToken() : null;
+  const actAs = typeof window !== "undefined" ? localStorage.getItem("rfqclub_act_as") || "" : "";
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
       ...(auth ? { Authorization: `Bearer ${auth}` } : {}),
+      ...(actAs ? { "X-Act-As": actAs } : {}),
       ...(init?.headers || {}),
     },
     cache: "no-store",
@@ -143,8 +145,9 @@ export const assignLeads = (lead_ids: number[], owner_email?: string | null) =>
 // CSV download (manager only). Returns a filename + blob for the caller to save.
 export async function exportCsv(p: { view?: SalesView; status?: string; track?: string; category?: string } = {}): Promise<Blob> {
   const auth = typeof window !== "undefined" ? getToken() : null;
+  const actAs = typeof window !== "undefined" ? localStorage.getItem("rfqclub_act_as") || "" : "";
   const res = await fetch(`${API_BASE}/api/sales/export${qs(p as LeadQuery)}`, {
-    headers: { ...(auth ? { Authorization: `Bearer ${auth}` } : {}) }, cache: "no-store",
+    headers: { ...(auth ? { Authorization: `Bearer ${auth}` } : {}), ...(actAs ? { "X-Act-As": actAs } : {}) }, cache: "no-store",
   });
   if (!res.ok) { let d = `${res.status}`; try { d = (await res.json()).detail || d; } catch { /* */ } throw new Error(d); }
   return res.blob();

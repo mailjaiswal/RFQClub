@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -106,6 +106,35 @@ def _is_manager(user: models.User) -> bool:
     would fall into the rep-only scoping — e.g. view=all filtering to owner_id==self,
     which reads as an empty queue."""
     return (user.role or "").strip().lower() == "sales_manager" or config.is_console_admin(user.email)
+
+
+def _resolve_act_as(
+    session: Session, user: models.User, x_act_as: str
+) -> models.User:
+    """Console-owner impersonation: if the authenticated user is the allowlisted
+    OWNER (not just a sales_manager) and passes X-Act-As:<email>, return the target
+    sales user so the endpoint scopes data exactly as that rep sees it.
+    Managers CANNOT impersonate — this is exclusively for the site owner."""
+    act_as = (x_act_as or "").strip().lower()
+    if not act_as:
+        return user
+    # Only the CONSOLE_ADMIN_EMAILS owner may impersonate; regular managers cannot.
+    if not config.is_console_admin(user.email):
+        raise HTTPException(403, "Only the console owner can view as another user")
+    target = session.scalar(
+        select(models.User).where(func.lower(models.User.email) == act_as)
+    )
+    if not target:
+        raise HTTPException(404, f"Cannot impersonate: user '{act_as}' not found")
+    role = (target.role or "").strip().lower()
+    if role not in ("sales", "sales_manager") and not config.is_console_admin(target.email):
+        raise HTTPException(400, "Can only impersonate inside-sales accounts")
+    if not getattr(target, "is_active", True):
+        raise HTTPException(400, "Cannot impersonate a deactivated account")
+    # Prevent impersonating oneself (pointless and could confuse frontend)
+    if target.id == user.id:
+        return user
+    return target
 
 
 def _company_out(company: lm.Company | None) -> dict:
@@ -263,9 +292,11 @@ def _status_counts(session, owner_id: int | None = None) -> dict[str, int]:
 
 @router.get("/summary")
 def sales_summary(
+    x_act_as: str = Header("", alias="X-Act-As"),
     session: Session = Depends(db.get_db),
     user: models.User = Depends(require_sales),
 ):
+    user = _resolve_act_as(session, user, x_act_as)
     now = datetime.now(timezone.utc)
     active = lm.Lead.excluded_from_sales.is_(False)
 
@@ -347,9 +378,11 @@ def list_leads(
     dir: str = Query(""),  # "desc" flips direction; any other value (incl default "") = ascending,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    x_act_as: str = Header("", alias="X-Act-As"),
     session: Session = Depends(db.get_db),
     user: models.User = Depends(require_sales),
 ):
+    user = _resolve_act_as(session, user, x_act_as)
     is_manager = _is_manager(user)
     # Eager-load the per-row relationships the serializer touches (company, that
     # company's contacts, and the owner) so a 100-row page costs ~3 batched SELECTs
@@ -480,9 +513,12 @@ def _script_out(session, category_key: str, track: str) -> dict | None:
 
 @router.get("/leads/{lead_id}")
 def lead_detail(
-    lead_id: int, session: Session = Depends(db.get_db),
+    lead_id: int,
+    x_act_as: str = Header("", alias="X-Act-As"),
+    session: Session = Depends(db.get_db),
     user: models.User = Depends(require_sales),
 ):
+    user = _resolve_act_as(session, user, x_act_as)
     lead = session.get(lm.Lead, lead_id)
     if not lead:
         raise HTTPException(404, "Lead not found")
@@ -904,11 +940,13 @@ def reports(
     from_date: str = Query("", alias="from"),
     to_date: str = Query("", alias="to"),
     owner_email: str | None = Query(None),
+    x_act_as: str = Header("", alias="X-Act-As"),
     session: Session = Depends(db.get_db),
     user: models.User = Depends(require_sales),
 ):
     """Return aggregated activity metrics for a given time period.
     Reps see their own stats; managers can view any rep or the whole team."""
+    user = _resolve_act_as(session, user, x_act_as)
     is_mgr = _is_manager(user)
 
     # --- resolve date range (default: last 7 days) ---

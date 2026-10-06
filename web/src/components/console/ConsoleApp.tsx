@@ -18,13 +18,16 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { authMe, changePassword, type AuthUser } from "@/lib/api";
 import { clearSession, getToken } from "@/lib/session";
-import { getMeta, getSummary, type SalesMeta, type Summary } from "@/lib/sales-api";
+import { getMeta, getSummary, getTeam, type SalesMeta, type Summary, type TeamUser } from "@/lib/sales-api";
 
 type Status = "checking" | "needs_login" | "not_provisioned" | "must_change" | "ready" | "denied";
 
 interface Ctx {
   user: AuthUser | null;
   isManager: boolean;
+  isOwner: boolean;
+  actAs: string;
+  setActAs: (email: string) => void;
   meta: SalesMeta | null;
   reload: () => void;
 }
@@ -43,6 +46,10 @@ export default function ConsoleApp({ children }: { children: React.ReactNode }) 
   const [user, setUser] = useState<AuthUser | null>(null);
   const [meta, setMeta] = useState<SalesMeta | null>(null);
   const [deniedMsg, setDeniedMsg] = useState("");
+  const [actAs, setActAsRaw] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem("rfqclub_act_as") || "" : ""
+  );
+  const [teamList, setTeamList] = useState<TeamUser[]>([]);
 
   const boot = useCallback(async () => {
     if (!getToken()) { setStatus("needs_login"); return; }
@@ -70,9 +77,24 @@ export default function ConsoleApp({ children }: { children: React.ReactNode }) 
 
   useEffect(() => { boot(); }, [boot]);
 
+  const isOwner = !!user?.is_console_admin;
+
+  function setActAs(email: string) {
+    setActAsRaw(email);
+    if (email) localStorage.setItem("rfqclub_act_as", email);
+    else localStorage.removeItem("rfqclub_act_as");
+    // trigger a re-render of all data by reloading
+    setTimeout(() => window.location.reload(), 50);
+  }
+
+  // Fetch team roster for the impersonation dropdown (owner-only)
+  useEffect(() => {
+    if (isOwner) getTeam().then((t) => setTeamList(t.items.filter((u) => u.email !== user?.email))).catch(() => {});
+  }, [isOwner, user?.email]);
+
   const ctx = useMemo<Ctx>(
-    () => ({ user, isManager: (user?.role || "").toLowerCase() === "sales_manager" || !!user?.is_console_admin, meta, reload: boot }),
-    [user, meta, boot],
+    () => ({ user, isManager: (user?.role || "").toLowerCase() === "sales_manager" || !!user?.is_console_admin, isOwner, actAs, setActAs, meta, reload: boot }),
+    [user, meta, boot, actAs, isOwner],
   );
 
   function signOut() { clearSession(); router.push("/login"); }
@@ -136,7 +158,7 @@ export default function ConsoleApp({ children }: { children: React.ReactNode }) 
   // ready
   return (
     <ConsoleCtx.Provider value={ctx}>
-      <Shell>{children}</Shell>
+      <Shell teamList={teamList}>{children}</Shell>
     </ConsoleCtx.Provider>
   );
 }
@@ -234,11 +256,11 @@ export function ConfirmPopup({ title, body, danger, confirmLabel = "Confirm", on
   );
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children, teamList }: { children: React.ReactNode; teamList: TeamUser[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
-  const { user, isManager, meta, reload } = useConsole();
+  const { user, isManager, isOwner, actAs, setActAs, meta, reload } = useConsole();
   const [counts, setCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -288,6 +310,13 @@ function Shell({ children }: { children: React.ReactNode }) {
         <div className="in-main">
           <div className="in-top">
             <span className="in-tag">{meta ? "Lead console" : "…"}</span>
+            {isOwner && teamList.length > 0 && (
+              <select className="in-field" style={{ maxWidth: 180, fontSize: 11.5, padding: "4px 8px" }}
+                value={actAs} onChange={(e) => setActAs(e.target.value)}>
+                <option value="">Own view (owner)</option>
+                {teamList.map((t) => <option key={t.email} value={t.email}>View as: {t.email}</option>)}
+              </select>
+            )}
             <div className="who">
               <span>{user?.email}</span>
               <span className="in-pill st-onboarding">{(user?.role || "").replace("sales_", "")}</span>
@@ -295,6 +324,12 @@ function Shell({ children }: { children: React.ReactNode }) {
               <button className="in-btn sm" onClick={signOut}>Sign out</button>
             </div>
           </div>
+          {actAs && (
+            <div className="in-imp-bar">
+              <span>Viewing as <b>{actAs}</b> — read-only impersonation</span>
+              <button className="in-btn sm" onClick={() => setActAs("")}>Exit impersonation</button>
+            </div>
+          )}
           <div className="in-body">{children}</div>
         </div>
       </div>

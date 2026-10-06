@@ -276,3 +276,14 @@
 .in-card > .in-h3 { padding: 14px 16px 0; }
 .in-card > .in-faint { padding: 0 16px 14px; }
 .in-card > table { margin: 0 4px 8px; }
+
+/* ---- impersonation banner ---- */
+.in-imp-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 18px; font-size: 12.5px; font-weight: 600;
+  background: linear-gradient(90deg, rgba(255, 122, 144, 0.14), rgba(139, 92, 246, 0.10));
+  border-bottom: 1px solid rgba(255, 122, 144, 0.3);
+  color: var(--txt);
+}
+.in-imp-bar b { color: var(--accent); }
+.in-imp-bar .in-btn { margin-left: auto; }

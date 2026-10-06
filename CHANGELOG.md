@@ -15,6 +15,12 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
   breakdown, current pipeline snapshot, and — for managers — a per-rep team
   table. Backed by `GET /api/sales/reports?from=&to=&owner_email=`
   (`sales_api.py`, `reports/page.tsx`, `ConsoleApp.tsx`).
+- **Owner-only "View As" impersonation.** A top-bar dropdown (visible only to
+  the `CONSOLE_ADMIN_EMAILS` owner, NOT to regular managers) lets the owner browse
+  the console exactly as a specific rep sees it — their queue, summary, lead
+  detail, and reports. Propagates via `X-Act-As` header to all `/api/sales/*`
+  read endpoints; a prominent banner confirms impersonation with a one-click exit.
+  Write endpoints are unaffected (rep view is read-only by scoping).
 - **Sortable queue headers + more filters.** Every column header on the lead
   queue (`Company`, `Hub`, `Status`, `Owner`, `Next action`, `Last touch`) is now
   a sorter (click to sort, click again to flip direction); `GET /api/sales/leads`
