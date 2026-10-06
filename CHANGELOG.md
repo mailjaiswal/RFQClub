@@ -37,6 +37,12 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
   allowlist) and routed the four scope checks (queue scoping, excluded leak-guard,
   assign, summary leaderboard) through it, so the owner's console access behaves
   identically in local SQLite and hosted Postgres.
+- **All `/api/sales/leads` requests returned 422 (no data in any queue tab).**
+  Pydantic v2.13 validates default values against `pattern` constraints. The
+  `dir` param defaulted to `""` but carried `pattern="^(asc|desc)$"`, which `""`
+  fails — every GET to the queue endpoint was rejected before reaching the DB.
+  Removed the unnecessary pattern guard from `dir` (the ordering logic already
+  treats any non-`"desc"` value as ascending).
 
 ### Performance
 - **Killed the queue N+1.** `list_leads` now eager-loads each row's `company`,
