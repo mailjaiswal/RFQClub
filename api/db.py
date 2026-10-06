@@ -16,7 +16,14 @@ def _url() -> str:
 
 
 connect_args = {"check_same_thread": False} if _url().startswith("sqlite") else {}
-engine = create_engine(_url(), connect_args=connect_args, future=True)
+engine = create_engine(
+    _url(), connect_args=connect_args, future=True,
+    # Managed Postgres (Neon) poolers close long-lived/idle-in-transaction
+    # connections, which killed a bulk import mid-run. pre_ping validates a
+    # pooled connection before checkout and recycle refreshes it periodically, so
+    # a stale handle is transparently replaced instead of erroring mid-transaction.
+    pool_pre_ping=True, pool_recycle=20,
+)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
 

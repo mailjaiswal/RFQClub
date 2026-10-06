@@ -395,6 +395,7 @@ def run(dry: bool = False, expansion: bool = True, note: str = "") -> dict:
             priority = read_priority()
             st = _blank_stats()
             st["rows_read"] = len(rows)
+            CHUNK = 100
             for i, rec in enumerate(rows, start=2):
                 ref = "%s!%s:%d" % (system, sheet, i)
                 company = upsert_company(session, rec, st, ref, system=system)
@@ -403,7 +404,16 @@ def run(dry: bool = False, expansion: bool = True, note: str = "") -> dict:
                 session.flush()  # need company.id before contacts/lead
                 upsert_contact(session, company, rec, st, ref)
                 upsert_lead(session, company, rec, st, priority, system=system)
-            session.flush()
+                # Commit in small chunks (real runs only): a bulk load then spans
+                # many short transactions, so a Neon pooler connection drop rolls
+                # back just the current chunk instead of the whole multi-minute
+                # load. Re-running is safe — every upsert here is idempotent.
+                if not dry and (i % CHUNK) == 0:
+                    session.commit()
+            if not dry:
+                session.commit()
+            else:
+                session.flush()
             for k, v in st.items():
                 if k not in ("rejected_detail",):
                     stats[k] += v
