@@ -35,3 +35,20 @@ services:
         sync: false
       - key: OPERATOR_EMAILS # comma-separated allowlist for the concierge /operator role
         sync: false # unset = any signed-in account may self-claim it (demo); set it to lock the review gate
+      # Inside-sales CONSOLE (/console + /api/sales/*) is now DB-MANAGED: the
+      # first manager is auto-seeded on startup from SALES_ADMIN_EMAIL below, and
+      # every further account is created by that manager from the console's
+      # Team & access panel. Nothing here is required to open it — leave the
+      # legacy allowlists empty. The seeded account is flagged must-change, so
+      # SALES_ADMIN_PASSWORD is only a throwaway starter secret rotated on login.
+      - key: SALES_ADMIN_EMAIL # first inside-sales manager, seeded once (idempotent)
+        value: mail.jaiswal@gmail.com
+      - key: SALES_ADMIN_NAME
+        value: Admin
+      - key: SALES_ADMIN_PASSWORD # starter password; set a private value in the dashboard to override the code default
+        sync: false
+      # Legacy env allowlists — no longer consulted by require_sales (kept harmless).
+      - key: SALES_EMAILS
+        sync: false
+      - key: SALES_MANAGER_EMAILS
+        sync: false

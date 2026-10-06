@@ -30,6 +30,10 @@ import profile_data
 from auth import router as auth_router, optional_user, require_user, require_operator
 from schemas import ApproveIn, AwardIn, AwardOrderIn, BidCreate, ClarifyIn, ImportBnSIn, IntakeIn, RejectIn, RfqCreate, RfqStatusIn
 
+# sales_api attaches its own require_sales gate at router level, so simply
+# including it here is enough to expose (and protect) the whole internal surface.
+from sales_api import router as sales_router
+
 app = FastAPI(title="RFQClub API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware, allow_origins=config.CORS_ORIGINS,
@@ -37,6 +41,7 @@ app.add_middleware(
     allow_methods=["*"], allow_headers=["*"],
 )
 app.include_router(auth_router)
+app.include_router(sales_router)
 
 
 @app.on_event("startup")
@@ -44,6 +49,9 @@ def _startup():
     db.init_db()
     # Fresh hosted DB (Neon) boots empty — rebuild the demo board once.
     bootstrap.ensure_seeded()
+    # Seed the first inside-sales manager so the /console area is reachable
+    # (idempotent; never overwrites an existing account). See bootstrap.py.
+    bootstrap.ensure_sales_admin()
 
 
 # ---------- serialization ----------

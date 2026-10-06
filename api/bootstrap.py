@@ -9,8 +9,10 @@ from __future__ import annotations
 
 from sqlalchemy.exc import IntegrityError
 
+import config
 import db
 import models
+import security
 
 
 def ensure_seeded(session=None) -> bool:
@@ -42,6 +44,45 @@ def ensure_seeded(session=None) -> bool:
         s.rollback()
         print("[bootstrap] seed skipped (concurrent boot)")
         return False
+    finally:
+        if own:
+            s.close()
+
+
+def ensure_sales_admin(session=None) -> bool:
+    """Seed (once) the first inside-sales manager so the console is reachable.
+
+    Idempotent and non-destructive: if the account already exists its role,
+    password and flags are left exactly as they are (the owner may have changed
+    the password already). A freshly created admin is a `sales_manager` carrying
+    `must_change_password=True`, so the shipped throwaway password is rotated on
+    the very first sign-in.
+    """
+    email = (config.SALES_ADMIN_EMAIL or "").strip().lower()
+    if not email or "@" not in email:
+        return False
+    own = session is None
+    s = session or db.SessionLocal()
+    try:
+        u = s.query(models.User).filter(models.User.email == email).first()
+        if u is not None:
+            return False
+        u = models.User(
+            email=email,
+            name=config.SALES_ADMIN_NAME or "Admin",
+            role="sales_manager",
+            password_hash=security.hash_password(config.SALES_ADMIN_PASSWORD),
+            must_change_password=True,
+            is_active=True,
+        )
+        s.add(u)
+        try:
+            s.commit()
+        except IntegrityError:
+            s.rollback()
+            return False
+        print(f"[bootstrap] seeded inside-sales manager {email} (must change password on first login)")
+        return True
     finally:
         if own:
             s.close()

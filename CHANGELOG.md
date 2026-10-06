@@ -8,6 +8,50 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
 ## [Unreleased]
 
 ### Added
+- **Admin-managed console access (Team & access).** The inside-sales area moved
+  from `/internal` to a readable **`/console`** path and its membership model
+  switched from an env allowlist to **100% DB-managed**: only accounts an admin
+  creates in the console can sign in. A first manager is seeded on startup from
+  `SALES_ADMIN_EMAIL` / `SALES_ADMIN_PASSWORD` (`api/config.py`,
+  `bootstrap.ensure_sales_admin()`), flagged `must_change_password` so they must
+  rotate the starter password on first entry. `require_sales` now gates purely on
+  the DB role + `is_active` + `must_change_password` (409 while still on a temp
+  password) and no longer reads `SALES_EMAILS`; the public `POST /api/auth/role`
+  refuses to hand out `sales`/`sales_manager`, so a role can never be
+  self-claimed. Two new `User` columns (`must_change_password`, `is_active`) are
+  added idempotently (`api/db.py`). Manager-only Team endpoints
+  (`GET /api/sales/team`, `POST /team/user`, `/team/password`, `/team/status`,
+  `/team/role` in `api/sales_api.py`) create users, reset passwords, change roles
+  and deactivate/restore access (deactivating releases the member's leads to the
+  pool; you can't deactivate yourself or strand the last active manager).
+  On the web side the gate (`ConsoleApp.tsx`) drops the old role self-claim
+  buttons for a "not a member" screen, adds a forced first-login password-change
+  screen, and a **Team & access** panel at `/console/team` (`sales-api.ts` team
+  client). Per the product rule, **every password create/change routes through a
+  confirmation popup before it is committed** (`ConfirmPopup` reused by the
+  panel and the first-login screen). Client: `web/src/app/(console)/console/team/`,
+  renamed `(internal)→(console)` route group + `components/internal→console`,
+  `middleware.ts` matcher, `api.ts` `AuthUser` fields.
+- **Inside-sales "internal" workspace — a second, gated side of the app for the
+  inside-sales team.** The enriched BnS + Expansion lead book (already modelled
+  in `api/lead_models.py`, previously with no API/UI) is now a fully workable CRM
+  reachable only at `/internal`, sharing no chrome with the buyer/supplier
+  board. Defence-in-depth access: two new roles (`sales`, `sales_manager`) that
+  can only be claimed by an address on the **fail-closed** `SALES_EMAILS` /
+  `SALES_MANAGER_EMAILS` allowlist (`api/config.py`), an empty allowlist denies
+  everyone; a new `/api/sales` router guarded at the router level by
+  `require_sales` (a normal buyer/supplier token 403s on every call), and the
+  Next.js middleware + client gate keep the area out of the public build.
+  Reps work queues (My / Unclaimed / Follow-ups / All / Out-of-scope), advance a
+  6-stage status ladder (Not contacted → Potential → In conversation →
+  Onboarding → Onboarded) with Declined / On-hold / Dead exits, log every
+  touchpoint (kind, outcome, notes, pain-point, objection, competitor), set a
+  next-action date + note, file follow-up tasks, and claim / release a lead so
+  every contact carries an owner name; managers additionally get the team
+  leaderboard, cross-rep assignment and a UTF-8-BOM CSV export. New files:
+  `api/sales_api.py`, `web/src/lib/sales-api.ts`, `web/src/components/internal/*`,
+  `web/src/app/(internal)/**`, `web/src/styles/internal.css`; wired in
+  `api/main.py`, `api/auth.py`, `api/schemas.py`, `web/src/middleware.ts`.
 - **Concierge Order-Ops desk on `/review`.** A new `OrderOps` section renders one
   `OpsCard` per awarded RFQ (`GET /api/rfqs?status=awarded`): escrow state,
   managed-QC state and each payment milestone are advanced via dropdowns that

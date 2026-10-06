@@ -136,6 +136,11 @@ class User(Base):
     name: Mapped[str] = mapped_column(String, default="")
     role: Mapped[str] = mapped_column(String, default="supplier")  # buyer/supplier/operator
     password_hash: Mapped[str | None] = mapped_column(String, nullable=True)  # pbkdf2_sha256$... (null = OTP/Google-only)
+    # Inside-sales console flags: a manager provisions reps with a temporary
+    # password, so they must set their own on first sign-in; and an account can
+    # be deactivated (rather than deleted) so its identity/audit survives.
+    must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     google_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)  # Google `sub` when linked
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)  # stamped on a successful sign-in
     # Short-lived auth secrets are stored as keyed digests (never plaintext) so a

@@ -73,6 +73,38 @@ OPERATOR_EMAILS = {e.strip().lower() for e in os.getenv("OPERATOR_EMAILS", "").s
 def is_operator_email(email: str) -> bool:
     return (email or "").strip().lower() in OPERATOR_EMAILS
 
+
+# ---- Inside-sales "internal" area -------------------------------------------------
+# A separate, hidden surface for the inside-sales team (see lead_models.py and the
+# /api/sales/* router). Unlike OPERATOR_EMAILS — which stays wide-open for the demo
+# — this side is FAIL-CLOSED: when SALES_EMAILS is empty nobody can take the sales
+# role and every /api/sales/* call is denied, so the area is completely unreachable
+# to normal buyer/supplier users until an address is explicitly listed here.
+# A manager's email belongs in both lists (managers are reps who also see the
+# leaderboard / assignment / CSV-export tools).
+SALES_EMAILS = {e.strip().lower() for e in os.getenv("SALES_EMAILS", "").split(",") if e.strip()}
+SALES_MANAGER_EMAILS = {e.strip().lower() for e in os.getenv("SALES_MANAGER_EMAILS", "").split(",") if e.strip()}
+
+
+def is_sales_email(email: str) -> bool:
+    e = (email or "").strip().lower()
+    return e in SALES_EMAILS or e in SALES_MANAGER_EMAILS
+
+
+def is_sales_manager_email(email: str) -> bool:
+    return (email or "").strip().lower() in SALES_MANAGER_EMAILS
+
+
+# The very first inside-sales manager, seeded on startup so the console is never
+# a locked room with nobody holding a key. Access is otherwise 100% DB-managed
+# (a manager provisions reps from the console Team panel), so this seed runs once
+# and then never touches the row again — the account is flagged
+# `must_change_password` so this temporary password is rotated on first sign-in.
+# Override via env before first boot; the shipped default is a throwaway.
+SALES_ADMIN_EMAIL = os.getenv("SALES_ADMIN_EMAIL", "mail.jaiswal@gmail.com").strip().lower()
+SALES_ADMIN_PASSWORD = os.getenv("SALES_ADMIN_PASSWORD", "Welcome@123")
+SALES_ADMIN_NAME = os.getenv("SALES_ADMIN_NAME", "Admin").strip()
+
 LLM_ENABLED = os.getenv("LLM_ENABLED", "false").lower() in ("1", "true", "yes")
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "").strip()

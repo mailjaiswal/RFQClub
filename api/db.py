@@ -34,11 +34,13 @@ def get_db():
 
 def init_db():
     import models  # noqa: F401  (register all tables on Base.metadata)
+    import lead_models  # noqa: F401  (inside-sales lead system tables)
     Base.metadata.create_all(engine)
     _ensure_user_columns()
     _ensure_draft_columns()
     _ensure_rfq_columns()
     _ensure_award_columns()
+    _ensure_lead_columns()
 
 
 def _ensure_columns(table: str, add: dict[str, str], indexes: tuple[tuple[str, str], ...] = ()) -> None:
@@ -71,7 +73,9 @@ def _ensure_user_columns():
         {"name": "VARCHAR DEFAULT ''", "password_hash": "VARCHAR", "google_id": "VARCHAR",
          "last_login": "TIMESTAMP",
          "otp_hash": "VARCHAR", "otp_expires_at": "TIMESTAMP",
-         "reset_hash": "VARCHAR", "reset_expires_at": "TIMESTAMP"},
+         "reset_hash": "VARCHAR", "reset_expires_at": "TIMESTAMP",
+         "must_change_password": "BOOLEAN DEFAULT FALSE",
+         "is_active": "BOOLEAN DEFAULT TRUE"},
         (("ix_user_google_id", "google_id"), ("ix_user_reset_hash", "reset_hash")),
     )
 
@@ -102,3 +106,21 @@ def _ensure_award_columns():
          "milestones": "JSON DEFAULT '[]'",
          "order_updated_at": "TIMESTAMP"},
     )
+
+
+def _ensure_lead_columns():
+    """Additive columns added to the inside-sales tables after their first deploy.
+
+    `create_all` already builds these nine tables from scratch, so this is empty
+    on a clean database and only fires when a column is appended later. Declared
+    here (rather than at the point of use) to keep every schema change routed
+    through one idempotent, SQLite+Postgres-safe path.
+
+    Each entry must stay additive-only: never drop or retype a shipped column.
+    """
+    _ensure_columns("company", {
+        "source_note": "TEXT DEFAULT ''",
+    })
+    _ensure_columns("lead", {
+        "source_note": "TEXT DEFAULT ''",
+    })

@@ -1,0 +1,453 @@
+"use client";
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { useConsole } from "@/components/console/ConsoleApp";
+import { StatusPill, fmtDate, relTime, KIND_ICON } from "@/components/console/ui";
+import {
+  addActivity, addTask, assignLeads, completeTask, getLead, setNextStep, setStatus,
+  type Activity, type Contact, type LeadDetail, type Task,
+} from "@/lib/sales-api";
+
+// statuses that end the pipeline (declined / dead / on-hold) — rendered apart from
+// the forward stepper so a rep can park or kill a lead in one click.
+const DEAD_ENDS = [
+  { key: "not_interested", label: "Declined", cls: "bad" },
+  { key: "nurture", label: "On hold", cls: "" },
+  { key: "incorrect", label: "Dead / wrong", cls: "bad" },
+];
+
+export default function LeadDetailPage() {
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const { meta, isManager, user } = useConsole();
+  const id = Number(params?.id);
+
+  const [d, setD] = useState<LeadDetail | null>(null);
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(async () => {
+    if (!id) return;
+    try { setD(await getLead(id)); }
+    catch (e) { setErr(String((e as Error)?.message || e)); }
+  }, [id]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  async function run<T>(fn: () => Promise<T>, then?: (r: T) => void) {
+    setBusy(true); setErr("");
+    try { const r = await fn(); then?.(r); await refresh(); }
+    catch (e) { setErr(String((e as Error)?.message || e)); }
+    finally { setBusy(false); }
+  }
+
+  if (!d && err)
+    return (
+      <>
+        <Link className="in-link" href="/console/leads">← Back to queue</Link>
+        <div className="in-empty">Could not load this lead.<div className="in-err" style={{ marginTop: 8 }}>{err}</div></div>
+      </>
+    );
+  if (!d) return <div className="in-empty">Loading lead…</div>;
+
+  const co = d.company;
+  const ownedByMe = !!d.owner_email && d.owner_email.toLowerCase() === (user?.email || "").toLowerCase();
+  const canWork = ownedByMe || isManager || !d.owner_email;
+
+  return (
+    <>
+      {/* ---- header ---- */}
+      <div className="in-row in-wrap" style={{ marginBottom: 12 }}>
+        <button className="in-btn sm" onClick={() => router.back()}>← Back</button>
+        <h1 className="display" style={{ fontSize: 19, margin: 0 }}>{co?.name || "(no name)"}</h1>
+        <StatusPill status={d.status} label={d.status_label} />
+        {d.excluded_from_sales && <span className="in-pill st-dead">out of scope</span>}
+        <span className="in-right in-faint" style={{ fontSize: 11 }}>
+          {d.track}{co?.hub_city ? ` · ${co.hub_city}` : ""}{d.priority_rank ? ` · priority #${d.priority_rank}` : ""}
+        </span>
+      </div>
+
+      {err && <p className="in-err" style={{ marginBottom: 10 }}>{err}</p>}
+
+      {/* ---- ownership / claim bar ---- */}
+      <div className="in-card" style={{ padding: "10px 14px", marginBottom: 14 }}>
+        <div className="in-row in-wrap">
+          <span className="in-kind">Owner</span>
+          {d.owner_email
+            ? <b style={{ color: "var(--txt)" }}>{d.owner_email}</b>
+            : <span className="in-faint">unclaimed</span>}
+          <div className="in-right in-row in-wrap">
+            {!d.owner_email && <button className="in-btn primary sm" disabled={busy} onClick={() => run(() => assignLeads([d.id]))}>Claim to me</button>}
+            {ownedByMe && <button className="in-btn sm" disabled={busy} onClick={() => run(() => assignLeads([d.id], ""))}>Release to pool</button>}
+            {isManager && <AssignControl leadId={d.id} current={d.owner_email} busy={busy} onDone={refresh} />}
+          </div>
+        </div>
+      </div>
+
+      {/* ---- status stepper ---- */}
+      <div className="in-card" style={{ padding: "12px 14px", marginBottom: 14 }}>
+        <div className="in-kind" style={{ marginBottom: 8 }}>Stage</div>
+        <div className="in-steps">
+          {(meta?.stepper || []).map((s) => {
+            const order = (meta?.stepper || []).map((x) => x.key);
+            const curIdx = order.indexOf(d.status === "qualified" ? "connected" : d.status);
+            const myIdx = order.indexOf(s.key);
+            const cls = s.key === d.status || (d.status === "qualified" && s.key === "connected") ? "cur"
+              : curIdx >= 0 && myIdx >= 0 && myIdx < curIdx ? "done" : "";
+            return (
+              <button key={s.key} className={`in-step ${cls}`} disabled={busy || !canWork}
+                onClick={() => run(() => setStatus(d.id, s.key))}>{s.label}</button>
+            );
+          })}
+          <span className="in-faint" style={{ padding: "0 6px" }}>|</span>
+          {DEAD_ENDS.map((s) => (
+            <button key={s.key} className={`in-btn sm ${s.cls}`} disabled={busy || !canWork}
+              onClick={() => run(() => setStatus(d.id, s.key))}>{s.label}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="in-detail">
+        {/* ================= LEFT COLUMN ================= */}
+        <div className="in-col">
+          {/* Company */}
+          <div className="in-card in-pad">
+            <div className="in-kind" style={{ marginBottom: 8 }}>Company</div>
+            <CompanyPanel d={d} />
+          </div>
+
+          {/* Contacts */}
+          <div className="in-card in-pad">
+            <div className="in-kind" style={{ marginBottom: 8 }}>Contacts · {d.contacts.length}</div>
+            {!d.contacts.length && <p className="in-faint" style={{ margin: 0 }}>No contacts recorded.</p>}
+            {d.contacts.map((c) => <ContactRow key={c.id} c={c} />)}
+          </div>
+
+          {/* Next step */}
+          <NextStepEditor d={d} busy={busy} canWork={canWork} onSave={(b) => run(() => setNextStep(d.id, b))} />
+
+          {/* Script */}
+          {d.script && (
+            <div className="in-card in-pad">
+              <div className="in-kind" style={{ marginBottom: 8 }}>Call script · {d.script.name}</div>
+              <ScriptPanel script={d.script} />
+            </div>
+          )}
+        </div>
+
+        {/* ================= RIGHT COLUMN ================= */}
+        <div className="in-col">
+          {/* Log a touchpoint */}
+          <div className="in-card in-pad">
+            <div className="in-kind" style={{ marginBottom: 8 }}>Log a touchpoint</div>
+            <ActivityForm d={d} meta={meta} busy={busy} canWork={canWork}
+              onSubmit={(b) => run(() => addActivity(d.id, b))} />
+          </div>
+
+          {/* Tasks */}
+          <TaskPanel d={d} busy={busy} canWork={canWork}
+            onAdd={(b) => run(() => addTask(d.id, b))}
+            onComplete={(t) => run(() => completeTask(t))} />
+
+          {/* Timeline */}
+          <div className="in-card in-pad">
+            <div className="in-kind" style={{ marginBottom: 4 }}>Activity timeline · {d.activities.length}</div>
+            {!d.activities.length && <p className="in-faint" style={{ margin: "8px 0" }}>No touchpoints yet.</p>}
+            <div className="in-tl">
+              {d.activities.map((a) => <ActivityItem key={a.id} a={a} />)}
+            </div>
+          </div>
+
+          {/* Status history */}
+          {d.history.length > 0 && (
+            <div className="in-card in-pad">
+              <div className="in-kind" style={{ marginBottom: 4 }}>Status history</div>
+              <div className="in-tl">
+                {d.history.map((h) => (
+                  <div key={h.id} className="in-tlitem">
+                    <div className="in-tldot" />
+                    <div>
+                      <div className="in-kind">{h.from_label !== h.to_label ? `${h.from_label} → ${h.to_label}` : h.to_label || "change"}</div>
+                      <div className="in-faint" style={{ fontSize: 11 }}>{fmtDate(h.changed_at, true)} · {h.by_email}{h.note ? ` — ${h.note}` : ""}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ------------------------------------------------------------------ company
+function CompanyPanel({ d }: { d: LeadDetail }) {
+  const co = d.company;
+  const links: { label: string; href: string }[] = [];
+  if (co?.website) links.push({ label: "Website", href: co.website });
+  if (co?.gmb_link) links.push({ label: "Google", href: co.gmb_link });
+  if (co?.linkedin_url) links.push({ label: "LinkedIn", href: co.linkedin_url });
+  return (
+    <>
+      {co?.what_they_do && <p className="in-muted" style={{ margin: "0 0 10px" }}>{co.what_they_do}</p>}
+      <div className="in-kv"><span className="k">Category</span><span>{co?.category_primary || "—"}{co?.category_tier ? ` · t${co.category_tier}` : ""}</span></div>
+      {co?.category_tags?.length ? <div className="in-kv"><span className="k">Tags</span><span>{co.category_tags.join(", ")}</span></div> : null}
+      <div className="in-kv"><span className="k">Size</span><span>{co?.size_band || "—"}</span></div>
+      {co?.address && <div className="in-kv"><span className="k">Address</span><span>{co.address}</span></div>}
+      {co?.cin && <div className="in-kv"><span className="k">CIN</span><span>{co.cin}</span></div>}
+      {co?.gst && <div className="in-kv"><span className="k">GST</span><span>{co.gst}</span></div>}
+      {co?.review_rating ? <div className="in-kv"><span className="k">Reviews</span><span>{co.review_rating}★ ({co.review_count})</span></div> : null}
+      {links.length > 0 && (
+        <div className="in-row in-wrap" style={{ marginTop: 10 }}>
+          {links.map((l) => <a key={l.label} className="in-btn sm" href={withProto(l.href)} target="_blank" rel="noreferrer">↗ {l.label}</a>)}
+        </div>
+      )}
+      <div className="in-faint" style={{ marginTop: 12, fontSize: 11 }}>
+        Source: {co?.source_system || d.source || "—"}{co?.source_note ? ` · ${co.source_note}` : ""}
+      </div>
+    </>
+  );
+}
+
+function withProto(u: string): string {
+  if (!u) return "#";
+  return /^https?:\/\//i.test(u) ? u : `https://${u}`;
+}
+
+// ------------------------------------------------------------------ contacts
+function ContactRow({ c }: { c: Contact }) {
+  const tel = c.phone_primary || c.phone_secondary;
+  const wa = c.whatsapp || tel;
+  const actions: React.ReactNode[] = [];
+  if (tel && !c.do_not_call) actions.push(<a key="call" className="in-btn sm" href={`tel:${tel}`}>☎ {tel}</a>);
+  if (wa && !c.do_not_call) actions.push(<a key="wa" className="in-btn sm" href={`https://wa.me/${digits(wa)}`} target="_blank" rel="noreferrer">✆ WhatsApp</a>);
+  if (c.email) actions.push(<a key="mail" className="in-btn sm" href={`mailto:${c.email}`}>✉ Email</a>);
+  if (c.do_not_call) actions.push(<span key="dnc" className="in-pill st-dead">do-not-call</span>);
+  return (
+    <div className="in-contact">
+      <div className="in-row in-wrap" style={{ gap: 6 }}>
+        <b style={{ color: "var(--txt)" }}>{c.full_name || "(unnamed)"}</b>
+        {c.is_primary && <span className="in-pill st-conversation">primary</span>}
+        {c.decision_maker && <span className="in-pill st-onboarded">decision maker</span>}
+      </div>
+      {c.designation && <div className="in-faint" style={{ fontSize: 11 }}>{c.designation}{c.preferred_channel ? ` · prefers ${c.preferred_channel}` : ""}</div>}
+      <div className="in-row in-wrap" style={{ gap: 6, marginTop: 6 }}>
+        {actions.length ? actions : <span className="in-faint" style={{ fontSize: 11 }}>no reachable channel</span>}
+      </div>
+    </div>
+  );
+}
+function digits(s: string): string { return (s || "").replace(/\D/g, "").replace(/^0+/, ""); }
+
+// ------------------------------------------------------------------ activity form
+function ActivityForm({ d, meta, busy, canWork, onSubmit }: {
+  d: LeadDetail; meta: ReturnType<typeof useConsole>["meta"]; busy: boolean; canWork: boolean;
+  onSubmit: (b: Parameters<typeof addActivity>[1]) => void;
+}) {
+  const [kind, setKind] = useState("call");
+  const [outcome, setOutcome] = useState("");
+  const [summary, setSummary] = useState("");
+  const [pain, setPain] = useState("");
+  const [objection, setObjection] = useState("");
+  const [competitor, setCompetitor] = useState("");
+  const [contactId, setContactId] = useState<number | "">("");
+  const [nextAt, setNextAt] = useState("");
+  const [nextNote, setNextNote] = useState("");
+  const [setStatusTo, SetStatusTo] = useState("");
+
+  if (!canWork)
+    return <p className="in-faint" style={{ margin: 0 }}>This lead is owned by {d.owner_email}. Only the owner or a manager can log activity.</p>;
+
+  return (
+    <div className="in-form">
+      <div className="in-grid2">
+        <label><span className="in-lbl">Kind</span>
+          <select className="in-field" value={kind} onChange={(e) => setKind(e.target.value)}>
+            {(meta?.activity_kinds || ["call", "whatsapp", "email", "meeting", "note", "voicemail"]).map((k) => <option key={k} value={k}>{KIND_ICON[k] || ""} {k}</option>)}
+          </select>
+        </label>
+        <label><span className="in-lbl">Outcome</span>
+          <select className="in-field" value={outcome} onChange={(e) => setOutcome(e.target.value)}>
+            <option value="">—</option>
+            {(meta?.activity_outcomes || []).map((o) => <option key={o} value={o}>{o.replace(/_/g, " ")}</option>)}
+          </select>
+        </label>
+      </div>
+      <label><span className="in-lbl">Contact (optional)</span>
+        <select className="in-field" value={contactId} onChange={(e) => setContactId(e.target.value ? Number(e.target.value) : "")}>
+          <option value="">— none —</option>
+          {d.contacts.map((c) => <option key={c.id} value={c.id}>{c.full_name || c.email || c.phone_primary || `#${c.id}`}</option>)}
+        </select>
+      </label>
+      <label><span className="in-lbl">Notes / summary</span>
+        <textarea className="in-field" rows={3} value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="What happened, what they said…" />
+      </label>
+      <div className="in-grid3">
+        <label><span className="in-lbl">Pain point</span><input className="in-field" value={pain} onChange={(e) => setPain(e.target.value)} /></label>
+        <label><span className="in-lbl">Objection</span><input className="in-field" value={objection} onChange={(e) => setObjection(e.target.value)} /></label>
+        <label><span className="in-lbl">Competitor</span><input className="in-field" value={competitor} onChange={(e) => setCompetitor(e.target.value)} /></label>
+      </div>
+      <div className="in-grid2">
+        <label><span className="in-lbl">Next action</span>
+          <input type="datetime-local" className="in-field" value={nextAt} onChange={(e) => setNextAt(e.target.value)} />
+        </label>
+        <label><span className="in-lbl">Move stage to</span>
+          <select className="in-field" value={setStatusTo} onChange={(e) => SetStatusTo(e.target.value)}>
+            <option value="">— no change —</option>
+            {(meta?.statuses || []).map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+          </select>
+        </label>
+      </div>
+      <label><span className="in-lbl">Next-step note</span><input className="in-field" value={nextNote} onChange={(e) => setNextNote(e.target.value)} placeholder="e.g. call back Monday AM" /></label>
+      <button className="in-btn primary block" disabled={busy || !summary.trim()}
+        onClick={() => onSubmit({
+          kind, outcome: outcome || undefined, summary: summary.trim(),
+          pain_point: pain || undefined, objection: objection || undefined, competitor: competitor || undefined,
+          contact_id: contactId === "" ? null : contactId,
+          next_action_at: nextAt ? new Date(nextAt).toISOString() : null,
+          next_action_note: nextNote || undefined,
+          set_status: setStatusTo || null,
+        })}>
+        {busy ? "Saving…" : "＋ Log touchpoint"}
+      </button>
+    </div>
+  );
+}
+
+function ActivityItem({ a }: { a: Activity }) {
+  return (
+    <div className="in-tlitem">
+      <div className={`in-tldot ${a.kind}`} />
+      <div>
+        <div className="in-row in-wrap" style={{ gap: 8 }}>
+          <span className="in-kind">{KIND_ICON[a.kind] || ""} {a.kind}{a.direction === "inbound" ? " · inbound" : ""}</span>
+          {a.outcome && <span className="in-faint" style={{ fontSize: 11 }}>{a.outcome.replace(/_/g, " ")}</span>}
+          <span className="in-right in-faint" style={{ fontSize: 11 }}>{fmtDate(a.created_at, true)}</span>
+        </div>
+        {a.summary && <div className="in-muted" style={{ marginTop: 3, whiteSpace: "pre-wrap" }}>{a.summary}</div>}
+        {(a.pain_point || a.objection || a.competitor) && (
+          <div className="in-faint" style={{ fontSize: 11, marginTop: 3 }}>
+            {a.pain_point ? `pain: ${a.pain_point} · ` : ""}{a.objection ? `objection: ${a.objection} · ` : ""}{a.competitor ? `competitor: ${a.competitor}` : ""}
+          </div>
+        )}
+        <div className="in-faint" style={{ fontSize: 10, marginTop: 2 }}>{a.by_email}</div>
+      </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ tasks
+function TaskPanel({ d, busy, canWork, onAdd, onComplete }: {
+  d: LeadDetail; busy: boolean; canWork: boolean;
+  onAdd: (b: { title: string; due_at?: string | null }) => void; onComplete: (id: number) => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [due, setDue] = useState("");
+  const open = d.tasks.filter((t) => t.status !== "done");
+  const done = d.tasks.filter((t) => t.status === "done");
+  return (
+    <div className="in-card in-pad">
+      <div className="in-kind" style={{ marginBottom: 8 }}>Follow-ups · {open.length} open</div>
+      {open.map((t) => <TaskRow key={t.id} t={t} busy={busy} onComplete={onComplete} />)}
+      {done.map((t) => <TaskRow key={t.id} t={t} busy={true} done onComplete={() => {}} />)}
+      {canWork && (
+        <div className="in-form" style={{ marginTop: open.length || done.length ? 12 : 0 }}>
+          <input className="in-field" placeholder="New follow-up title…" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <div className="in-row" style={{ gap: 8 }}>
+            <input type="datetime-local" className="in-field" value={due} onChange={(e) => setDue(e.target.value)} />
+            <button className="in-btn" disabled={busy || !title.trim()} onClick={() => { onAdd({ title: title.trim(), due_at: due ? new Date(due).toISOString() : null }); setTitle(""); setDue(""); }}>＋ Add</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+function TaskRow({ t, busy, done, onComplete }: { t: Task; busy: boolean; done?: boolean; onComplete: (id: number) => void }) {
+  const rel = t.due_at ? relTime(t.due_at) : null;
+  return (
+    <div className="in-task">
+      {done
+        ? <span className="in-check done">✓</span>
+        : <button className="in-check" disabled={busy} title="Mark done" onClick={() => onComplete(t.id)} />}
+      <div className="in-grow">
+        <div className={done ? "in-faint" : ""} style={done ? { textDecoration: "line-through" } : undefined}>{t.title}</div>
+        {t.due_at && !done && <div className="in-faint" style={{ fontSize: 11, color: t.overdue ? "var(--bad)" : undefined }}>{fmtDate(t.due_at, true)} · {rel?.text}{t.overdue ? " (overdue)" : ""}</div>}
+      </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ next step
+function NextStepEditor({ d, busy, canWork, onSave }: {
+  d: LeadDetail; busy: boolean; canWork: boolean; onSave: (b: { next_action_at: string | null; next_action_note: string }) => void;
+}) {
+  const localIso = (iso: string | null) => {
+    if (!iso) return "";
+    const dt = new Date(iso); if (isNaN(dt.getTime())) return "";
+    const off = dt.getTimezoneOffset();
+    return new Date(dt.getTime() - off * 60000).toISOString().slice(0, 16);
+  };
+  const [at, setAt] = useState(localIso(d.next_action_at));
+  const [note, setNote] = useState(d.next_action_note || "");
+  useEffect(() => { setAt(localIso(d.next_action_at)); setNote(d.next_action_note || ""); }, [d.id, d.next_action_at, d.next_action_note]);
+  const rel = d.next_action_at ? relTime(d.next_action_at) : null;
+  return (
+    <div className="in-card in-pad">
+      <div className="in-kind" style={{ marginBottom: 6 }}>Next step</div>
+      {d.next_action_at ? (
+        <div className="in-muted" style={{ marginBottom: 8, fontSize: 12 }}>
+          Due {fmtDate(d.next_action_at, true)} · <span style={{ color: rel?.overdue ? "var(--bad)" : undefined }}>{rel?.text}{rel?.overdue ? " (overdue)" : ""}</span>
+          {d.next_action_note ? <div className="in-faint" style={{ marginTop: 2 }}>{d.next_action_note}</div> : null}
+        </div>
+      ) : <div className="in-faint" style={{ marginBottom: 8, fontSize: 12 }}>No next action scheduled.</div>}
+      {canWork && (
+        <div className="in-form">
+          <input type="datetime-local" className="in-field" value={at} onChange={(e) => setAt(e.target.value)} />
+          <input className="in-field" placeholder="What / when to do next…" value={note} onChange={(e) => setNote(e.target.value)} />
+          <div className="in-row" style={{ gap: 8 }}>
+            <button className="in-btn" disabled={busy} onClick={() => onSave({ next_action_at: at ? new Date(at).toISOString() : null, next_action_note: note })}>Save next step</button>
+            {d.next_action_at && <button className="in-btn sm" disabled={busy} onClick={() => onSave({ next_action_at: null, next_action_note: "" })}>Clear</button>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ script
+function ScriptPanel({ script }: { script: NonNullable<LeadDetail["script"]> }) {
+  return (
+    <div className="in-script">
+      {script.opener?.length ? <><div className="in-kind2">Opener</div><ul>{script.opener.map((s, i) => <li key={i}>{s}</li>)}</ul></> : null}
+      {script.pitch ? <><div className="in-kind2">Pitch</div><p>{script.pitch}</p></> : null}
+      {script.discovery_questions?.length ? <><div className="in-kind2">Discovery</div><ul>{script.discovery_questions.map((s, i) => <li key={i}>{s}</li>)}</ul></> : null}
+      {script.qualification_checklist?.length ? <><div className="in-kind2">Qualify</div><ul>{script.qualification_checklist.map((s, i) => <li key={i}>{s}</li>)}</ul></> : null}
+      {script.cta ? <><div className="in-kind2">CTA</div><p>{script.cta}</p></> : null}
+      {script.do_not_say ? <><div className="in-kind2">Do not say</div><p className="in-faint">{script.do_not_say}</p></> : null}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ manager assign
+function AssignControl({ leadId, current, busy, onDone }: { leadId: number; current: string; busy: boolean; onDone: () => void }) {
+  const [email, setEmail] = useState(current || "");
+  const [err, setErr] = useState("");
+  const [open, setOpen] = useState(false);
+  async function go(owner: string) {
+    setErr("");
+    try { await assignLeads([leadId], owner); await onDone(); setOpen(false); }
+    catch (e) { setErr(String((e as Error)?.message || e)); }
+  }
+  if (!open) return <button className="in-btn sm" onClick={() => setOpen(true)}>Reassign</button>;
+  return (
+    <div className="in-row in-wrap" style={{ gap: 6 }}>
+      <input className="in-field" style={{ maxWidth: 220 }} placeholder="rep email" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <button className="in-btn primary sm" disabled={busy} onClick={() => go(email.trim())}>Assign</button>
+      {current && <button className="in-btn sm" disabled={busy} onClick={() => go("")}>To pool</button>}
+      <button className="in-btn sm" onClick={() => { setOpen(false); setErr(""); }}>Cancel</button>
+      {err && <span className="in-err" style={{ fontSize: 11 }}>{err}</span>}
+    </div>
+  );
+}

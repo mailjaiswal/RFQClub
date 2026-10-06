@@ -108,3 +108,71 @@ class ImportBnSIn(BaseModel):
 
 class RfqStatusIn(BaseModel):
     status: str = Field(pattern="^(published|draft|closed)$")
+
+
+# ---- inside-sales "internal" area (see sales_api.py / lead_models.py) ----
+class LeadStatusIn(BaseModel):
+    """Move a lead to another pipeline stage. `note` is optional free text that is
+    written through to the status-history audit row."""
+    status: str
+    note: str = Field(default="", max_length=1000)
+
+
+class ActivityIn(BaseModel):
+    """One logged touchpoint (call / WhatsApp / email / meeting / note). Append-only.
+    `set_status`, when present, also advances the lead stage in the same write."""
+    kind: str = Field(default="call")            # call|whatsapp|email|meeting|note|voicemail
+    outcome: str = Field(default="")             # one of lead_models.ACTIVITY_OUTCOMES
+    direction: str = Field(default="outbound")   # outbound|inbound
+    summary: str = Field(default="", max_length=4000)
+    pain_point: str = Field(default="", max_length=500)
+    objection: str = Field(default="", max_length=500)
+    competitor: str = Field(default="", max_length=200)
+    contact_id: int | None = None
+    duration_seconds: int | None = Field(default=None, ge=0)
+    # ISO-8601 string; parsed defensively in the router, ignored if blank/bad.
+    next_action_at: str | None = None
+    next_action_note: str = Field(default="", max_length=500)
+    set_status: str | None = None
+
+
+class TaskIn(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    due_at: str | None = None                    # ISO-8601
+    assigned_to_email: str | None = None         # manager may route a task to another rep
+
+
+class NextStepIn(BaseModel):
+    """Set (or clear) the single 'what happens next' pointer on the lead."""
+    next_action_at: str | None = None
+    next_action_note: str = Field(default="", max_length=500)
+
+
+class AssignIn(BaseModel):
+    """Claim to self, or (manager) assign to a specific rep email. Passing neither
+    unassigns the lead back to the shared pool."""
+    lead_ids: list[int] = Field(default_factory=list, max_length=500)
+    owner_email: str | None = None               # None/"" => claim to self; explicit => manager assign
+
+
+# ---- Inside-sales console: manager-only Team (user provisioning) ----
+class TeamCreateIn(BaseModel):
+    email: str
+    name: str = ""
+    password: str
+    role: str = "sales"          # sales | sales_manager
+
+
+class TeamPasswordIn(BaseModel):
+    email: str
+    password: str
+
+
+class TeamStatusIn(BaseModel):
+    email: str
+    is_active: bool
+
+
+class TeamRoleIn(BaseModel):
+    email: str
+    role: str                    # sales | sales_manager

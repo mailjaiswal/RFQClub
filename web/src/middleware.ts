@@ -24,6 +24,10 @@ export function middleware(req: NextRequest) {
 // /how-it-works, /api (Vercel rewrites), and all static assets.
 // (/review is additionally operator-only, /draft owner-only — both enforced by
 // the API, not here; middleware is just the sign-in visibility gate.)
+// /console (the inside-sales area) additionally requires a sales role: the
+// in-app guard and the /api/sales/* server gate enforce that — middleware only
+// makes sure an anonymous visitor is bounced to sign-in first, so the shell is
+// never even rendered for a logged-out user.
 export const config = {
-  matcher: ["/board/:path*", "/rfq/:path*", "/bid/:path*", "/my-rfqs/:path*", "/post/:path*", "/review/:path*", "/draft/:path*"],
+  matcher: ["/board/:path*", "/rfq/:path*", "/bid/:path*", "/my-rfqs/:path*", "/post/:path*", "/review/:path*", "/draft/:path*", "/console/:path*"],
 };

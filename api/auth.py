@@ -44,7 +44,7 @@ _RESET: dict[str, tuple[str, float]] = {}
 RESET_TTL = 3600.0
 TOKEN_TTL = 7 * 86400
 
-ROLES = ("buyer", "supplier", "operator")
+ROLES = ("buyer", "supplier", "operator", "sales", "sales_manager")
 
 # ---- simple in-process rate limiter (sliding window) ----
 # Render runs this API as a single free-tier process, so an in-memory bucket is
@@ -303,9 +303,38 @@ def require_operator(user: models.User = Depends(require_user)) -> models.User:
     return user
 
 
+def require_sales(user: models.User = Depends(require_user)) -> models.User:
+    """Gate for the inside-sales console. Membership is now 100% DB-managed: the
+    account must carry a sales/sales_manager role, which ONLY a manager can grant
+    (via the console Team panel, or the one-time admin seed) — the public /role
+    endpoint refuses these roles outright. No env allowlist is consulted, so
+    'only the users the admin adds can get in' is enforced by the row itself; with
+    no sales rows the area is fail-closed. A deactivated account, or one still on
+    its temporary password, is held at the door."""
+    role = (user.role or "").strip().lower()
+    if role not in ("sales", "sales_manager"):
+        raise HTTPException(403, "Inside-sales access only — this account is not a sales rep")
+    if not getattr(user, "is_active", True):
+        raise HTTPException(403, "This inside-sales account has been deactivated by a manager")
+    if getattr(user, "must_change_password", False):
+        raise HTTPException(409, "Set a new password before opening the console")
+    return user
+
+
+def require_sales_manager(user: models.User = Depends(require_sales)) -> models.User:
+    """Manager-only gate: leaderboard, reassignment, out-of-scope, CSV export and
+    Team (user provisioning). Chains require_sales, so role/active/password are
+    already enforced before the manager check."""
+    if (user.role or "").strip().lower() != "sales_manager":
+        raise HTTPException(403, "Sales manager access only")
+    return user
+
+
 def _user_out(u: models.User) -> dict:
     return {"id": u.id, "email": u.email, "name": u.name or "", "role": u.role,
             "has_password": bool(u.password_hash),
+            "must_change_password": bool(getattr(u, "must_change_password", False)),
+            "is_active": bool(getattr(u, "is_active", True)),
             "last_login": u.last_login.isoformat() if u.last_login else None,
             "created_at": u.created_at.isoformat() if u.created_at else None}
 
@@ -485,6 +514,8 @@ def change_password(payload: PasswordIn, request: Request,
         if security.verify_password(new, user.password_hash):
             raise HTTPException(400, "New password must be different from the current one")
     user.password_hash = security.hash_password(new)
+    # A member who sets their own password has satisfied the first-login rotation.
+    user.must_change_password = False
     session.commit()
     return {"ok": True, "user": _user_out(user)}
 
@@ -501,6 +532,11 @@ def set_role(payload: RoleIn, user: models.User = Depends(require_user), session
     role = (payload.role or "").strip().lower()
     if role not in ROLES:
         raise HTTPException(400, f"role must be one of {', '.join(ROLES)}")
+    # Inside-sales roles are NOT self-serviceable: only a manager provisions them
+    # from the console Team panel, so /role can never be used to walk into the
+    # console. This is what makes "only the users the admin adds get in" true.
+    if role in ("sales", "sales_manager"):
+        raise HTTPException(403, "Inside-sales accounts are created by a manager — this role can't be claimed directly")
     if role == "operator" and config.OPERATOR_EMAILS and not config.is_operator_email(user.email):
         raise HTTPException(403, "This account can't take the operator role — it must be listed in OPERATOR_EMAILS")
     user.role = role

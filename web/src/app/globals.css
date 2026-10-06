@@ -6,6 +6,7 @@
 @import "../styles/profile.css";
 @import "../styles/splash.css";
 @import "../styles/landing.css";
+@import "../styles/internal.css";
 
 @tailwind base;
 @tailwind components;
