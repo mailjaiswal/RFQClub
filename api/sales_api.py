@@ -344,7 +344,7 @@ def list_leads(
     callable_f: bool = Query(False, alias="callable"),
     q: str | None = Query(None),
     sort: str = Query("priority", pattern="^(priority|next_action|company|status|recent|hub_city|category|owner|contacted)$"),
-    dir: str = Query("", pattern="^(asc|desc)$"),
+    dir: str = Query(""),  # "desc" flips direction; any other value (incl default "") = ascending,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     session: Session = Depends(db.get_db),
