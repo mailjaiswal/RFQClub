@@ -307,12 +307,15 @@ def require_sales(user: models.User = Depends(require_user)) -> models.User:
     """Gate for the inside-sales console. Membership is now 100% DB-managed: the
     account must carry a sales/sales_manager role, which ONLY a manager can grant
     (via the console Team panel, or the one-time admin seed) — the public /role
-    endpoint refuses these roles outright. No env allowlist is consulted, so
-    'only the users the admin adds can get in' is enforced by the row itself; with
-    no sales rows the area is fail-closed. A deactivated account, or one still on
-    its temporary password, is held at the door."""
+    endpoint refuses these roles outright. The one exception is a
+    CONSOLE_ADMIN_EMAILS address (see config): the first admin may already hold a
+    marketplace role (e.g. operator) on this email, and a user has only one role
+    value, so the allowlist admits them without stripping that role. No SALES_EMAILS
+    allowlist is consulted, so with no sales rows and no configured admin the area is
+    fail-closed. A deactivated account, or one still on its temporary password, is
+    held at the door."""
     role = (user.role or "").strip().lower()
-    if role not in ("sales", "sales_manager"):
+    if role not in ("sales", "sales_manager") and not config.is_console_admin(user.email):
         raise HTTPException(403, "Inside-sales access only — this account is not a sales rep")
     if not getattr(user, "is_active", True):
         raise HTTPException(403, "This inside-sales account has been deactivated by a manager")
@@ -324,8 +327,9 @@ def require_sales(user: models.User = Depends(require_user)) -> models.User:
 def require_sales_manager(user: models.User = Depends(require_sales)) -> models.User:
     """Manager-only gate: leaderboard, reassignment, out-of-scope, CSV export and
     Team (user provisioning). Chains require_sales, so role/active/password are
-    already enforced before the manager check."""
-    if (user.role or "").strip().lower() != "sales_manager":
+    already enforced before the manager check. A CONSOLE_ADMIN_EMAILS address is
+    always treated as a manager."""
+    if (user.role or "").strip().lower() != "sales_manager" and not config.is_console_admin(user.email):
         raise HTTPException(403, "Sales manager access only")
     return user
 
@@ -335,6 +339,7 @@ def _user_out(u: models.User) -> dict:
             "has_password": bool(u.password_hash),
             "must_change_password": bool(getattr(u, "must_change_password", False)),
             "is_active": bool(getattr(u, "is_active", True)),
+            "is_console_admin": config.is_console_admin(u.email),
             "last_login": u.last_login.isoformat() if u.last_login else None,
             "created_at": u.created_at.isoformat() if u.created_at else None}
 

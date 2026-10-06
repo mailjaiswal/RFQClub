@@ -274,6 +274,7 @@ export interface AuthUser {
   has_password?: boolean; // whether this account has an email+password set
   must_change_password?: boolean; // true until the member rotates a temporary password
   is_active?: boolean; // false when a manager has deactivated the sales account
+    is_console_admin?: boolean; // true when the email is on the CONSOLE_ADMIN_EMAILS allowlist
   last_login?: string | null; // stamped on the most recent successful sign-in
   created_at?: string | null;
 }

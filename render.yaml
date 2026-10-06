@@ -47,6 +47,12 @@ services:
         value: Admin
       - key: SALES_ADMIN_PASSWORD # starter password; set a private value in the dashboard to override the code default
         sync: false
+      # Console owners by email, independent of the single `role` column. The seeded
+      # admin already exists on the marketplace as `operator`, so this allowlist is
+      # what grants console/manager access without stripping that role. Defaults to
+      # SALES_ADMIN_EMAIL if left unset.
+      - key: CONSOLE_ADMIN_EMAILS
+        value: mail.jaiswal@gmail.com
       # Legacy env allowlists — no longer consulted by require_sales (kept harmless).
       - key: SALES_EMAILS
         sync: false

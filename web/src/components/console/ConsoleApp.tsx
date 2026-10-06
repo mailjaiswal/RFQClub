@@ -3,12 +3,15 @@
 // so the pages under /console can read the signed-in rep and the controlled
 // vocabularies without re-fetching.
 //
-// Access is 100% DB-managed now: the account must already carry a sales /
-// sales_manager role, which ONLY a manager can grant from the Team panel (or the
-// one-time admin seed). There is no self-claim — a normal signed-in account that
-// was never provisioned simply sees a "not a member" screen. And even once the
-// role check passes, every data call is independently gated server-side by
-// /api/sales (require_sales), so the client never has to "trust" itself.
+// Access is DB-managed: the account must either carry a sales / sales_manager role
+// (which only a manager can grant from the Team panel, or the one-time admin seed)
+// OR be on the server's CONSOLE_ADMIN_EMAILS allowlist — the flag `is_console_admin`
+// echoed by /api/auth/me. The allowlist is how the site owner keeps console access
+// without giving up their existing marketplace role. Either way there is no
+// self-claim: a normal signed-in account that was never provisioned simply sees a
+// "not a member" screen. And even once the check passes, every data call is
+// independently gated server-side by /api/sales (require_sales), so the client
+// never has to "trust" itself.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -46,8 +49,9 @@ export default function ConsoleApp({ children }: { children: React.ReactNode }) 
     try {
       const { user: u } = await authMe();
       setUser(u);
-      // Not a sales account? It was never provisioned by a manager — deny (no claim).
-      if (!SALES_ROLES.has((u.role || "").toLowerCase())) { setStatus("not_provisioned"); return; }
+      // Provisioned if the account carries a sales role OR is an allowlisted
+      // console owner (whose marketplace role stays untouched). Otherwise deny.
+      if (!SALES_ROLES.has((u.role || "").toLowerCase()) && !u.is_console_admin) { setStatus("not_provisioned"); return; }
       // Deactivated by a manager — hold at the door.
       if (u.is_active === false) {
         setDeniedMsg("This inside-sales account has been deactivated by a manager.");
@@ -67,7 +71,7 @@ export default function ConsoleApp({ children }: { children: React.ReactNode }) 
   useEffect(() => { boot(); }, [boot]);
 
   const ctx = useMemo<Ctx>(
-    () => ({ user, isManager: (user?.role || "").toLowerCase() === "sales_manager", meta, reload: boot }),
+    () => ({ user, isManager: (user?.role || "").toLowerCase() === "sales_manager" || !!user?.is_console_admin, meta, reload: boot }),
     [user, meta, boot],
   );
 

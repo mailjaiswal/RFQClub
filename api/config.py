@@ -105,6 +105,23 @@ SALES_ADMIN_EMAIL = os.getenv("SALES_ADMIN_EMAIL", "mail.jaiswal@gmail.com").str
 SALES_ADMIN_PASSWORD = os.getenv("SALES_ADMIN_PASSWORD", "Welcome@123")
 SALES_ADMIN_NAME = os.getenv("SALES_ADMIN_NAME", "Admin").strip()
 
+# Console owners, independent of the single `role` column. Normally the console is
+# gated purely on role (a manager provisions reps from the Team panel). But the
+# first admin may already own a marketplace role (e.g. the concierge `operator`) on
+# the SAME email — and a user has only one role value — so role alone would force
+# them to choose. Listing those emails here grants console/manager access REGARDLESS
+# of role, so one account can run the marketplace desk and the console at once.
+# Defaults to the seeded admin; comma-separated; compared case-insensitively.
+CONSOLE_ADMIN_EMAILS = {
+    e.strip().lower()
+    for e in os.getenv("CONSOLE_ADMIN_EMAILS", SALES_ADMIN_EMAIL).split(",")
+    if e.strip()
+}
+
+
+def is_console_admin(email: str) -> bool:
+    return (email or "").strip().lower() in CONSOLE_ADMIN_EMAILS
+
 LLM_ENABLED = os.getenv("LLM_ENABLED", "false").lower() in ("1", "true", "yes")
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "").strip()

@@ -173,6 +173,7 @@ export default function TeamPage() {
             <tbody>
               {rows.map((u) => {
                 const self = u.email === me;
+                const owner = u.is_console_admin;
                 return (
                   <tr key={u.id}>
                     <td>
@@ -180,11 +181,16 @@ export default function TeamPage() {
                       {u.name && <div className="sub">{u.email}</div>}
                     </td>
                     <td>
-                      <select className="in-field" style={{ maxWidth: 150 }} value={u.role}
-                        onChange={(e) => changeRole(u, e.target.value)}>
-                        <option value="sales">Sales rep</option>
-                        <option value="sales_manager">Manager</option>
-                      </select>
+                      {owner ? (
+                        <span className="in-pill st-onboarded" title="Console owner — access comes from the server allowlist, so the role is fixed">
+                          Owner</span>
+                      ) : (
+                        <select className="in-field" style={{ maxWidth: 150 }} value={u.role}
+                          onChange={(e) => changeRole(u, e.target.value)}>
+                          <option value="sales">Sales rep</option>
+                          <option value="sales_manager">Manager</option>
+                        </select>
+                      )}
                     </td>
                     <td>
                       <div className="in-row" style={{ gap: 6 }}>
@@ -208,7 +214,7 @@ export default function TeamPage() {
                           <button className="in-btn sm" onClick={() => { setPwFor(u.email); setPwVal(""); setFlash(""); setErr(""); }}>
                             {self ? "Change my password" : "Reset password"}</button>
                         )}
-                        {!self && (
+                        {!self && !owner && (
                           <button className={`in-btn sm ${u.is_active ? "bad" : "good"}`} onClick={() => toggleActive(u)}>
                             {u.is_active ? "Deactivate" : "Restore"}</button>
                         )}

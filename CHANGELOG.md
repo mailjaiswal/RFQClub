@@ -32,6 +32,19 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
   panel and the first-login screen). Client: `web/src/app/(console)/console/team/`,
   renamed `(internal)→(console)` route group + `components/internal→console`,
   `middleware.ts` matcher, `api.ts` `AuthUser` fields.
+- **Console owner allowlist (`CONSOLE_ADMIN_EMAILS`).** The seeded admin's email
+  already existed on the hosted marketplace as a Google/OTP `operator` account,
+  and a `User` carries only one `role` — so gating the console on `role` alone
+  would have forced the owner to surrender the concierge desk. A new
+  `CONSOLE_ADMIN_EMAILS` allowlist (`api/config.py`, defaults to
+  `SALES_ADMIN_EMAIL`) grants console/manager access **independent of role**,
+  checked alongside the role in `require_sales` / `require_sales_manager` and
+  surfaced as `is_console_admin` on `/api/auth/me` and the team rows. An
+  allowlisted owner can hold `operator` and run the console at once;
+  `ensure_sales_admin` now only *adds* a starter password to such a pre-existing
+  row (never touching its role) when it has none. Their role/status are frozen in
+  the Team panel (shown as an **Owner** badge) so a manager can't accidentally
+  demote or lock out the owner.
 - **Inside-sales "internal" workspace — a second, gated side of the app for the
   inside-sales team.** The enriched BnS + Expansion lead book (already modelled
   in `api/lead_models.py`, previously with no API/UI) is now a fully workable CRM

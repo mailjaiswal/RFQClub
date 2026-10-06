@@ -50,13 +50,17 @@ def ensure_seeded(session=None) -> bool:
 
 
 def ensure_sales_admin(session=None) -> bool:
-    """Seed (once) the first inside-sales manager so the console is reachable.
+    """Seed (once) the first inside-sales console owner so the console is reachable.
 
-    Idempotent and non-destructive: if the account already exists its role,
-    password and flags are left exactly as they are (the owner may have changed
-    the password already). A freshly created admin is a `sales_manager` carrying
-    `must_change_password=True`, so the shipped throwaway password is rotated on
-    the very first sign-in.
+    Non-destructive, with one additive exception. When the address does not exist we
+    create it as a `sales_manager` carrying `must_change_password=True`, so the
+    shipped throwaway starter password is rotated on the very first sign-in. When it
+    ALREADY exists (commonly the site owner's Google/OTP account, which may hold a
+    marketplace role like `operator`) we must NOT strip that role or clobber any
+    password they already set — console entry for them comes from the
+    CONSOLE_ADMIN_EMAILS allowlist instead. The only thing we add is a starter
+    password, and ONLY if the account has none yet (so email+password sign-in works)
+    — flagged must-change. Returns True if anything was created/changed.
     """
     email = (config.SALES_ADMIN_EMAIL or "").strip().lower()
     if not email or "@" not in email:
@@ -65,24 +69,34 @@ def ensure_sales_admin(session=None) -> bool:
     s = session or db.SessionLocal()
     try:
         u = s.query(models.User).filter(models.User.email == email).first()
-        if u is not None:
-            return False
-        u = models.User(
-            email=email,
-            name=config.SALES_ADMIN_NAME or "Admin",
-            role="sales_manager",
-            password_hash=security.hash_password(config.SALES_ADMIN_PASSWORD),
-            must_change_password=True,
-            is_active=True,
-        )
-        s.add(u)
-        try:
+        if u is None:
+            u = models.User(
+                email=email,
+                name=config.SALES_ADMIN_NAME or "Admin",
+                role="sales_manager",
+                password_hash=security.hash_password(config.SALES_ADMIN_PASSWORD),
+                must_change_password=True,
+                is_active=True,
+            )
+            s.add(u)
+            try:
+                s.commit()
+            except IntegrityError:
+                s.rollback()
+                return False
+            print(f"[bootstrap] seeded inside-sales manager {email} (must change password on first login)")
+            return True
+        # Pre-existing account: enable email+password sign-in without touching role
+        # or an existing password. Console access itself is granted by the
+        # CONSOLE_ADMIN_EMAILS allowlist (see auth.require_sales).
+        if not u.password_hash:
+            u.password_hash = security.hash_password(config.SALES_ADMIN_PASSWORD)
+            u.must_change_password = True
+            u.is_active = True
             s.commit()
-        except IntegrityError:
-            s.rollback()
-            return False
-        print(f"[bootstrap] seeded inside-sales manager {email} (must change password on first login)")
-        return True
+            print(f"[bootstrap] enabled console sign-in for existing account {email} (starter password set; must change on first login)")
+            return True
+        return False
     finally:
         if own:
             s.close()

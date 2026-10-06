@@ -710,6 +710,7 @@ def _team_out(u: models.User) -> dict:
         "role": (u.role or "").strip().lower(),
         "is_active": bool(getattr(u, "is_active", True)),
         "must_change_password": bool(getattr(u, "must_change_password", False)),
+        "is_console_admin": config.is_console_admin(u.email),
         "last_login": _iso(u.last_login), "created_at": _iso(u.created_at),
     }
 
@@ -728,7 +729,10 @@ def _get_sales_user(session: Session, email: str) -> models.User:
     u = session.query(models.User).filter(models.User.email == (email or "").strip().lower()).first()
     if not u:
         raise HTTPException(404, "No such user")
-    if (u.role or "").strip().lower() not in ("sales", "sales_manager"):
+    # Manageable if it is a sales account OR a console admin (so the owner can,
+    # for example, reset their own password from the Team panel).
+    if (u.role or "").strip().lower() not in ("sales", "sales_manager") \
+            and not config.is_console_admin(u.email):
         raise HTTPException(403, "Only inside-sales accounts can be managed here")
     return u
 
@@ -736,8 +740,12 @@ def _get_sales_user(session: Session, email: str) -> models.User:
 @router.get("/team")
 def list_team(session: Session = Depends(db.get_db),
               user: models.User = Depends(require_sales_manager)):
-    rows = session.query(models.User).filter(
-        models.User.role.in_(("sales", "sales_manager"))).order_by(models.User.created_at.desc()).all()
+    admins = list(config.CONSOLE_ADMIN_EMAILS)
+    q = session.query(models.User).filter(
+        or_(models.User.role.in_(("sales", "sales_manager")),
+            models.User.email.in_(admins))) if admins else \
+        session.query(models.User).filter(models.User.role.in_(("sales", "sales_manager")))
+    rows = q.order_by(models.User.created_at.desc()).all()
     return {"count": len(rows), "items": [_team_out(u) for u in rows]}
 
 
@@ -792,6 +800,10 @@ def set_team_status(
     if not payload.is_active:
         if is_self:
             raise HTTPException(400, "You cannot deactivate your own account")
+        # An allowlisted console owner must stay able to sign in; deactivating
+        # them would lock the console because require_sales honours is_active.
+        if config.is_console_admin(u.email):
+            raise HTTPException(400, "This account is the console owner and cannot be deactivated")
         if (u.role or "").strip().lower() == "sales_manager" and _active_manager_count(session) <= 1:
             raise HTTPException(400, "Cannot deactivate the last active manager")
         # release their whole book back to the pool so leads aren't stranded
@@ -810,6 +822,12 @@ def set_team_role(
     role = (payload.role or "").strip().lower()
     if role not in ("sales", "sales_manager"):
         raise HTTPException(422, "role must be 'sales' or 'sales_manager'")
+    # A console admin gets their access from the CONSOLE_ADMIN_EMAILS allowlist,
+    # not from this column, and their stored role may carry an unrelated
+    # marketplace identity (e.g. `operator`). Rewriting it would clobber that
+    # identity for no benefit, so the owner row's role is frozen here.
+    if config.is_console_admin(u.email):
+        raise HTTPException(400, "This account's access is managed by the console allowlist; its role cannot be changed here")
     if (u.role or "").strip().lower() == "sales_manager" and role != "sales_manager" \
             and _active_manager_count(session) <= 1:
         raise HTTPException(400, "Cannot demote the last active manager")

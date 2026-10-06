@@ -157,6 +157,7 @@ export interface TeamUser {
   role: string;                        // sales | sales_manager
   is_active: boolean;
   must_change_password: boolean;       // true until they rotate a temp password
+  is_console_admin: boolean;           // owner row: allowlisted, role/status frozen
   last_login: string | null; created_at: string | null;
 }
 export interface TeamList { count: number; items: TeamUser[]; }
