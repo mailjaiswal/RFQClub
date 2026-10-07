@@ -29,5 +29,5 @@ export function middleware(req: NextRequest) {
 // makes sure an anonymous visitor is bounced to sign-in first, so the shell is
 // never even rendered for a logged-out user.
 export const config = {
-  matcher: ["/board/:path*", "/rfq/:path*", "/bid/:path*", "/my-rfqs/:path*", "/post/:path*", "/review/:path*", "/draft/:path*", "/console/:path*"],
+  matcher: ["/rfq/:path*", "/bid/:path*", "/my-rfqs/:path*", "/post/:path*", "/review/:path*", "/draft/:path*", "/console/:path*"],
 };

@@ -46,6 +46,7 @@ export default function CompareBids({ data }: { data: BidsResponse }) {
   const [shortlist, setShortlist] = useState<Set<number>>(new Set());
   const [selected, setSelected] = useState<number | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [acceptException, setAcceptException] = useState(false);
   const [changing, setChanging] = useState(false); // "Change award" → re-open selection
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -238,7 +239,7 @@ export default function CompareBids({ data }: { data: BidsResponse }) {
               <button
                 className="cmp-award"
                 disabled={selected == null || selected === awardedId || busy}
-                onClick={() => { setError(null); setConfirmOpen(true); }}
+                onClick={() => { setError(null); setAcceptException(false); setConfirmOpen(true); }}
               >
                 {busy ? "Awarding…" : changing ? "Confirm re-award" : "Confirm award"}
               </button>
@@ -261,10 +262,47 @@ export default function CompareBids({ data }: { data: BidsResponse }) {
               <span>{selBid.lead_weeks != null ? `${selBid.lead_weeks} weeks lead` : "Lead time not set"}</span>
               <span>{selBid.payment_terms || "Terms per quote"}</span>
             </div>
+
+            {selBid.exception_flag && (
+              <div
+                style={{
+                  background: "rgba(178, 58, 43, 0.08)",
+                  border: "1px solid rgba(178, 58, 43, 0.3)",
+                  borderRadius: "8px",
+                  padding: "10px 14px",
+                  margin: "12px 0",
+                  fontSize: "12.5px",
+                  textAlign: "left",
+                }}
+              >
+                <div style={{ fontWeight: 600, color: "#b23a2b", marginBottom: 4 }}>
+                  ⚠️ Supplier noted bid exceptions
+                </div>
+                {selBid.exception_note ? (
+                  <div style={{ marginBottom: 8, color: "var(--subtle)" }}>{selBid.exception_note}</div>
+                ) : null}
+                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontWeight: 500 }}>
+                  <input
+                    type="checkbox"
+                    checked={acceptException}
+                    onChange={(e) => setAcceptException(e.target.checked)}
+                    style={{ width: 15, height: 15, cursor: "pointer" }}
+                  />
+                  <span>I acknowledge and accept this supplier&apos;s quoted exceptions.</span>
+                </label>
+              </div>
+            )}
+
             {error && <div className="cmp-err">⚠ {error}</div>}
             <div className="row">
               <button className="skip" onClick={() => setConfirmOpen(false)} disabled={busy}>Cancel</button>
-              <button className="nx" onClick={doAward} disabled={busy}>{busy ? "Awarding…" : "Yes, award it"}</button>
+              <button
+                className="nx"
+                onClick={doAward}
+                disabled={busy || (selBid.exception_flag ? !acceptException : false)}
+              >
+                {busy ? "Awarding…" : "Yes, award it"}
+              </button>
             </div>
           </div>
         </div>

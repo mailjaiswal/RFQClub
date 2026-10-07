@@ -90,7 +90,17 @@ function ReportsInner() {
       </div>
 
       {err && <p className="in-err">{err}</p>}
-      {loading && <p className="in-faint">Loading report…</p>}
+      {loading && (
+        <div className="in-grid in-tiles" style={{ marginBottom: 20 }}>
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="in-card in-tile" style={{ opacity: 0.75 }}>
+              <span className="ic" style={{ opacity: 0.3 }} aria-hidden>◉</span>
+              <div className="n"><span className="in-skel" style={{ width: 44, height: 26 }} /></div>
+              <div className="l" style={{ marginTop: 4 }}><span className="in-skel" style={{ width: 88, height: 12 }} /></div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {data && !loading && (
         <>

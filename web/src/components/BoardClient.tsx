@@ -27,6 +27,12 @@ function sortItems(items: RfqCard[], sort: Sort): RfqCard[] {
   return c;
 }
 
+const SORT_LABELS: Record<Sort, string> = {
+  deadline: "Closing soon",
+  value: "Highest value",
+  bidcount: "Most bids",
+};
+
 export default function BoardClient({
   initial,
   view = "all",
@@ -131,7 +137,7 @@ export default function BoardClient({
           <button className={mode === "list" ? "on" : ""} aria-pressed={mode === "list"} onClick={() => setMode("list")}>List</button>
         </span>
         <span className="ap-sort">
-          Closing soon ▾{" "}
+          {SORT_LABELS[sort]} ▾{" "}
           <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="Sort board">
             <option value="deadline">Closing soon</option>
             <option value="value">Highest value</option>

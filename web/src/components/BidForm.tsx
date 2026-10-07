@@ -24,23 +24,86 @@ export default function BidForm({ rfq }: { rfq: RfqDetail }) {
   const [distance, setDistance] = useState("");
   const [tags, setTags] = useState("");
   const [signedIn, setSignedIn] = useState(false);
+  const [exception, setException] = useState(false);
+  const [exceptionNote, setExceptionNote] = useState("");
+  const [declaration, setDeclaration] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
 
-  // Signed-in suppliers get their account identity pre-filled (still editable).
+  const DRAFT_KEY = `rfqclub_bid_draft_${rfq.id}`;
+
+  // Signed-in suppliers get identity prefilled; restore any saved draft.
   useEffect(() => {
     const u = getUser();
     if (u) {
       setSignedIn(true);
       setSupplierName(u.email.split("@")[0]);
     }
-  }, []);
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d.unitPrice || d.tooling || d.freight || d.exceptionNote) {
+          if (d.unitPrice !== undefined) setUnitPrice(d.unitPrice);
+          if (d.tooling !== undefined) setTooling(d.tooling);
+          if (d.freight !== undefined) setFreight(d.freight);
+          if (d.gst !== undefined) setGst(d.gst);
+          if (d.lead !== undefined) setLead(d.lead);
+          if (d.terms !== undefined) setTerms(d.terms);
+          if (d.validity !== undefined) setValidity(d.validity);
+          if (d.supplierName && !u) setSupplierName(d.supplierName);
+          if (d.hubCity !== undefined) setHubCity(d.hubCity);
+          if (d.distance !== undefined) setDistance(d.distance);
+          if (d.tags !== undefined) setTags(d.tags);
+          if (d.exception !== undefined) setException(d.exception);
+          if (d.exceptionNote !== undefined) setExceptionNote(d.exceptionNote);
+          setDraftRestored(true);
+        }
+      }
+    } catch {
+      // quota or JSON error
+    }
+  }, [DRAFT_KEY]);
 
-  const [exception, setException] = useState(false);
-  const [exceptionNote, setExceptionNote] = useState("");
-  const [declaration, setDeclaration] = useState(false);
+  // Debounced autosave
+  useEffect(() => {
+    if (done) return;
+    const hasData = unitPrice.trim() || tooling !== "0" || freight !== "0" || exceptionNote.trim();
+    if (!hasData) return;
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          DRAFT_KEY,
+          JSON.stringify({
+            unitPrice, tooling, freight, gst, lead, terms, validity,
+            supplierName, hubCity, distance, tags, exception, exceptionNote,
+          }),
+        );
+      } catch {
+        // quota
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [
+    DRAFT_KEY, unitPrice, tooling, freight, gst, lead, terms, validity,
+    supplierName, hubCity, distance, tags, exception, exceptionNote, done,
+  ]);
 
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
+  function discardDraft() {
+    try { localStorage.removeItem(DRAFT_KEY); } catch {}
+    setUnitPrice(rfq.budget.low ? String(rfq.budget.low) : "");
+    setTooling("0");
+    setFreight("0");
+    setGst(true);
+    setLead("");
+    setTerms("30 / 70");
+    setValidity("30");
+    setException(false);
+    setExceptionNote("");
+    setDraftRestored(false);
+  }
 
   const num = (s: string) => (s.trim() === "" ? 0 : Number(s.replace(/[^0-9.]/g, "")) || 0);
 
@@ -79,6 +142,7 @@ export default function BidForm({ rfq }: { rfq: RfqDetail }) {
         exception_note: exception ? exceptionNote : "",
         source: "web",
       });
+      try { localStorage.removeItem(DRAFT_KEY); } catch {}
       setDone(res.bidder_code);
       setTimeout(() => router.push(`/rfq/${rfq.id}`), 1400);
     } catch (err) {
@@ -100,6 +164,38 @@ export default function BidForm({ rfq }: { rfq: RfqDetail }) {
   return (
     <form onSubmit={onSubmit} className="grid lg:grid-cols-[1fr_320px] gap-6 items-start">
       <div>
+        {draftRestored && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "10px 14px",
+              borderRadius: "8px",
+              background: "rgba(63, 67, 151, 0.08)",
+              border: "1px solid rgba(63, 67, 151, 0.22)",
+              marginBottom: 16,
+              fontSize: 13,
+            }}
+          >
+            <span>📝 <strong>Restored saved quote draft</strong> for this RFQ.</span>
+            <button
+              type="button"
+              onClick={discardDraft}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#d32f2f",
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: 600,
+                textDecoration: "underline",
+              }}
+            >
+              Discard draft
+            </button>
+          </div>
+        )}
         <div className="surface-card" style={{ padding: 20 }}>
           <div className="label-mono">Landed-cost calculator</div>
           <div className="grid sm:grid-cols-2 gap-4" style={{ marginTop: 12 }}>

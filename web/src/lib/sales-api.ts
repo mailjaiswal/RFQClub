@@ -5,7 +5,7 @@
 import { getToken } from "@/lib/session";
 import { cacheKeys, markStale, patch, peek, put, refresh } from "@/lib/cache";
 
-export const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000").replace(/\/+$/, "");
+export const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000").replace(/\/+$/, "");
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const auth = typeof window !== "undefined" ? getToken() : null;

@@ -130,7 +130,7 @@ export default async function RfqDetailPage({ params }: { params: Promise<{ id: 
                 </Link>
               )}
 
-              <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid #E4E1DA" }}>
+              <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--hairline)" }}>
                 <div className="lbl">Buyer</div>
                 <div style={{ fontSize: 13, marginTop: 6, fontWeight: 600 }}>Verified buyer · name withheld</div>
                 <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>{rfq.buyer_note}</p>

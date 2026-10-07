@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useConsole } from "@/components/console/ConsoleApp";
@@ -60,6 +60,14 @@ export default function LeadDetailPage() {
     finally { setBusy(false); }
     revalidate();
   }
+
+  const goBack = useCallback(() => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/console/leads");
+    }
+  }, [router]);
 
   const me = (user?.email || "").toLowerCase();
   const labelFor = (key: string) =>
@@ -157,21 +165,66 @@ export default function LeadDetailPage() {
           <div className="in-empty">Could not load this lead.<div className="in-err" style={{ marginTop: 8 }}>{apiErr}</div></div>
         </>
       );
-    if (!stub) return <div className="in-empty">Loading lead…</div>;
-    // Instant skeleton from the queue row the user just clicked.
+    // Instant full structural skeleton so transitions feel zero-latency with no layout shift
     return (
       <>
         <div className="in-row in-wrap" style={{ marginBottom: 12 }}>
-          <button className="in-btn sm" onClick={() => router.back()}>← Back</button>
-          <h1 className="display" style={{ fontSize: 19, margin: 0 }}>{stub.company || "(no name)"}</h1>
-          <StatusPill status={stub.status} label={stub.status_label} />
+          <button className="in-btn sm" onClick={goBack}>← Back</button>
+          <h1 className="display" style={{ fontSize: 19, margin: 0 }}>
+            {stub?.company || <span className="in-skel" style={{ width: 200, height: 24, verticalAlign: "middle" }} />}
+          </h1>
+          {stub ? <StatusPill status={stub.status} label={stub.status_label} /> : <span className="in-skel" style={{ width: 80, height: 20, borderRadius: 999 }} />}
           <span className="in-right in-faint" style={{ fontSize: 11 }}>
-            {stub.track}{stub.hub_city ? ` · ${stub.hub_city}` : ""}{stub.priority_rank ? ` · priority #${stub.priority_rank}` : ""}
+            {stub ? `${stub.track}${stub.hub_city ? ` · ${stub.hub_city}` : ""}${stub.priority_rank ? ` · priority #${stub.priority_rank}` : ""}` : <span className="in-skel" style={{ width: 120, height: 14 }} />}
           </span>
         </div>
-        <div className="in-card in-pad">
-          <div className="in-kind">Lead record</div>
-          <p className="in-faint" style={{ margin: "6px 0 0" }}>Loading the full record…</p>
+
+        {/* Ownership skeleton */}
+        <div className="in-card" style={{ padding: "10px 14px", marginBottom: 14 }}>
+          <div className="in-row in-wrap">
+            <span className="in-kind">Owner</span>
+            <span className="in-skel" style={{ width: 140, height: 16 }} />
+          </div>
+        </div>
+
+        {/* Stage stepper skeleton */}
+        <div className="in-card" style={{ padding: "12px 14px", marginBottom: 14 }}>
+          <div className="in-kind" style={{ marginBottom: 8 }}>Stage</div>
+          <div className="in-steps">
+            {[1, 2, 3, 4].map((i) => <span key={i} className="in-skel" style={{ width: 85, height: 28, borderRadius: 10 }} />)}
+          </div>
+        </div>
+
+        {/* 2-column detail grid skeleton */}
+        <div className="in-detail">
+          <div className="in-col">
+            <div className="in-card in-pad">
+              <div className="in-kind" style={{ marginBottom: 10 }}>Next step</div>
+              <div className="in-skel" style={{ width: "100%", height: 38, marginBottom: 8 }} />
+              <div className="in-skel" style={{ width: "80%", height: 32 }} />
+            </div>
+            <div className="in-card in-pad">
+              <div className="in-kind" style={{ marginBottom: 10 }}>Company</div>
+              <div className="in-skel" style={{ width: "100%", height: 18, marginBottom: 8 }} />
+              <div className="in-skel" style={{ width: "60%", height: 18 }} />
+            </div>
+            <div className="in-card in-pad">
+              <div className="in-kind" style={{ marginBottom: 10 }}>Contacts</div>
+              <div className="in-skel" style={{ width: "100%", height: 48 }} />
+            </div>
+          </div>
+          <div className="in-col">
+            <div className="in-card in-pad">
+              <div className="in-kind" style={{ marginBottom: 10 }}>Log a touchpoint</div>
+              <div className="in-skel" style={{ width: "100%", height: 36, marginBottom: 8 }} />
+              <div className="in-skel" style={{ width: "100%", height: 72 }} />
+            </div>
+            <div className="in-card in-pad">
+              <div className="in-kind" style={{ marginBottom: 10 }}>Activity timeline</div>
+              <div className="in-skel" style={{ width: "100%", height: 50, marginBottom: 8 }} />
+              <div className="in-skel" style={{ width: "90%", height: 50 }} />
+            </div>
+          </div>
         </div>
       </>
     );
@@ -185,7 +238,7 @@ export default function LeadDetailPage() {
     <>
       {/* ---- header ---- */}
       <div className="in-row in-wrap" style={{ marginBottom: 12 }}>
-        <button className="in-btn sm" onClick={() => router.back()}>← Back</button>
+        <button className="in-btn sm" onClick={goBack}>← Back</button>
         <h1 className="display" style={{ fontSize: 19, margin: 0 }}>{co?.name || "(no name)"}</h1>
         <StatusPill status={d.status} label={d.status_label} />
         {d.excluded_from_sales && <span className="in-pill st-dead">out of scope</span>}
@@ -244,7 +297,7 @@ export default function LeadDetailPage() {
           {/* Next step — pinned to the top so the key action is always in view */}
           <NextStepEditor d={d} busy={busy} canWork={canWork}
             at={at} note={note} setAt={setAt} setNote={setNote}
-            dirty={dirty} onSave={saveNow} onDiscard={discardNext} onClear={clearNext} />
+            dirty={dirty} onSave={saveNow} onAutoSave={saveNextStep} onDiscard={discardNext} onClear={clearNext} />
 
           {/* Company (read-only, compacted) */}
           <div className="in-card in-pad">
@@ -537,10 +590,12 @@ function TaskRow({ t, busy, done, onComplete }: { t: Task; busy: boolean; done?:
 // ------------------------------------------------------------------ next step
 // Controlled from the page: the fields edit a local copy of the stored value and
 // the sticky Save bar (also Ctrl/Cmd+S) is what writes them.
-function NextStepEditor({ d, busy, canWork, at, note, setAt, setNote, dirty, onSave, onDiscard, onClear }: {
+function NextStepEditor({ d, busy, canWork, at, note, setAt, setNote, dirty, onSave, onAutoSave, onDiscard, onClear }: {
   d: LeadDetail; busy: boolean; canWork: boolean;
   at: string; note: string; setAt: (v: string) => void; setNote: (v: string) => void;
-  dirty: boolean; onSave: () => void; onDiscard: () => void; onClear: () => void;
+  dirty: boolean; onSave: () => void;
+  onAutoSave: (b: { next_action_at: string | null; next_action_note: string }) => void;
+  onDiscard: () => void; onClear: () => void;
 }) {
   const rel = d.next_action_at ? relTime(d.next_action_at) : null;
   return (
@@ -557,10 +612,23 @@ function NextStepEditor({ d, busy, canWork, at, note, setAt, setNote, dirty, onS
       ) : <div className="in-faint" style={{ marginBottom: 8, fontSize: 12 }}>No next action scheduled.</div>}
       {canWork && (
         <div className="in-form">
-          <DateTimeField value={at} onChange={(iso) => setAt(iso || "")} disabled={busy} />
-          <input className="in-field" placeholder="What / when to do next…" value={note}
+          <DateTimeField
+            value={at}
+            onChange={(iso) => {
+              const nextIso = iso || "";
+              setAt(nextIso);
+              onAutoSave({ next_action_at: nextIso || null, next_action_note: note });
+            }}
+            disabled={busy}
+          />
+          <input
+            className="in-field"
+            placeholder="What / when to do next…"
+            value={note}
             onChange={(e) => setNote(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onSave(); } }} />
+            onBlur={() => { if (dirty) onSave(); }}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onSave(); } }}
+          />
           <div className="in-row" style={{ gap: 8 }}>
             <button className={`in-btn${dirty ? " primary" : ""}`} disabled={busy || !dirty} onClick={onSave}>
               {busy ? "Saving…" : "Save next step"}</button>

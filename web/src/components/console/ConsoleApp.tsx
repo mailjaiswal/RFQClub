@@ -328,19 +328,19 @@ function Shell({ children, teamList }: { children: React.ReactNode; teamList: Te
           <Link className={`in-navlink${linkActive("/console") ? " on" : ""}`} href="/console">◧ Dashboard</Link>
           <Link className={`in-navlink${isReports ? " on" : ""}`} href="/console/reports">⊞ Reports</Link>
           <div className="sect">Queues</div>
-          <a className={`in-navlink${linkActive("/console/leads", "mine") ? " on" : ""}`} onClick={() => go("/console/leads?view=mine")}>☰ My queue{counts.mine ? <span className="k">{counts.mine}</span> : null}</a>
-          <a className={`in-navlink${linkActive("/console/leads", "unassigned") ? " on" : ""}`} onClick={() => go("/console/leads?view=unassigned")}>◨ Unclaimed{counts.unassigned ? <span className="k">{counts.unassigned}</span> : null}</a>
-          <a className={`in-navlink${linkActive("/console/leads", "followups") ? " on" : ""}`} onClick={() => go("/console/leads?view=followups")}>⟳ Follow-ups{counts.followups_pending ? <span className="k">{counts.followups_pending}</span> : null}</a>
+          <Link className={`in-navlink${linkActive("/console/leads", "mine") ? " on" : ""}`} href="/console/leads?view=mine">☰ My queue{counts.mine ? <span className="k">{counts.mine}</span> : null}</Link>
+          <Link className={`in-navlink${linkActive("/console/leads", "unassigned") ? " on" : ""}`} href="/console/leads?view=unassigned">◨ Unclaimed{counts.unassigned ? <span className="k">{counts.unassigned}</span> : null}</Link>
+          <Link className={`in-navlink${linkActive("/console/leads", "followups") ? " on" : ""}`} href="/console/leads?view=followups">⟳ Follow-ups{counts.followups_pending ? <span className="k">{counts.followups_pending}</span> : null}</Link>
 
           {isManager && (<>
             <div className="sect">Manager</div>
-            <a className={`in-navlink${linkActive("/console/leads", "all") ? " on" : ""}`} onClick={() => go("/console/leads?view=all")}>▦ All leads</a>
-            <a className={`in-navlink${linkActive("/console/leads", "excluded") ? " on" : ""}`} onClick={() => go("/console/leads?view=excluded")}>⊘ Out of scope{counts.excluded ? <span className="k">{counts.excluded}</span> : null}</a>
+            <Link className={`in-navlink${linkActive("/console/leads", "all") ? " on" : ""}`} href="/console/leads?view=all">▦ All leads</Link>
+            <Link className={`in-navlink${linkActive("/console/leads", "excluded") ? " on" : ""}`} href="/console/leads?view=excluded">⊘ Out of scope{counts.excluded ? <span className="k">{counts.excluded}</span> : null}</Link>
             <Link className={`in-navlink${isTeam ? " on" : ""}`} href="/console/team">👥 Team &amp; access</Link>
           </>)}
 
           <div className="sect">Marketplace</div>
-          <a className="in-navlink" onClick={() => router.push("/board")}>↗ RFQClub board</a>
+          <Link className="in-navlink" href="/board">↗ RFQClub board</Link>
         </aside>
 
         <div className="in-main">

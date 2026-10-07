@@ -53,11 +53,26 @@ function ageMs(key: string): number {
 /** How old the cached copy of `key` is (Infinity when nothing is stored). */
 export const ageOf = ageMs;
 
+const MAX_STORE_ENTRIES = 150;
+
 function notify(key: string, data: unknown) {
   subs.get(key)?.forEach((fn) => { try { fn(data); } catch { /* component unmounted */ } });
 }
 
 export function put(key: string, data: unknown, persist = false) {
+  if (store.size >= MAX_STORE_ENTRIES && !store.has(key)) {
+    let oldestKey: string | null = null;
+    let oldestTs = Infinity;
+    for (const [k, v] of store.entries()) {
+      if (!v.persist && v.ts < oldestTs) {
+        oldestTs = v.ts;
+        oldestKey = k;
+      }
+    }
+    if (oldestKey) {
+      store.delete(oldestKey);
+    }
+  }
   store.set(key, { data, ts: Date.now(), persist });
   if (persist && typeof window !== "undefined") {
     try { sessionStorage.setItem(ssKey(key), JSON.stringify(data)); } catch { /* quota */ }

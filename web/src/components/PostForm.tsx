@@ -25,11 +25,74 @@ export default function PostForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<IntakeResult | null>(null);
+  const [draftRestored, setDraftRestored] = useState(false);
 
-  // Resolve sign-in on mount (localStorage isn't available during SSR).
+  const DRAFT_KEY = "rfqclub_post_draft";
+
+  // Resolve sign-in and recover any unsaved draft on mount.
   useEffect(() => {
     setSignedIn(!!getUser());
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d.title || d.description || d.process || d.material) {
+          if (d.title) setTitle(d.title);
+          if (d.description) setDescription(d.description);
+          if (d.process) setProcess(d.process);
+          if (d.material) setMaterial(d.material);
+          if (d.qty) setQty(d.qty);
+          if (d.unit) setUnit(d.unit);
+          if (d.budgetLow) setBudgetLow(d.budgetLow);
+          if (d.budgetHigh) setBudgetHigh(d.budgetHigh);
+          if (d.days) setDays(d.days);
+          if (d.sectorKey) setSectorKey(d.sectorKey);
+          if (d.hubCity) setHubCity(d.hubCity);
+          setDraftRestored(true);
+        }
+      }
+    } catch {
+      // ignore
+    }
   }, []);
+
+  // Autosave draft whenever fields change
+  useEffect(() => {
+    if (done) return;
+    const hasContent = title.trim() || description.trim() || process.trim() || material.trim();
+    if (!hasContent) return;
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          DRAFT_KEY,
+          JSON.stringify({
+            title, description, process, material, qty, unit,
+            budgetLow, budgetHigh, days, sectorKey, hubCity,
+            savedAt: Date.now(),
+          }),
+        );
+      } catch {
+        // storage quota exceeded or unavailable
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [title, description, process, material, qty, unit, budgetLow, budgetHigh, days, sectorKey, hubCity, done]);
+
+  function discardDraft() {
+    try { localStorage.removeItem(DRAFT_KEY); } catch {}
+    setTitle("");
+    setDescription("");
+    setProcess("");
+    setMaterial("");
+    setQty("");
+    setUnit("pcs");
+    setBudgetLow("");
+    setBudgetHigh("");
+    setDays("14");
+    setSectorKey("");
+    setHubCity("");
+    setDraftRestored(false);
+  }
 
   const num = (s: string) => (s.trim() === "" ? null : Number(s.replace(/[^0-9.]/g, "")) || null);
 
@@ -55,6 +118,7 @@ export default function PostForm() {
         sector_key: sectorKey,
         hub_city: hubCity.trim(),
       });
+      try { localStorage.removeItem(DRAFT_KEY); } catch {}
       setDone(res);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not file your requirement.");
@@ -108,6 +172,40 @@ export default function PostForm() {
   return (
     <form onSubmit={onSubmit} className="grid lg:grid-cols-[1fr_300px] gap-6 items-start">
       <div>
+        {draftRestored && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "10px 16px",
+              borderRadius: "8px",
+              background: "rgba(63, 67, 151, 0.08)",
+              border: "1px solid rgba(63, 67, 151, 0.22)",
+              marginBottom: 16,
+              fontSize: 13,
+            }}
+          >
+            <span style={{ color: "var(--foreground, #222)" }}>
+              📝 <strong>Restored draft</strong> from your previous unsaved session.
+            </span>
+            <button
+              type="button"
+              onClick={discardDraft}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#d32f2f",
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: 600,
+                textDecoration: "underline",
+              }}
+            >
+              Discard draft
+            </button>
+          </div>
+        )}
         <div className="surface-card" style={{ padding: 20 }}>
           <div className="label-mono">The requirement</div>
           <div style={{ marginTop: 12 }}>

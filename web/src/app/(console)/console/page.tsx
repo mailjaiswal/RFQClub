@@ -64,7 +64,30 @@ export default function ConsoleDashboard() {
         </div>
       </div>
       {err && <p className="in-err">{err}</p>}
-      {!data && !err && <p className="in-faint">{pending ? "Loading dashboard…" : ""}</p>}
+      {!data && !err && (
+        <>
+          <div className="in-grid in-tiles">
+            {TILE_ORDER.filter((t) => (t.key !== "excluded" || isManager)).map((t) => (
+              <div key={t.key} className="in-card in-tile" style={{ opacity: 0.75 }}>
+                <span className="ic" style={{ opacity: 0.3 }} aria-hidden>{t.icon}</span>
+                <div className="n"><span className="in-skel" style={{ width: 44, height: 26 }} /></div>
+                <div className="l">{t.label}</div>
+                <div className="hint">{t.hint}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="in-sec-h">Pipeline funnel</div>
+          <div className="in-funnel">
+            {[1, 2, 3, 4, 5, 6].map((idx) => (
+              <div key={idx} className="in-fstage" style={{ opacity: 0.75 }}>
+                <div className="n"><span className="in-skel" style={{ width: 28, height: 18 }} /></div>
+                <div className="l" style={{ marginTop: 4 }}><span className="in-skel" style={{ width: 60, height: 11 }} /></div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {data && (<>
         <div className="in-grid in-tiles">
