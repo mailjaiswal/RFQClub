@@ -92,6 +92,20 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
   plus Clear) without touching the date picker.
 
 ### Fixed
+- **The importer silently dropped the last row of every sheet.** Rewriting the
+  row loop for resume-on-drop introduced an off-by-one: the loop counter was the
+  *sheet* row (starting at 2, because row 1 is the header) while the bound was
+  `len(rows)`, so it stopped one row early and never imported the final row.
+  Every counter still looked healthy — `rows_read` came from the sheet, not the
+  loop — and it was found only by diffing hosted against local data: one
+  harvested company (Gurukul Fittings, Vadodara, fasteners) existed in the
+  workbook and in the local database but not on the hosted one. The loop now
+  counts rows (`idx`) and derives the sheet number (`idx + 2`) separately, so the
+  two can no longer be confused for each other. `test_lead_import.py` gains
+  section 9, "every workbook row reached the database", which normalises the
+  `Company` column of both source sheets and asserts each name exists as a
+  company — a volume or counter check cannot see a single dropped row, so
+  coverage is asserted per sheet, end of sheet included.
 - **A hosted lead import died halfway and looked like a hang.** Running
   `import_leads.py` against Neon from a desk machine is a multi-minute bulk load
   over a WAN, and `pool_pre_ping` only validates a pooled connection at

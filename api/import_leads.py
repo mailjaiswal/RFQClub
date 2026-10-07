@@ -503,10 +503,18 @@ def run(dry: bool = False, expansion: bool = True, note: str = "") -> dict:
             CHUNK = 100 if db.sqlite_only else 50
             MAX_RESUMES = 40
             resumes = 0
-            safe_i, i, n = 1, 2, len(rows)
-            while i <= n:
+            # `idx` indexes rows[]; the sheet row number is idx+2 (row 1 is the
+            # header). Keeping the two apart matters: bounding the loop by
+            # len(rows) while starting the sheet row at 2 silently skips the
+            # LAST row of every sheet - which is exactly how one harvested
+            # company failed to reach the hosted database.
+            n = len(rows)
+            safe_idx = -1                 # last durably committed row index
+            idx = 0
+            while idx < n:
+                i = idx + 2               # sheet row, for the provenance ref
                 try:
-                    rec = rows[i - 2]
+                    rec = rows[idx]
                     ref = "%s!%s:%d" % (system, sheet, i)
                     company = upsert_company(session, rec, st, ref, system=system)
                     if company is not None:
@@ -516,16 +524,16 @@ def run(dry: bool = False, expansion: bool = True, note: str = "") -> dict:
                                     system=system)
                     if not dry and (i % CHUNK) == 0:
                         session.commit()
-                        safe_i = i          # everything up to here is durable
+                        safe_idx = idx      # everything up to here is durable
                         # A hosted load from a desk machine takes tens of
                         # minutes, and the per-source line only prints at the
                         # end of the sheet - so without a heartbeat an import
                         # that is merely slow looks exactly like one that is
                         # hung. Say which row we are on.
                         if i % (CHUNK * 10) == 0:
-                            print("  ... %s row %d/%d" % (system, i, n),
+                            print("  ... %s row %d/%d" % (system, i, n + 1),
                                   flush=True)
-                    i += 1
+                    idx += 1
                 except (OperationalError, InterfaceError, InternalError) as e:
                     resumes += 1
                     # Only a remote DB loses a connection mid-transaction. On
@@ -547,13 +555,13 @@ def run(dry: bool = False, expansion: bool = True, note: str = "") -> dict:
                         # report double-counted creates. Restart the source.
                         st = _blank_stats()
                         st["rows_read"] = len(rows)
-                        safe_i, i = 1, 2
+                        safe_idx, idx = -1, 0
                         print("  !! connection dropped - restarting %s (dry run "
                               "has no durable state)" % system)
                     else:
                         print("  !! connection dropped at row %d - resuming from %d"
-                              % (i, safe_i + 1))
-                        i = safe_i + 1
+                              % (i, safe_idx + 3))
+                        idx = safe_idx + 1
             if not dry:
                 session.commit()
             else:

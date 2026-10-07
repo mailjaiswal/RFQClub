@@ -288,6 +288,32 @@ def _run(s) -> None:
         FAILS.append("no registry-dead lead is flagged hidden - the dead-status "
                      "mapping is not being applied")
 
+    # ------------------------------------------------------ every row landed
+    head("9. EVERY WORKBOOK ROW REACHED THE DATABASE")
+    # Volume checks cannot see a dropped row. When the importer's row loop was
+    # rewritten it started the sheet row at 2 but bounded the loop on
+    # len(rows), so the LAST row of every sheet was skipped: one harvested
+    # company never reached the hosted database while every counter still
+    # reported a healthy run. Assert name-by-name coverage instead.
+    import import_leads as il
+    have = {r[0] for r in s.execute(select(lm.Company.name_norm))}
+    for path, sheet in ((Path(il.config.SOURCE_XLSX), "All Contacts"),
+                        (_ROOT / "Swaniki_Expansion_Database.xlsx",
+                         "Expansion Contacts")):
+        hdr, rows = il.read_sheet(Path(path), sheet)
+        if not rows:
+            continue
+        missing = sorted({il.norm_name(r["Company"]) for r in rows
+                          if r.get("Company")
+                          and il.norm_name(r["Company"]) not in have})
+        print("  %-34s rows=%-5d not in DB: %-3d %s"
+              % (Path(path).name, len(rows), len(missing),
+                 "OK" if not missing else "!!!"))
+        if missing:
+            FAILS.append("%d workbook company row(s) from %s never became a "
+                         "company (e.g. %s) - the importer is dropping rows"
+                         % (len(missing), Path(path).name, missing[:3]))
+
 
 if __name__ == "__main__":
     sys.exit(main())
