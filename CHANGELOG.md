@@ -92,6 +92,25 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
   plus Clear) without touching the date picker.
 
 ### Fixed
+- **A lead's category can now be a researched fact instead of a harvest guess.**
+  The registry sweep copies the sector of whichever cluster a company was found in
+  onto the workbook's `Category`, and the tagger uses that as its fallback prior —
+  so pump makers, a coin mint and a jewellery house reached reps as "Foundry &
+  Casting": 500 of the 648 rows harvested as foundry have no casting token in the
+  company name, and 191 of those are dialable today. Research had been reaching
+  verdicts on exactly these companies with nowhere to write them — an enrichment
+  batch carried no `category`, so a finding only ever landed in the `Data Source`
+  text while the row kept its inherited tag. Batches can now declare `category`,
+  which `apply_exp_enrichment.py` writes into a new `Category (Researched)` column
+  (validated against the registry labels and fill-blank-only, so two passes that
+  disagree surface instead of silently flipping the row) and
+  `apply_rfq_categories.py` honours above every keyword signal: tier from the
+  registry, Confidence High, `Tag Source: Researched override`. Seven companies
+  shipped with it — Craftsman Automation (previously tagged *Electrical Panels*, an
+  aluminium casting and machining major), Shree Nakoda Pipe Impex, Shree Venketesh
+  Paper Mills and Regal Woven Sacks re-tagged on evidence, and three
+  upstream-feedstock plants (iron-ore pellets, ferro alloys, re-rolled MS) hidden
+  as sectors outside the registry by owner decision.
 - **The importer silently dropped the last row of every sheet.** Rewriting the
   row loop for resume-on-drop introduced an off-by-one: the loop counter was the
   *sheet* row (starting at 2, because row 1 is the header) while the bound was

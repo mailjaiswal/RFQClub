@@ -314,6 +314,41 @@ def _run(s) -> None:
                          "company (e.g. %s) - the importer is dropping rows"
                          % (len(missing), Path(path).name, missing[:3]))
 
+    # --------------------------------------------- researched sector beat the guess
+    head("10. A PROVEN SECTOR REACHED THE COMPANY, NOT JUST THE WORKBOOK")
+    # The harvest copies the sector of whichever cluster a company was found in
+    # onto `Category`, so that value is a guess and the tagger inherits the guess.
+    # Research verdicts go in `Category (Researched)` instead. Every one of them
+    # must survive tagging AND import, or a rep dials a pump maker believing the
+    # screen says foundry.
+    labels = {c["label"]: k for k, c in il.rc.CATEGORIES.items()}
+    hdr, rows = il.read_sheet(_ROOT / "Swaniki_Expansion_Database.xlsx",
+                              "Expansion Contacts")
+    ov = [(il.norm_name(r["Company"]), str(r.get("Category (Researched)") or "").strip())
+          for r in rows if r.get("Company")
+          and str(r.get("Category (Researched)") or "").strip()]
+    bad = []
+    for nm, label in ov:
+        if label not in labels:
+            bad.append("%s: %r is not a registry label" % (nm, label))
+            continue
+        got = _q(s, select(lm.Company.category_primary).where(
+            lm.Company.name_norm == nm))
+        if got != labels[label]:
+            bad.append("%s: researched %r -> %s, DB says %r" % (nm, label,
+                                                               labels[label], got))
+    print("  researched overrides: %-3d  wrong in DB: %-3d %s"
+          % (len(ov), len(bad), "OK" if not bad else "!!!"))
+    for b in bad[:6]:
+        print("    !!", b)
+    if bad:
+        FAILS.append("%d researched sector verdict(s) did not reach "
+                     "company.category_primary (e.g. %s) - the override is being "
+                     "lost between the workbook and the database"
+                     % (len(bad), bad[0]))
+    if not ov:
+        print("  (no overrides in the workbook yet - nothing to check)")
+
 
 if __name__ == "__main__":
     sys.exit(main())
