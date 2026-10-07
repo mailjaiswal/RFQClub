@@ -260,7 +260,17 @@ def _active_filters(query, *, include_excluded: bool):
 # GET /api/sales/meta — controlled vocabularies for the UI (statuses, kinds, tracks)
 # ---------------------------------------------------------------------------
 @router.get("/meta")
-def sales_meta(session: Session = Depends(db.get_db)):
+def sales_meta(
+    x_act_as: str = Header("", alias="X-Act-As"),
+    session: Session = Depends(db.get_db),
+    user: models.User = Depends(require_sales),
+):
+    # Capabilities are issued here rather than guessed by the client from a role
+    # string: the console must never render manager UI (Team & access, All leads,
+    # the owner filter) for an account the server treats as a plain rep. They are
+    # computed AFTER act-as resolution, so the owner's "View As" also renders the
+    # rep's navigation instead of their own.
+    viewer = _resolve_act_as(session, user, x_act_as)
     # the active category list is small and stable, so the queue's "Category"
     # filter can offer it without a round-trip per keystroke.
     cats = session.execute(
@@ -277,6 +287,12 @@ def sales_meta(session: Session = Depends(db.get_db)):
         "activity_kinds": list(lm.ACTIVITY_KINDS),
         "activity_outcomes": list(lm.ACTIVITY_OUTCOMES),
         "views": ["mine", "unassigned", "followups", "all", "excluded"],
+        "capabilities": {
+            "email": viewer.email,
+            "manager": _is_manager(viewer),
+            "owner": config.is_console_admin(viewer.email),
+            "impersonating": viewer.id != user.id,
+        },
     }
 
 

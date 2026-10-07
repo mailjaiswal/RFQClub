@@ -37,6 +37,35 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
   issuing a queue request per keystroke.
 
 ### Added
+- **Explicit save for the lead next step.** Editing *Next action* / *Note* on a
+  lead no longer relies on a hidden auto-save: a sticky save bar appears at the
+  bottom of the record whenever the next step differs from what is stored, with
+  **Save changes** (also `Ctrl`/`⌘ + S`), **Discard**, and a "Saved ✓" flash that
+  confirms the write. The bar explains that stage, touchpoints and follow-ups
+  still commit on their own, so nothing looks like it is waiting when it isn't
+  (`leads/[id]/page.tsx`, `internal.css`).
+- **Clock-style date + time picker.** Replaced the bare `datetime-local` inputs
+  with `ClockPicker.tsx` — a `DateTimeField` popover with an hour/minute dial
+  (tap the hour, then the minute), day chips (Today / Tomorrow / In 2 days /
+  In 3 days / Next week) plus ◀ ▶ arrows and a calendar input, an AM/PM toggle,
+  ±1 / ±5 / ±15 minute fine-stepping, quick times (9am, 10am, 1pm, 5pm, 6pm) and
+  Clear/Set. Used by the next-step editor, the touchpoint form and the follow-up
+  task form.
+- **More quick actions on the lead page.** The Quick row now offers nine
+  clock-derived slots computed from the current time (later today, tomorrow
+  morning/afternoon, this weekday at 10am, +2/+3/+5 days, next week, plus
+  *In 3 hours*) with labels that adapt ("Today 5pm", "Tmrw 10am", "Fri 2pm"), and
+  a second **Log result** row of one-tap presets (No answer, Voicemail, Busy,
+  Wrong number, WhatsApp sent, Email sent, Connected, Meeting booked, Not
+  interested) that write a touchpoint *and* schedule the sensible follow-up in a
+  single click. Presets are filtered against the server's `activity_kinds` /
+  `activity_outcomes` vocabularies so nothing invalid can be sent.
+- **Server-issued capabilities for console access.** `/api/sales/meta` now
+  returns `capabilities: {email, manager, owner, impersonating}`, computed
+  *after* act-as resolution, and the navigation drives off it instead of
+  re-guessing roles from `/me`. Falls back to the old role check if the field is
+  absent, so cached payloads can't break the shell (`sales_api.py`,
+  `sales-api.ts`, `ConsoleApp.tsx`).
 - **Activity Reports tab.** New `/console/reports` page with a configurable date
   range (Today / Last 7 days / This week / This month / Last 30 days / custom)
   showing: summary tiles (activities logged, unique leads contacted, status
@@ -63,6 +92,20 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
   plus Clear) without touching the date picker.
 
 ### Fixed
+- **Sales reps could see the manager-only "Team & access" tab.** The rail's
+  Manager section and `/console/team` were gated on a *client-side* role guess
+  derived from `/me`, which drifted from the server's own scoping — most
+  reliably while the owner was impersonating a rep (the chrome stayed
+  owner-flavoured) and for any cached `meta` that crossed scopes. The gate now
+  comes from the server's `capabilities.manager`, which is `false` for reps and
+  for a rep being viewed as, and every `meta` cache key is scope-tagged so an
+  impersonated payload can never paint owner navigation. The owner's "View As"
+  dropdown still works because the team roster fetch keys off the *real* human
+  role rather than the impersonated view.
+- **Stale "View As" target locked the console with a 404.** An expired or
+  removed impersonation target in `localStorage` made every request fail.
+  `req()` now detects `404 Cannot impersonate…`, clears the saved scope and
+  reloads once into the viewer's own console.
 - **"All leads" tab was empty for the console owner.** The queue's `is_manager`
   scope derived purely from `role == "sales_manager"`, but the site owner's
   allowlisted account (`CONSOLE_ADMIN_EMAILS`) keeps a *marketplace* role (e.g.

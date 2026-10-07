@@ -3,12 +3,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useConsole } from "@/components/console/ConsoleApp";
+import { DateTimeField } from "@/components/console/ClockPicker";
 import { StatusPill, fmtDate, relTime, KIND_ICON } from "@/components/console/ui";
 import { useCached } from "@/lib/cache";
 import {
   addActivity, addTask, assignLeads, completeTask, detailKey, getLead, markQueuesStale,
   mutateDetail, patchDetail, patchRows, peekRow, setNextStep, setStatus,
-  type Activity, type Contact, type LeadDetail, type Task,
+  type Activity, type Contact, type LeadDetail, type SalesMeta, type Task,
 } from "@/lib/sales-api";
 
 // statuses that end the pipeline (declined / dead / on-hold) — rendered apart from
@@ -33,6 +34,18 @@ export default function LeadDetailPage() {
   );
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
+
+  // The next-step fields are held at page level so exactly one control decides
+  // when they are persisted, and the sticky bar can say honestly whether anything
+  // is still unsaved. Everything else on this page (stage, claim, touchpoint,
+  // task) is a discrete action that commits itself the moment it is tapped.
+  const savedAt = d?.next_action_at || "";
+  const savedNote = d?.next_action_note || "";
+  const [at, setAt] = useState(savedAt);
+  const [note, setNote] = useState(savedNote);
+  useEffect(() => { setAt(savedAt); setNote(savedNote); }, [d?.id, savedAt, savedNote]);
+  const dirty = !!d && (at !== savedAt || note !== savedNote);
 
   /**
    * Send a write whose outcome the caller has already painted into the cache.
@@ -60,8 +73,26 @@ export default function LeadDetailPage() {
   }
   function saveNextStep(b: { next_action_at: string | null; next_action_note: string }) {
     patchDetail(id, b); patchRows(id, b);
+    setSavedFlash(true);
+    setTimeout(() => setSavedFlash(false), 2600);
     run(() => setNextStep(id, b));
   }
+  /** The sticky bar's action: persist whatever is currently typed. */
+  function saveNow() {
+    if (!dirty) return;
+    saveNextStep({ next_action_at: at || null, next_action_note: note });
+  }
+  function discardNext() { setAt(savedAt); setNote(savedNote); }
+  function clearNext() { setAt(""); setNote(""); saveNextStep({ next_action_at: null, next_action_note: "" }); }
+
+  // Ctrl/Cmd+S saves the lead without the user having to find the button.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); saveNow(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
   function claimSelf() {
     patchDetail(id, { owner_email: me }); patchRows(id, { owner_email: me });
     run(() => assignLeads([id]));
@@ -203,14 +234,17 @@ export default function LeadDetailPage() {
         </div>
       </div>
 
-      {/* ---- quick-action toolbar: one-tap follow-up scheduling for the rep ---- */}
-      <QuickFollowUps d={d} busy={busy} canWork={canWork} onSave={saveNextStep} />
+      {/* ---- quick actions: one-tap scheduling + one-tap touchpoint logging ---- */}
+      <QuickActions d={d} meta={meta} busy={busy} canWork={canWork}
+        onSave={saveNextStep} onLog={logActivity} />
 
       <div className="in-detail">
         {/* ================= LEFT COLUMN ================= */}
         <div className="in-col">
           {/* Next step — pinned to the top so the key action is always in view */}
-          <NextStepEditor d={d} busy={busy} canWork={canWork} onSave={saveNextStep} />
+          <NextStepEditor d={d} busy={busy} canWork={canWork}
+            at={at} note={note} setAt={setAt} setNote={setNote}
+            dirty={dirty} onSave={saveNow} onDiscard={discardNext} onClear={clearNext} />
 
           {/* Company (read-only, compacted) */}
           <div className="in-card in-pad">
@@ -275,6 +309,10 @@ export default function LeadDetailPage() {
           )}
         </div>
       </div>
+
+      {/* ---- the page's explicit save control ---- */}
+      <SaveBar dirty={dirty} busy={busy} canWork={canWork} savedFlash={savedFlash}
+        onSave={saveNow} onDiscard={discardNext} />
     </>
   );
 }
@@ -360,7 +398,7 @@ function ActivityForm({ d, meta, busy, canWork, onSubmit }: {
   const [objection, setObjection] = useState("");
   const [competitor, setCompetitor] = useState("");
   const [contactId, setContactId] = useState<number | "">("");
-  const [nextAt, setNextAt] = useState("");
+  const [nextAt, setNextAt] = useState<string | null>(null);
   const [nextNote, setNextNote] = useState("");
   const [setStatusTo, SetStatusTo] = useState("");
 
@@ -398,7 +436,7 @@ function ActivityForm({ d, meta, busy, canWork, onSubmit }: {
       </div>
       <div className="in-grid2">
         <label><span className="in-lbl">Next action</span>
-          <input type="datetime-local" className="in-field" value={nextAt} onChange={(e) => setNextAt(e.target.value)} />
+          <DateTimeField value={nextAt} onChange={setNextAt} disabled={busy} />
         </label>
         <label><span className="in-lbl">Move stage to</span>
           <select className="in-field" value={setStatusTo} onChange={(e) => SetStatusTo(e.target.value)}>
@@ -409,15 +447,21 @@ function ActivityForm({ d, meta, busy, canWork, onSubmit }: {
       </div>
       <label><span className="in-lbl">Next-step note</span><input className="in-field" value={nextNote} onChange={(e) => setNextNote(e.target.value)} placeholder="e.g. call back Monday AM" /></label>
       <button className="in-btn primary block" disabled={busy || !summary.trim()}
-        onClick={() => onSubmit({
-          kind, outcome: outcome || undefined, summary: summary.trim(),
-          pain_point: pain || undefined, objection: objection || undefined, competitor: competitor || undefined,
-          contact_id: contactId === "" ? null : contactId,
-          next_action_at: nextAt ? new Date(nextAt).toISOString() : null,
-          next_action_note: nextNote || undefined,
-          set_status: setStatusTo || null,
-        })}>
-        {busy ? "Saving…" : "＋ Log touchpoint"}
+        onClick={() => {
+          onSubmit({
+            kind, outcome: outcome || undefined, summary: summary.trim(),
+            pain_point: pain || undefined, objection: objection || undefined, competitor: competitor || undefined,
+            contact_id: contactId === "" ? null : contactId,
+            // undefined (not null) means "no follow-up on this touchpoint", which
+            // leaves an already-scheduled step standing instead of wiping it
+            next_action_at: nextAt ?? undefined,
+            next_action_note: nextNote || undefined,
+            set_status: setStatusTo || null,
+          });
+          setSummary(""); setPain(""); setObjection(""); setCompetitor(""); setOutcome("");
+          setNextAt(null); setNextNote("");
+        }}>
+        {busy ? "Saving…" : "✓ Save touchpoint"}
       </button>
     </div>
   );
@@ -451,7 +495,8 @@ function TaskPanel({ d, busy, canWork, onAdd, onComplete }: {
   onAdd: (b: { title: string; due_at?: string | null }) => void; onComplete: (id: number) => void;
 }) {
   const [title, setTitle] = useState("");
-  const [due, setDue] = useState("");
+  const [due, setDue] = useState<string | null>(null);
+  const [when, setWhen] = useState(false);
   const open = d.tasks.filter((t) => t.status !== "done");
   const done = d.tasks.filter((t) => t.status === "done");
   return (
@@ -463,8 +508,9 @@ function TaskPanel({ d, busy, canWork, onAdd, onComplete }: {
         <div className="in-form" style={{ marginTop: open.length || done.length ? 12 : 0 }}>
           <input className="in-field" placeholder="New follow-up title…" value={title} onChange={(e) => setTitle(e.target.value)} />
           <div className="in-row" style={{ gap: 8 }}>
-            <input type="datetime-local" className="in-field" value={due} onChange={(e) => setDue(e.target.value)} />
-            <button className="in-btn" disabled={busy || !title.trim()} onClick={() => { onAdd({ title: title.trim(), due_at: due ? new Date(due).toISOString() : null }); setTitle(""); setDue(""); }}>＋ Add</button>
+            <button className="in-btn sm" onClick={() => setWhen((w) => !w)}>{when ? "No due date" : "Set due time"}</button>
+            {when && <DateTimeField value={due} onChange={setDue} disabled={busy} />}
+            <button className="in-btn" disabled={busy || !title.trim()} onClick={() => { onAdd({ title: title.trim(), due_at: due }); setTitle(""); setDue(null); setWhen(false); }}>＋ Save follow-up</button>
           </div>
         </div>
       )}
@@ -487,22 +533,20 @@ function TaskRow({ t, busy, done, onComplete }: { t: Task; busy: boolean; done?:
 }
 
 // ------------------------------------------------------------------ next step
-function NextStepEditor({ d, busy, canWork, onSave }: {
-  d: LeadDetail; busy: boolean; canWork: boolean; onSave: (b: { next_action_at: string | null; next_action_note: string }) => void;
+// Controlled from the page: the fields edit a local copy of the stored value and
+// the sticky Save bar (also Ctrl/Cmd+S) is what writes them.
+function NextStepEditor({ d, busy, canWork, at, note, setAt, setNote, dirty, onSave, onDiscard, onClear }: {
+  d: LeadDetail; busy: boolean; canWork: boolean;
+  at: string; note: string; setAt: (v: string) => void; setNote: (v: string) => void;
+  dirty: boolean; onSave: () => void; onDiscard: () => void; onClear: () => void;
 }) {
-  const localIso = (iso: string | null) => {
-    if (!iso) return "";
-    const dt = new Date(iso); if (isNaN(dt.getTime())) return "";
-    const off = dt.getTimezoneOffset();
-    return new Date(dt.getTime() - off * 60000).toISOString().slice(0, 16);
-  };
-  const [at, setAt] = useState(localIso(d.next_action_at));
-  const [note, setNote] = useState(d.next_action_note || "");
-  useEffect(() => { setAt(localIso(d.next_action_at)); setNote(d.next_action_note || ""); }, [d.id, d.next_action_at, d.next_action_note]);
   const rel = d.next_action_at ? relTime(d.next_action_at) : null;
   return (
-    <div className="in-card in-pad in-nextstep">
-      <div className="in-kind" style={{ marginBottom: 6 }}>Next step</div>
+    <div className={`in-card in-pad in-nextstep${dirty ? " dirty" : ""}`}>
+      <div className="in-row" style={{ marginBottom: 6 }}>
+        <span className="in-kind">Next step</span>
+        {dirty && <span className="in-pill st-potential" style={{ marginLeft: "auto" }}>unsaved</span>}
+      </div>
       {d.next_action_at ? (
         <div className="in-muted" style={{ marginBottom: 8, fontSize: 12 }}>
           Due {fmtDate(d.next_action_at, true)} · <span style={{ color: rel?.overdue ? "var(--bad)" : undefined }}>{rel?.text}{rel?.overdue ? " (overdue)" : ""}</span>
@@ -511,11 +555,17 @@ function NextStepEditor({ d, busy, canWork, onSave }: {
       ) : <div className="in-faint" style={{ marginBottom: 8, fontSize: 12 }}>No next action scheduled.</div>}
       {canWork && (
         <div className="in-form">
-          <input type="datetime-local" className="in-field" value={at} onChange={(e) => setAt(e.target.value)} />
-          <input className="in-field" placeholder="What / when to do next…" value={note} onChange={(e) => setNote(e.target.value)} />
+          <DateTimeField value={at} onChange={(iso) => setAt(iso || "")} disabled={busy} />
+          <input className="in-field" placeholder="What / when to do next…" value={note}
+            onChange={(e) => setNote(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onSave(); } }} />
           <div className="in-row" style={{ gap: 8 }}>
-            <button className="in-btn" disabled={busy} onClick={() => onSave({ next_action_at: at ? new Date(at).toISOString() : null, next_action_note: note })}>Save next step</button>
-            {d.next_action_at && <button className="in-btn sm" disabled={busy} onClick={() => onSave({ next_action_at: null, next_action_note: "" })}>Clear</button>}
+            <button className={`in-btn${dirty ? " primary" : ""}`} disabled={busy || !dirty} onClick={onSave}>
+              {busy ? "Saving…" : "Save next step"}</button>
+            {d.next_action_at && (
+              <button className="in-btn sm" disabled={busy} onClick={onClear}>
+                Clear scheduled step</button>)}
+            {dirty && <button className="in-btn sm" disabled={busy} onClick={onDiscard}>Discard</button>}
           </div>
         </div>
       )}
@@ -523,40 +573,138 @@ function NextStepEditor({ d, busy, canWork, onSave }: {
   );
 }
 
-// ------------------------------------------------------------------ quick actions
-// One-tap follow-up presets so a rep can schedule the next step without touching
-// the date picker; preserves any existing note (or seeds a sensible default).
-function QuickFollowUps({ d, busy, canWork, onSave }: {
-  d: LeadDetail; busy: boolean; canWork: boolean;
-  onSave: (b: { next_action_at: string | null; next_action_note: string }) => void;
+// Clearing a step is a normalised edit of the same two fields, so it goes through
+// the page's own save path with an explicit null rather than a second endpoint.
+
+// ------------------------------------------------------------------ save bar
+// The lead page writes itself for discrete actions (stage, claim, touchpoint,
+// task), which left "where do I save?" unanswered. This bar answers it: it is
+// only enabled when something typed is not yet stored, and it says so.
+function SaveBar({ dirty, busy, canWork, savedFlash, onSave, onDiscard }: {
+  dirty: boolean; busy: boolean; canWork: boolean; savedFlash: boolean;
+  onSave: () => void; onDiscard: () => void;
 }) {
   if (!canWork) return null;
-  const at = (dayOffset: number, hour: number) => {
-    const dt = new Date(); dt.setDate(dt.getDate() + dayOffset); dt.setHours(hour, 0, 0, 0);
-    return dt.toISOString();
-  };
-  const note = d.next_action_note || "Follow up";
-  const presets: { label: string; iso: string }[] = [
-    { label: "Today 5pm", iso: at(0, 17) },
-    { label: "Tomorrow AM", iso: at(1, 10) },
-    { label: "+3 days", iso: at(3, 10) },
-    { label: "+7 days", iso: at(7, 10) },
-  ];
   return (
-    <div className="in-card" style={{ padding: "10px 14px", marginBottom: 14 }}>
-      <div className="in-row in-wrap" style={{ gap: 8 }}>
-        <span className="in-kind">Quick</span>
-        {presets.map((p) => (
-          <button key={p.label} className="in-step" disabled={busy}
-            onClick={() => onSave({ next_action_at: p.iso, next_action_note: note })}>⟳ {p.label}</button>
+    <div className={`in-savebar${dirty ? " dirty" : ""}`} role="status">
+      <span className={`in-sdot${savedFlash && !dirty ? " ok" : ""}`} />
+      <span className="in-stxt">
+        {dirty ? "You have unsaved changes to the next step"
+          : savedFlash ? "Saved ✓"
+          : "All changes saved — stage, touchpoints and follow-ups save instantly"}
+      </span>
+      <span className="in-kbd">Ctrl/⌘ + S</span>
+      {dirty && <button className="in-btn sm" disabled={busy} onClick={onDiscard}>Discard</button>}
+      <button className={`in-btn${dirty ? " primary" : ""}`} disabled={busy || !dirty} onClick={onSave}>
+        {busy ? "Saving…" : "Save changes"}</button>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ quick actions
+// A rep works in bursts: dial, note the outcome, promise the next touch. These
+// chips collapse that into one tap — either a follow-up slot, or an outcome
+// logged together with the stage and next step it implies.
+//
+// Labels are derived from the real clock at render time, so a chip never offers a
+// time that has already passed ("Today 5p" after 6pm silently becomes tomorrow).
+function slot(offsetDays: number, hour: number): { label: string; iso: string } {
+  const base = new Date();
+  const dt = new Date(base.getFullYear(), base.getMonth(), base.getDate() + offsetDays, hour, 0, 0, 0);
+  if (dt.getTime() <= Date.now()) dt.setDate(dt.getDate() + 1);
+  const today = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+  const picked = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+  const diff = Math.round((picked.getTime() - today.getTime()) / 86_400_000);
+  const when = diff === 0 ? "Today" : diff === 1 ? "Tmrw" : picked.toLocaleDateString(undefined, { weekday: "short" });
+  return { label: `${when} ${hour % 12 || 12}${hour < 12 ? "am" : "pm"}`, iso: dt.toISOString() };
+}
+
+/** The coming occurrence of a weekday (1 = Mon), never today. */
+function weekdaySlot(day: number, hour: number) {
+  const delta = ((day - new Date().getDay() + 7) % 7) || 7;
+  return slot(delta, hour);
+}
+
+function inHours(n: number): { label: string; iso: string } {
+  return { label: `In ${n}h`, iso: new Date(Date.now() + n * 3_600_000).toISOString() };
+}
+
+// outcome → what it means for the pipeline. `stage` moves the lead, `after` books
+// the retry, both in the same write the server already supports.
+const LOG_PRESETS: {
+  label: string; kind: string; outcome: string; summary: string;
+  stage?: string; after?: () => { label: string; iso: string };
+}[] = [
+  { label: "No answer", kind: "call", outcome: "no_answer", summary: "Called — no answer.", stage: "attempted_no_reply", after: () => slot(1, 11) },
+  { label: "Voicemail", kind: "voicemail", outcome: "voicemail", summary: "Left a voicemail.", stage: "attempted_no_reply", after: () => slot(2, 11) },
+  { label: "Busy", kind: "call", outcome: "busy", summary: "They were busy — asked me to call back.", after: () => inHours(3) },
+  { label: "Wrong number", kind: "call", outcome: "wrong_number", summary: "Wrong number — need a fresh contact." },
+  { label: "WhatsApp sent", kind: "whatsapp", outcome: "whatsapp_sent", summary: "Intro + context sent on WhatsApp.", stage: "attempted_no_reply", after: () => slot(3, 10) },
+  { label: "Email sent", kind: "email", outcome: "email_sent", summary: "Intro and deck emailed.", stage: "attempted_no_reply", after: () => slot(3, 10) },
+  { label: "Connected", kind: "call", outcome: "connected", summary: "Connected — discussed what they buy.", stage: "connected", after: () => slot(2, 10) },
+  { label: "Meeting booked", kind: "meeting", outcome: "meeting_booked", summary: "Meeting booked.", stage: "connected", after: () => weekdaySlot(1, 10) },
+  { label: "Not interested", kind: "call", outcome: "not_interested", summary: "Not interested right now.", stage: "not_interested" },
+];
+
+function QuickActions({ d, meta, busy, canWork, onSave, onLog }: {
+  d: LeadDetail; meta: SalesMeta | null; busy: boolean; canWork: boolean;
+  onSave: (b: { next_action_at: string | null; next_action_note: string }) => void;
+  onLog: (b: Parameters<typeof addActivity>[1]) => void;
+}) {
+  if (!canWork) return null;
+  const note = d.next_action_note || "Follow up";
+
+  const slots = [inHours(3), slot(0, 17), slot(1, 10), slot(1, 15), slot(2, 10), slot(3, 10),
+    slot(7, 10), slot(14, 10), weekdaySlot(1, 10)];
+  // two rules can land on the same label (Monday's "Tmrw 10am" and "Mon 10am")
+  const schedule = [...new Map(slots.map((s) => [s.label, s])).values()];
+
+  const kinds = meta?.activity_kinds;
+  const outcomes = meta?.activity_outcomes;
+  const logs = LOG_PRESETS.filter((l) => (!kinds?.length || kinds.includes(l.kind))
+    && (!outcomes?.length || outcomes.includes(l.outcome)));
+
+  function quickLog(l: (typeof LOG_PRESETS)[number]) {
+    const next = l.after?.();
+    onLog({
+      kind: l.kind, outcome: l.outcome, summary: l.summary,
+      set_status: l.stage || null,
+      // omitting the field leaves an already-scheduled step alone; the server
+      // only touches the pointer when a follow-up actually came with the touchpoint
+      next_action_at: next?.iso,
+      next_action_note: next ? note : undefined,
+    });
+  }
+
+  return (
+    <div className="in-card in-qa">
+      <div className="in-qa-row">
+        <span className="in-kind">Follow up</span>
+        {schedule.map((s) => (
+          <button key={s.label} className="in-step" disabled={busy}
+            title={`Set the next step to ${new Date(s.iso).toLocaleString()}`}
+            onClick={() => onSave({ next_action_at: s.iso, next_action_note: note })}>⟳ {s.label}</button>
         ))}
         {d.next_action_at && (
           <button className="in-btn sm" disabled={busy}
-            onClick={() => onSave({ next_action_at: null, next_action_note: "" })}>Clear next step</button>
+            onClick={() => onSave({ next_action_at: null, next_action_note: "" })}>✕ Clear step</button>
         )}
+      </div>
+      <div className="in-qa-row">
+        <span className="in-kind">Log result</span>
+        {logs.map((l) => (
+          <button key={l.label} className="in-step qa-log" disabled={busy} title={l.summary}
+            onClick={() => quickLog(l)}>
+            {KIND_ICON[l.kind] || "●"} {l.label}{l.stage ? <span className="to"> → {labelOf(meta, l.stage)}</span> : null}
+          </button>
+        ))}
       </div>
     </div>
   );
+}
+
+function labelOf(meta: SalesMeta | null, key: string) {
+  return (meta?.statuses || []).find((s) => s.key === key)?.label || key;
 }
 
 // ------------------------------------------------------------------ script

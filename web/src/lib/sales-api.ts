@@ -23,6 +23,13 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     let detail = `${res.status}`;
     try { detail = (await res.json()).detail || detail; } catch { /* ignore */ }
+    // A persisted "View As" can outlive the account it pointed at (a deactivated
+    // rep, a deleted row). Rather than stranding the owner on a wall of 404s, drop
+    // the scope and reload once so they land back on their own view.
+    if (res.status === 404 && detail.startsWith("Cannot impersonate") && actAs) {
+      localStorage.removeItem("rfqclub_act_as");
+      window.location.reload();
+    }
     throw new Error(detail);
   }
   return res.json() as Promise<T>;
@@ -32,6 +39,12 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 export type SalesView = "mine" | "unassigned" | "followups" | "all" | "excluded";
 
 export interface StatusMeta { key: string; label: string; }
+/** Server-issued view rights for whoever the API resolved this call to — after
+ *  act-as. The console renders manager/owner UI off these flags, never off a role
+ *  string it guessed at, so a rep (or an impersonated rep) can't see Team & access. */
+export interface Capabilities {
+  email: string; manager: boolean; owner: boolean; impersonating: boolean;
+}
 export interface SalesMeta {
   statuses: StatusMeta[];
   funnel_order: string[];
@@ -41,6 +54,7 @@ export interface SalesMeta {
   activity_kinds: string[];
   activity_outcomes: string[];
   views: string[];
+  capabilities?: Capabilities;
 }
 
 export interface FunnelTile { key: string; label: string; count: number; }
@@ -244,6 +258,9 @@ export const detailKey = (id: number | string) => `lead:${scopeTag()}|${id}`;
 export const rowKey = (id: number | string) => `leadrow:${scopeTag()}|${id}`;
 export const summaryCacheKey = () => `summary:${scopeTag()}`;
 export const teamCacheKey = () => `team:${scopeTag()}`;
+// meta carries the viewer's capabilities, so its cached copy is scope-specific too
+// — otherwise an impersonated (rep) meta could paint the owner's nav, or vice versa.
+export const metaCacheKey = () => `meta:${scopeTag()}`;
 export const reportsCacheKey = (from: string, to: string, owner: string) =>
   `reports:${scopeTag()}|${from}|${to}|${owner || "me"}`;
 

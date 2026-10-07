@@ -20,7 +20,7 @@ import { authMe, changePassword, type AuthUser } from "@/lib/api";
 import { clearSession, getToken } from "@/lib/session";
 import { ageOf, peek, refresh, useCached } from "@/lib/cache";
 import {
-  getMeta, getSummary, getTeam, summaryCacheKey, teamCacheKey,
+  getMeta, getSummary, getTeam, metaCacheKey, summaryCacheKey, teamCacheKey,
   type SalesMeta, type Summary, type TeamUser,
 } from "@/lib/sales-api";
 
@@ -49,8 +49,9 @@ export default function ConsoleApp({ children }: { children: React.ReactNode }) 
   const [status, setStatus] = useState<Status>("checking");
   const [user, setUser] = useState<AuthUser | null>(null);
   // `meta` is a stable vocabulary, so a sessionStorage copy lets a reload render
-  // the console at once instead of waiting on the API to answer first.
-  const [meta, setMeta] = useState<SalesMeta | null>(() => peek<SalesMeta>("meta") ?? null);
+  // the console at once instead of waiting on the API to answer first. Its key is
+  // impersonation-scoped because meta also carries the viewer's capabilities.
+  const [meta, setMeta] = useState<SalesMeta | null>(() => peek<SalesMeta>(metaCacheKey()) ?? null);
   const [deniedMsg, setDeniedMsg] = useState("");
   const [actAs, setActAsRaw] = useState(() =>
     typeof window !== "undefined" ? localStorage.getItem("rfqclub_act_as") || "" : ""
@@ -71,14 +72,14 @@ export default function ConsoleApp({ children }: { children: React.ReactNode }) 
       }
       // Still on its temporary password — force a rotation before opening the console.
       if (u.must_change_password) { setStatus("must_change"); return; }
-      const cached = peek<SalesMeta>("meta");
+      const cached = peek<SalesMeta>(metaCacheKey());
       if (cached) {
         // Already have the vocabularies: render now, refresh quietly.
         setMeta(cached);
-        refresh("meta", getMeta, { persist: true }).then(setMeta).catch(() => {});
+        refresh(metaCacheKey(), getMeta, { persist: true }).then(setMeta).catch(() => {});
       } else {
         // A 403 from getMeta is the stale-token signal the catch below relies on.
-        setMeta(await refresh("meta", getMeta, { persist: true }));
+        setMeta(await refresh(metaCacheKey(), getMeta, { persist: true }));
       }
       setStatus("ready");
     } catch (e) {
@@ -90,6 +91,8 @@ export default function ConsoleApp({ children }: { children: React.ReactNode }) 
 
   useEffect(() => { boot(); }, [boot]);
 
+  // The signed-in human. Stays true while they browse "as" a rep, because the
+  // View-As dropdown and its exit affordance belong to the real session.
   const isOwner = !!user?.is_console_admin;
 
   function setActAs(email: string) {
@@ -100,16 +103,28 @@ export default function ConsoleApp({ children }: { children: React.ReactNode }) 
     setTimeout(() => window.location.reload(), 50);
   }
 
+  // Manager UI (Team & access, All leads, Out of scope, the owner filter, the
+  // reassign control) is switched off by the server's own answer for THIS viewer,
+  // so a rep never sees it — and neither does the owner while impersonating one,
+  // which is the point of "see exactly what the rep sees". The role string is only
+  // a fallback for an API that predates `capabilities`, and even then an active
+  // impersonation of a non-owner forces the rep view.
+  const roleManager = (user?.role || "").toLowerCase() === "sales_manager" || !!user?.is_console_admin;
+  const impersonatingRep = !!actAs && actAs.toLowerCase() !== (user?.email || "").toLowerCase();
+  const isManager = meta?.capabilities
+    ? meta.capabilities.manager
+    : roleManager && !(impersonatingRep && !meta?.capabilities?.owner);
   // Team roster for the impersonation dropdown and the queue's owner filter.
   // Cached (it changes rarely) and shared with the queue screen via the key, and
   // never requested by a plain rep — /api/sales/team is manager-gated server-side.
-  const isManagerNow = (user?.role || "").toLowerCase() === "sales_manager" || !!user?.is_console_admin;
-  const { data: teamData } = useCached(teamCacheKey(), getTeam, { maxAgeMs: 120_000, enabled: isManagerNow });
+  // Keyed on the *human's* rights, not the impersonated view, so the owner can
+  // still switch between reps while wearing one's glasses.
+  const { data: teamData } = useCached(teamCacheKey(), getTeam, { maxAgeMs: 120_000, enabled: roleManager });
   const teamList: TeamUser[] = (teamData?.items || []).filter((u) => u.email !== user?.email);
 
   const ctx = useMemo<Ctx>(
-    () => ({ user, isManager: isManagerNow, isOwner, actAs, setActAs, meta, reload: boot }),
-    [user, meta, boot, actAs, isOwner, isManagerNow],
+    () => ({ user, isManager, isOwner, actAs, setActAs, meta, reload: boot }),
+    [user, meta, boot, actAs, isOwner, isManager],
   );
 
   function signOut() { clearSession(); router.push("/login"); }
