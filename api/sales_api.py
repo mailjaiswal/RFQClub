@@ -157,6 +157,10 @@ def _company_out(company: lm.Company | None) -> dict:
         "category_primary": company.category_primary,
         "category_tags": company.category_tags or [],
         "category_tier": company.category_tier,
+        "category_confidence": company.category_confidence,
+        "category_source": company.category_source,
+        # tells a rep whether the sector under the call script is proven or carried
+        "category_verified": lm.category_is_verified(company.category_source),
         "adjacency": company.adjacency or [],
         "review_count": company.review_count,
         "review_rating": company.review_rating,
@@ -235,6 +239,7 @@ def _lead_row(session, lead: lm.Lead) -> dict:
         "company": co.name if co else "",
         "hub_city": co.hub_city if co else "",
         "category_label": co.category_primary if co else "",
+        "category_verified": bool(co is not None and lm.category_is_verified(co.category_source)),
         "size_band": co.size_band if co else "",
         "priority_rank": lead.priority_rank,
         "priority_score": lead.priority_score,

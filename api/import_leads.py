@@ -23,13 +23,16 @@ import sys
 from pathlib import Path
 
 API = Path(__file__).resolve().parent
-_ROOT = API
-while _ROOT != _ROOT.parent and not (_ROOT / "rfq_categories.py").exists():
-    _ROOT = _ROOT.parent
-if not (_ROOT / "rfq_categories.py").exists():
-    raise SystemExit("rfq_categories.py not found above %s" % API)
-sys.path.insert(0, str(_ROOT))
+# The taxonomy now ships inside the repo (rfqclub/pipeline), so any checkout finds
+# it. The workbooks it tags are contact data and live OUTSIDE the repo, which is
+# why _ROOT comes from pipeline_paths rather than walking up looking for a file.
+PIPELINE = API.parent / "pipeline"
+if not (PIPELINE / "rfq_categories.py").exists():
+    raise SystemExit("rfq_categories.py not found in %s" % PIPELINE)
+sys.path.insert(0, str(PIPELINE))
 sys.path.insert(0, str(API))
+
+from pipeline_paths import DATA_DIR as _ROOT  # noqa: E402
 
 import openpyxl  # noqa: E402
 

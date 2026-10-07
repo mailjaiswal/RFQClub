@@ -17,10 +17,11 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 API = Path(__file__).resolve().parent
-_ROOT = API
-while _ROOT != _ROOT.parent and not (_ROOT / "rfq_categories.py").exists():
-    _ROOT = _ROOT.parent
-sys.path.insert(0, str(_ROOT))
+# the taxonomy ships inside the repo now, beside this folder's sibling `pipeline/`
+PIPELINE = API.parent / "pipeline"
+if not (PIPELINE / "rfq_categories.py").exists():
+    raise SystemExit("rfq_categories.py not found in %s" % PIPELINE)
+sys.path.insert(0, str(PIPELINE))
 sys.path.insert(0, str(API))
 
 import db  # noqa: E402

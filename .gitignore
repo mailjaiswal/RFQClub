@@ -7,10 +7,15 @@ env/
 api/config.env
 api/data/*.db
 api/data/*.db-journal
+# local copies of the lead DB: the shared Neon database is the real one, and the
+# workbooks the pipeline edits are never committed (they hold contact data)
+api/data.db
+api/data*.bak.db
 
 # --- Node (web) ---
 node_modules/
 .next/
+.next-stale/
 out/
 *.tsbuildinfo
 .env*.local

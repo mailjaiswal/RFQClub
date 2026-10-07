@@ -218,7 +218,14 @@ function Queue() {
                   onMouseEnter={() => warm(l.id)} onMouseLeave={cancelWarm}>
                   <td>
                     <div className="co">{l.company || <span className="in-faint">(no name)</span>}</div>
-                    <div className="sub">{l.track} · {l.category_label}{l.priority_rank ? ` · #${l.priority_rank}` : ""}{!l.reachable ? " · ⚠ no contact" : ""}</div>
+                    <div className="sub">
+                      {l.track} · {l.category_label}
+                      {l.category_verified && (
+                        <span className="in-vchip"
+                          title="Sector confirmed by research, not inherited from the sector sweep">✓ researched</span>
+                      )}
+                      {l.priority_rank ? ` · #${l.priority_rank}` : ""}{!l.reachable ? " · ⚠ no contact" : ""}
+                    </div>
                   </td>
                   <td className="sub">{l.hub_city || "—"}</td>
                   <td><StatusPill status={l.status} label={l.status_label} /></td>

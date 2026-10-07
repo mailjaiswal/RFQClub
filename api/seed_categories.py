@@ -18,14 +18,14 @@ import sys
 from pathlib import Path
 
 API = Path(__file__).resolve().parent
-# The registry lives above the app, beside the source workbooks. Walk up until we
-# find it rather than hard-coding a depth, so the app can be relocated.
-_ROOT = API
-while _ROOT != _ROOT.parent and not (_ROOT / "rfq_categories.py").exists():
-    _ROOT = _ROOT.parent
-if not (_ROOT / "rfq_categories.py").exists():
-    raise SystemExit("rfq_categories.py not found above %s" % API)
-sys.path.insert(0, str(_ROOT))
+# The registry file now ships inside the repo (`rfqclub/pipeline`), so this tool is
+# no longer tied to the folder holding the source workbooks - it can run against
+# any checkout of the repo.
+PIPELINE = API.parent / "pipeline"
+if not (PIPELINE / "rfq_categories.py").exists():
+    raise SystemExit("rfq_categories.py not found in %s" % PIPELINE)
+sys.path.insert(0, str(PIPELINE))
+sys.path.insert(0, str(API))
 
 import db  # noqa: E402
 import lead_models as lm  # noqa: E402

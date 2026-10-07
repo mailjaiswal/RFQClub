@@ -155,6 +155,17 @@ class Category(Base):
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
 
+# `Tag Source` values that mean the category is a RESEARCHED FACT rather than a
+# guess carried over from the sector sweep. The workbook tagger writes this text;
+# the console badges a lead as sector-verified from it, so a rep can tell a proven
+# category from a cluster-inherited one without opening the workbook.
+VERIFIED_TAG_SOURCES = ("Researched override",)
+
+
+def category_is_verified(source) -> bool:
+    return str(source or "").strip() in VERIFIED_TAG_SOURCES
+
+
 class Company(Base):
     """One row per company. Stable identity, no pipeline state.
 

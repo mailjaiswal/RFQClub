@@ -68,6 +68,8 @@ export interface Summary {
 export interface LeadRow {
   id: number; track: string; status: string; status_label: string;
   company_id: number; company: string; hub_city: string; category_label: string;
+  /** true when the sector was confirmed by research, not carried from the sweep */
+  category_verified: boolean;
   size_band: string; priority_rank: number | null; priority_score: number | null;
   owner_email: string; next_action_at: string | null; next_action_note: string;
   followup_count: number; last_contacted_at: string | null; reachable: boolean;
@@ -80,6 +82,7 @@ export interface Company {
   linkedin_url: string; hub_city: string; country: string; address: string;
   what_they_do: string; size_band: string; cin: string; gst: string;
   category_primary: string; category_tags: string[]; category_tier: number;
+  category_confidence: string; category_source: string; category_verified: boolean;
   adjacency: { from_label: string; to_label: string; why: string }[];
   review_count: number | null; review_rating: number | null;
   source_system: string; source_note: string;

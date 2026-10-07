@@ -326,7 +326,9 @@ function CompanyPanel({ d }: { d: LeadDetail }) {
   if (co?.linkedin_url) links.push({ label: "LinkedIn", href: co.linkedin_url });
   // read-only reference data → tight 2-column grid (full-width for long values)
   const fields: { k: string; v: string; wide?: boolean }[] = [];
-  fields.push({ k: "Category", v: `${co?.category_primary || "—"}${co?.category_tier ? ` · t${co.category_tier}` : ""}` });
+  // A researched sector outranks the one the sector sweep inherited from the
+  // cluster anchor, and the rep has to know which of the two they are reading.
+  fields.push({ k: "Category", v: `${co?.category_primary || "—"}${co?.category_tier ? ` · t${co.category_tier}` : ""}${co?.category_verified ? " · ✓ researched" : ""}` });
   fields.push({ k: "Size", v: co?.size_band || "—" });
   if (co?.category_tags?.length) fields.push({ k: "Tags", v: co.category_tags.join(", "), wide: true });
   if (co?.address) fields.push({ k: "Address", v: co.address, wide: true });

@@ -11,13 +11,15 @@ import sys
 from pathlib import Path
 
 API = Path(__file__).resolve().parent
-_ROOT = API
-while _ROOT != _ROOT.parent and not (_ROOT / "rfq_categories.py").exists():
-    _ROOT = _ROOT.parent
-if not (_ROOT / "rfq_categories.py").exists():
-    raise SystemExit("rfq_categories.py not found above %s" % API)
-sys.path.insert(0, str(_ROOT))
+# rfq_categories.py ships in rfqclub/pipeline; the workbooks it tags are contact
+# data and live outside the repo, resolved by pipeline_paths (SWANIKI_DATA_DIR).
+PIPELINE = API.parent / "pipeline"
+if not (PIPELINE / "rfq_categories.py").exists():
+    raise SystemExit("rfq_categories.py not found in %s" % PIPELINE)
+sys.path.insert(0, str(PIPELINE))
 sys.path.insert(0, str(API))
+
+from pipeline_paths import DATA_DIR as _ROOT  # noqa: E402
 
 import db  # noqa: E402
 import lead_models as lm  # noqa: E402
@@ -154,17 +156,20 @@ def _run(s) -> None:
           % (bad_cat, "OK" if not bad_cat else "!!!"))
 
     # A blank primary is only legitimate when the classifier itself said
-    # 'Uncategorised' AND the source flagged the row as bad data. Those leads
-    # must already be parked in `incorrect` - never left in a rep's queue.
+    # 'Uncategorised' AND the source flagged the row as bad data. Such a lead must
+    # never reach a rep: it is either parked in `incorrect` or the workbook retired
+    # it (out of scope) and the importer hid it from the queue.
     blank = _q(s, select(func.count()).select_from(lm.Company)
                .where(lm.Company.category_primary == ""))
     leaky = _q(s, select(func.count()).select_from(lm.Company)
                .join(lm.Lead, lm.Lead.company_id == lm.Company.id)
                .where(lm.Company.category_primary == "",
-                      lm.Lead.status != "incorrect"))
+                      lm.Lead.status != "incorrect",
+                      lm.Lead.excluded_from_sales.is_(False)))
     if leaky:
-        FAILS.append("%d uncategorised companies are still in a calling stage" % leaky)
-    print("  blank category_primary: %d (of which callable: %d) %s"
+        FAILS.append("%d uncategorised companies are still reachable by a rep"
+                     % leaky)
+    print("  blank category_primary: %d (of which reachable: %d) %s"
           % (blank, leaky, "OK" if not leaky else "!!!"))
     for (name,) in s.execute(select(lm.Company.name)
                              .where(lm.Company.category_primary == "")).all():
@@ -324,19 +329,27 @@ def _run(s) -> None:
     labels = {c["label"]: k for k, c in il.rc.CATEGORIES.items()}
     hdr, rows = il.read_sheet(_ROOT / "Swaniki_Expansion_Database.xlsx",
                               "Expansion Contacts")
-    ov = [(il.norm_name(r["Company"]), str(r.get("Category (Researched)") or "").strip())
+    ov = [(il.norm_name(r["Company"]), str(r.get("Category (Researched)") or "").strip(),
+           str(r.get("Tag Source") or "").strip())
           for r in rows if r.get("Company")
           and str(r.get("Category (Researched)") or "").strip()]
     bad = []
-    for nm, label in ov:
+    for nm, label, tag_src in ov:
         if label not in labels:
             bad.append("%s: %r is not a registry label" % (nm, label))
             continue
-        got = _q(s, select(lm.Company.category_primary).where(
-            lm.Company.name_norm == nm))
-        if got != labels[label]:
+        got = s.execute(select(lm.Company.category_primary, lm.Company.category_source)
+                        .where(lm.Company.name_norm == nm)).first()
+        if got is None or got[0] != labels[label]:
             bad.append("%s: researched %r -> %s, DB says %r" % (nm, label,
-                                                               labels[label], got))
+                                                               labels[label],
+                                                               got[0] if got else None))
+        elif tag_src and got[1] != tag_src:
+            # the console badges a lead as sector-researched from category_source
+            # alone, so a verdict that arrives without its provenance is a rep
+            # reading a guess as a fact
+            bad.append("%s: tag source %r never reached the DB (got %r)"
+                       % (nm, tag_src, got[1]))
     print("  researched overrides: %-3d  wrong in DB: %-3d %s"
           % (len(ov), len(bad), "OK" if not bad else "!!!"))
     for b in bad[:6]:
@@ -348,6 +361,29 @@ def _run(s) -> None:
                      % (len(bad), bad[0]))
     if not ov:
         print("  (no overrides in the workbook yet - nothing to check)")
+
+    # ------------------------------------------------- stale second-track relics
+    head("11. NO COMPANY SITS IN THE QUEUE TWICE")
+    # Two leads for one company is legitimate only for a real marketplace
+    # participant that both bids and posts. A re-tag used to leave a relic on the
+    # old track, and the importer will not delete a row whose status IT wrote - so
+    # the same company can appear twice, and two databases seeded from one workbook
+    # stop matching while both reports still look healthy.
+    dupes = []
+    for cid, n in s.execute(select(lm.Lead.company_id, func.count())
+                            .group_by(lm.Lead.company_id)
+                            .having(func.count() > 1)).all():
+        srcs = [l.source for l in s.scalars(
+            select(lm.Lead).where(lm.Lead.company_id == cid))]
+        if all(x in ("bns", "expansion") for x in srcs):
+            dupes.append((cid, n, srcs))
+    print("  companies holding >1 workbook lead: %-3d %s"
+          % (len(dupes), "OK" if not dupes else "!!!"))
+    for cid, n, srcs in dupes[:5]:
+        print("    !! company %s x%d %s" % (cid, n, srcs))
+    if dupes:
+        FAILS.append("%d companies carry more than one workbook-sourced lead - run "
+                     "pipeline/prune_relic_leads.py" % len(dupes))
 
 
 if __name__ == "__main__":

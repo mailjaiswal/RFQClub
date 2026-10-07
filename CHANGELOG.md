@@ -37,6 +37,14 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
   issuing a queue request per keystroke.
 
 ### Added
+- **The queue now says which sector is proven.** A researched verdict reaches the
+  database as `company.category_source = "Researched override"`, and the console
+  turns it into a green **✓ researched** chip on the queue row plus
+  `· ✓ researched` on the lead's Company block — so a rep can tell whether the
+  sector under the call script was confirmed or merely inherited from whichever
+  cluster the company was harvested in. `lead_models.category_is_verified()` owns
+  the definition; `test_lead_import.py` check 10 fails if a verdict ever arrives
+  as a label without its provenance.
 - **Explicit save for the lead next step.** Editing *Next action* / *Note* on a
   lead no longer relies on a hidden auto-save: a sticky save bar appears at the
   bottom of the record whenever the next step differs from what is stored, with
@@ -92,6 +100,30 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
   plus Clear) without touching the date picker.
 
 ### Fixed
+- **The lead record scrolls again, so the bottom of a lead is reachable.**
+  `.internal` is `position: fixed`, which means the console never contributes to
+  the document's scroll area — and the app frame's single grid row was implicit
+  `auto`, i.e. sized to its content. A tall screen grew the row past the viewport
+  and everything below the fold simply disappeared: no scrollbar anywhere, the
+  sticky Save bar included. The row is now `minmax(0, 1fr)` with `min-height: 0`
+  on the column, which makes `.in-body` the scroller it was meant to be
+  (`web/src/styles/internal.css`).
+- **The lead pipeline is in version control.** `rfq_categories.py` and the harvest /
+  tag / enrich / worklist scripts moved from the workspace root into
+  `rfqclub/pipeline/`, with `pipeline_paths.py` resolving the data folder (the
+  workbooks and `enrichment/` batches stay **out** of the repo — they are real
+  contact data) and `pipeline/README.md` documenting the loop and the rules it
+  enforces. The API's four tools stopped walking up the filesystem hunting for the
+  taxonomy, so `seed_categories.py` no longer depends on one machine's layout.
+- **Two ways a row could be un-workable yet stay in the pool are closed.**
+  `apply_enrichment.py` (BnS sheet) now accepts the same guarded `out_of_scope`
+  verdict the expansion applier had, and it retires `Atharva Pache ()` — a name
+  fragment with no city, address, phone, email or website that research had already
+  written off as `Nothing found`; it was the one lead showing up with no category.
+  A new `pipeline/prune_relic_leads.py` (dry by default) deletes the stale
+  second-track row a re-tag leaves behind when the importer's own status write
+  makes it look "worked", which is how the local database ended up holding 3877
+  leads against production's 3875. Both databases now report 3875.
 - **A lead's category can now be a researched fact instead of a harvest guess.**
   The registry sweep copies the sector of whichever cluster a company was found in
   onto the workbook's `Category`, and the tagger uses that as its fallback prior —
