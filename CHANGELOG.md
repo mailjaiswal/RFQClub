@@ -92,6 +92,20 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
   plus Clear) without touching the date picker.
 
 ### Fixed
+- **A hosted lead import died halfway and looked like a hang.** Running
+  `import_leads.py` against Neon from a desk machine is a multi-minute bulk load
+  over a WAN, and `pool_pre_ping` only validates a pooled connection at
+  *checkout* — once a transaction was open, a pooler kill raised
+  `psycopg.OperationalError: consuming input failed: server closed the
+  connection unexpectedly` and aborted the entire pass, losing everything since
+  the last chunk commit. The row loop now tracks the last durably committed
+  sheet row, so on a connection-layer failure it rolls back, disposes the dead
+  pool, reconnects and resumes from that boundary instead of restarting the load
+  (chunk commits also get tighter on Postgres: 50 rows, not 100). Retrying is
+  scoped to a remote DB only — a local SQLite `OperationalError` means "database
+  is locked" or bad SQL, so that still surfaces immediately rather than looping
+  40 times. Re-doing a torn chunk is free because every upsert is idempotent, and
+  a heartbeat line now prints every 500 rows so a slow import is visibly slow.
 - **Research passes marked rows "DROP" and nothing happened.** Every enrichment
   batch since the first pass has occasionally written a `DROP - ...` verdict for
   rows that are real, Indian and registry-alive but are not a business a rep can

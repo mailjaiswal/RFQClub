@@ -38,6 +38,9 @@ import db  # noqa: E402
 import lead_models as lm  # noqa: E402
 from db import SessionLocal  # noqa: E402
 from sqlalchemy import func, select  # noqa: E402
+from sqlalchemy.exc import (  # noqa: E402
+    InterfaceError, InternalError, OperationalError,
+)
 
 import rfq_categories as rc  # noqa: E402
 
@@ -490,21 +493,67 @@ def run(dry: bool = False, expansion: bool = True, note: str = "") -> dict:
             priority = read_priority()
             st = _blank_stats()
             st["rows_read"] = len(rows)
-            CHUNK = 100
-            for i, rec in enumerate(rows, start=2):
-                ref = "%s!%s:%d" % (system, sheet, i)
-                company = upsert_company(session, rec, st, ref, system=system)
-                if company is None:
-                    continue
-                session.flush()  # need company.id before contacts/lead
-                upsert_contact(session, company, rec, st, ref)
-                upsert_lead(session, company, rec, st, priority, system=system)
-                # Commit in small chunks (real runs only): a bulk load then spans
-                # many short transactions, so a Neon pooler connection drop rolls
-                # back just the current chunk instead of the whole multi-minute
-                # load. Re-running is safe — every upsert here is idempotent.
-                if not dry and (i % CHUNK) == 0:
-                    session.commit()
+            # Remote DBs drop long transactions: running this against hosted
+            # Neon from a desk machine is a multi-minute bulk load over a WAN,
+            # and `pool_pre_ping` only validates a connection at *checkout*, not
+            # mid-transaction - so one pooler kill used to abort the entire pass.
+            # Keep each transaction short, remember the last durably committed
+            # row, and on a connection-layer failure reconnect and resume from
+            # that boundary. Idempotent upserts make re-doing the torn chunk free.
+            CHUNK = 100 if db.sqlite_only else 50
+            MAX_RESUMES = 40
+            resumes = 0
+            safe_i, i, n = 1, 2, len(rows)
+            while i <= n:
+                try:
+                    rec = rows[i - 2]
+                    ref = "%s!%s:%d" % (system, sheet, i)
+                    company = upsert_company(session, rec, st, ref, system=system)
+                    if company is not None:
+                        session.flush()  # need company.id before contacts/lead
+                        upsert_contact(session, company, rec, st, ref)
+                        upsert_lead(session, company, rec, st, priority,
+                                    system=system)
+                    if not dry and (i % CHUNK) == 0:
+                        session.commit()
+                        safe_i = i          # everything up to here is durable
+                        # A hosted load from a desk machine takes tens of
+                        # minutes, and the per-source line only prints at the
+                        # end of the sheet - so without a heartbeat an import
+                        # that is merely slow looks exactly like one that is
+                        # hung. Say which row we are on.
+                        if i % (CHUNK * 10) == 0:
+                            print("  ... %s row %d/%d" % (system, i, n),
+                                  flush=True)
+                    i += 1
+                except (OperationalError, InterfaceError, InternalError) as e:
+                    resumes += 1
+                    # Only a remote DB loses a connection mid-transaction. On
+                    # local SQLite an OperationalError means "database is
+                    # locked" or bad SQL, and resuming would silently loop
+                    # around the same failure 40 times instead of reporting it.
+                    if db.sqlite_only or resumes > MAX_RESUMES:
+                        raise SystemExit(
+                            "database failed at row %d of %s (%s: %s) - after %d "
+                            "resume(s); re-run import_leads.py, it is idempotent"
+                            % (i, system, type(e).__name__, e, resumes))
+                    session.rollback()
+                    session.close()
+                    db.engine.dispose()      # drop every dead pooled handle
+                    session = SessionLocal()
+                    if dry:
+                        # a dry pass keeps ONE open transaction, so a drop loses
+                        # every dedupe learnt so far; restarting mid-sheet would
+                        # report double-counted creates. Restart the source.
+                        st = _blank_stats()
+                        st["rows_read"] = len(rows)
+                        safe_i, i = 1, 2
+                        print("  !! connection dropped - restarting %s (dry run "
+                              "has no durable state)" % system)
+                    else:
+                        print("  !! connection dropped at row %d - resuming from %d"
+                              % (i, safe_i + 1))
+                        i = safe_i + 1
             if not dry:
                 session.commit()
             else:
