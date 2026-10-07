@@ -3,8 +3,8 @@
 Run:  python test_lead_import.py
 
 Unlike test_smoke.py this asserts *data invariants* rather than HTTP shape.
-It is idempotent-safe: it only reads. Re-run import_leads.py at any time and
-this must stay green.
+It re-runs `import_leads.run()` to prove the import is idempotent and does not
+touch marketplace tables; everything else only reads.
 """
 from __future__ import annotations
 import sys
@@ -179,6 +179,24 @@ def _run(s) -> None:
         FAILS.append("%d companies carry an unknown tag" % bad_tag)
     print("  unknown tags: %d %s" % (bad_tag, "OK" if not bad_tag else "!!!"))
 
+    # One company may legitimately carry both a supplier and a buyer lead, but only
+    # when it really operates on both sides. `track` is derived from the category's
+    # default_track, so a re-tag silently produces a SECOND queue row for a company
+    # nobody worked - the same lead shows up twice in the shared pool and the copy
+    # no rep claimed just ages there. The importer retargets/prunes those instead.
+    multi = (select(lm.Lead.company_id)
+             .where(lm.Lead.excluded_from_sales.is_(False))
+             .group_by(lm.Lead.company_id)
+             .having(func.count() > 1).subquery())
+    dual_ids = [r[0] for r in s.execute(select(multi.c.company_id)).all()]
+    if dual_ids:
+        FAILS.append("%d companies are queue-visible more than once" % len(dual_ids))
+        for name, in s.execute(select(lm.Company.name)
+                               .where(lm.Company.id.in_(dual_ids))).all():
+            print("      %s" % name[:66])
+    print("  companies with >1 queue-visible lead: %d %s"
+          % (len(dual_ids), "OK" if not dual_ids else "!!!"))
+
     # ---------------------------------------------------- enrichment signals
     head("5. ENRICHMENT + OWNERSHIP SIGNALS")
     wd = _q(s, select(func.count()).select_from(lm.Company)
@@ -224,13 +242,51 @@ def _run(s) -> None:
 
     # ------------------------------------------------- marketplace regression
     head("7. MARKETPLACE DATA UNTOUCHED BY THE LEAD IMPORT")
-    for table, expected in (("rfq", 67), ("bid", 330), ("supplier", 5), ("user", 3)):
-        got = _q(s, select(text("count(*)")).select_from(text(table)))
-        ok = got == expected
+    # The invariant is "the importer does not write marketplace tables", not a
+    # fixed row count: test_smoke.py posts RFQs/bids against this same database,
+    # so absolute numbers drift with every run. Snapshot, re-run the (idempotent)
+    # import, and compare.
+    tables = ("rfq", "bid", "supplier", "user")
+    before = {t: _q(s, select(text("count(*)")).select_from(text(t))) for t in tables}
+    s.commit()                      # release the read snapshot before writing
+    import import_leads             # noqa: E402 - after db/init in this flow
+    st = import_leads.run(dry=False, expansion=True, note="integrity re-run")
+    s.expire_all()
+    print("  re-run: companies+%d leads+%d contacts+%d dupes=%d"
+          % (st["companies_created"], st["leads_created"], st["contacts_created"],
+             st["duplicates_skipped"]))
+    if st["companies_created"] or st["leads_created"]:
+        FAILS.append("import is not idempotent: created %d companies / %d leads "
+                     "on a re-run" % (st["companies_created"], st["leads_created"]))
+    for t in tables:
+        got = _q(s, select(text("count(*)")).select_from(text(t)))
+        ok = got == before[t]
         if not ok:
-            FAILS.append("marketplace regression: %s = %d, expected %d"
-                         % (table, got, expected))
-        print("  %-10s %5d (expected %d) %s" % (table, got, expected, "OK" if ok else "!!!"))
+            FAILS.append("marketplace regression: %s went %d -> %d during the "
+                         "lead import" % (t, before[t], got))
+        print("  %-10s %5d (was %d) %s" % (t, got, before[t], "OK" if ok else "!!!"))
+
+    # --------------------------------------------------- dead companies hidden
+    head("8. REGISTRY-DEAD COMPANIES ARE OUT OF THE REP QUEUE")
+    # Every harvested row carries the MCA status in its provenance string, so a
+    # strike-off / amalgamated / liquidation / dissolution / CIRP company must
+    # never sit in a rep's queue as if it were callable.
+    for marker in ("strike off", "amalgamat", "liquidat", "dissolve", "cirp"):
+        n = _q(s, select(func.count()).select_from(lm.Lead).where(
+            lm.Lead.excluded_from_sales.is_(False),
+            lm.Lead.source_note.ilike("%%status %s%%" % marker)))
+        if n:
+            FAILS.append("%d lead(s) with MCA status '%s' are still visible to "
+                         "sales" % (n, marker))
+        print("    %-12s %5d visible to sales  %s"
+              % (marker, n, "OK" if not n else "!!!"))
+    hidden = _q(s, select(func.count()).select_from(lm.Lead).where(
+        lm.Lead.excluded_from_sales.is_(True),
+        lm.Lead.disqualify_reason.like("MCA status:%")))
+    print("  registry-dead retained + hidden: %d" % hidden)
+    if hidden == 0:
+        FAILS.append("no registry-dead lead is flagged hidden - the dead-status "
+                     "mapping is not being applied")
 
 
 if __name__ == "__main__":

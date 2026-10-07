@@ -45,12 +45,12 @@ def main():
     print("  tags:", [t["label"] for t in card["tags"]], "| hub:", repr(card["hub_city"]),
           "| posted:", card["posted_days_ago"], "| saved:", card["saved"])
 
-    # save toggle flips the flag back and forth
-    r = client.post("/api/rfqs/1/save"); assert r.status_code == 200
-    first = r.json()["saved"]
-    r = client.post("/api/rfqs/1/save"); assert r.status_code == 200
-    assert r.json()["saved"] != first, "save toggle did not flip"
-    print("save toggle ->", first, "then", r.json()["saved"])
+    # guests are NOT written to the watchlist any more: saves are per-user, so a
+    # signed-out toggle must report "not saved" instead of mutating a shared flag
+    # (that shared `rfq.saved` column used to leak one guest's bookmarks to everyone)
+    r = client.post("/api/rfqs/1/save"); assert r.status_code == 200, r.text
+    assert r.json()["saved"] is False and r.json().get("guest") is True, r.json()
+    print("guest save toggle ->", r.json())
 
     # profile fixture
     r = client.get("/api/profile"); assert r.status_code == 200
@@ -82,12 +82,23 @@ def main():
         print(f"  Bid {b['code']}: tlc={b['tlc_display']} /pc={b['per_unit_landed_display']} lead={b['lead_weeks']} ribbon={b['ribbon']} loc={b['hub_city']} {b['distance_km']}km")
     assert cmp["locked"] is True  # 5 demo bids == cap
 
-    # cap enforcement: 6th bid must be rejected
+    # cap enforcement: the 6th bid must be rejected. Done on an RFQ this test
+    # creates, because seeded demo RFQ #1 carries a closing date that has since
+    # passed - against it the API correctly answers 410 "RFQ has closed", which
+    # is not the 409 cap rule being checked here.
     payload = dict(supplier_name="Extra Shop", hub_city="Nowhere", unit_price=9000,
                    tooling=0, freight=0, gst_included=True, lead_weeks=4, payment_terms="50/50")
-    r = client.post("/api/rfqs/1/bid", json=payload)
+    r = client.post("/api/rfqs", json={"title": "Cap check flanges", "sector_key": "cnc",
+                                       "qty": 10, "unit": "pcs"})
+    assert r.status_code == 201, r.text
+    cap_id = r.json()["id"]
+    for i in range(5):
+        rr = client.post(f"/api/rfqs/{cap_id}/bid",
+                         json={**payload, "supplier_name": "Cap Shop %d" % i})
+        assert rr.status_code == 201, (rr.status_code, rr.text)
+    r = client.post(f"/api/rfqs/{cap_id}/bid", json=payload)
     print("bid over cap ->", r.status_code, r.json().get("detail"))
-    assert r.status_code == 409
+    assert r.status_code == 409, (r.status_code, r.text)
 
     # a freshly-posted draft RFQ (0 bids) accepts a bid
     r = client.post("/api/rfqs", json={"title": "Smoke test flanges", "sector_key": "cnc", "qty": 50, "unit": "pcs"})
@@ -108,10 +119,16 @@ def main():
     assert winner and winner[0]["revealed_name"] == "Extra Shop"
     print("reveal-on-award OK")
 
-    # server-side TLC recompute matches: unit*qty+tooling+freight (+18% gst)
+    # server-side TLC recompute matches: unit*qty, +18% gst when included
     r = client.get(f"/api/rfqs/{fresh_id}/bids"); b0 = r.json()["bids"][0]
-    print("admin unblinded:")
-    r = client.get(f"/api/admin/rfqs/{fresh_id}/bids"); print(" ", r.json()["bids"][0]["supplier_name"])
+    assert b0["tlc_cents"] == int(9000 * 50 * 1.18 * 100), b0
+    print("TLC recomputed server-side ->", b0["tlc_display"])
+
+    # the unblinded comparison list is concierge-only: anonymously it must not
+    # hand out supplier identities, not even after an award revealed one winner
+    r = client.get(f"/api/admin/rfqs/{fresh_id}/bids")
+    assert r.status_code == 401, (r.status_code, r.text)
+    print("admin bids require sign-in ->", r.status_code, r.json().get("detail"))
 
     # ---------- auth: email OTP (mock) + per-user persistence ----------
     def bearer(tok): return {"Authorization": f"Bearer {tok}"}
@@ -141,12 +158,29 @@ def main():
     assert r.status_code == 200 and r.json()["user"]["role"] == "buyer"
     tokens["buyer.one@test.com"] = r.json()["token"]
 
-    # per-user save isolation
+    # per-user save isolation. Clear these two accounts' watchlist first: the
+    # assertions below assume they start unsaved, and the test is re-runnable
+    # against the same file-backed database.
+    s = db.SessionLocal()
+    try:
+        for em in tokens:
+            u = s.query(models.User).filter(models.User.email == em).first()
+            if u:
+                s.query(models.SaveItem).filter(models.SaveItem.user_id == u.id).delete()
+        s.commit()
+    finally:
+        s.close()
+
     client.post("/api/rfqs/2/save", headers=bearer(tokens["buyer.one@test.com"]))
     s1 = {i["id"]: i["saved"] for i in client.get("/api/rfqs", headers=bearer(tokens["buyer.one@test.com"])).json()["items"]}
     s2 = {i["id"]: i["saved"] for i in client.get("/api/rfqs", headers=bearer(tokens["buyer.two@test.com"])).json()["items"]}
     assert s1[2] is True and s2[2] is False, "save isolation broken"
     print("save isolation OK (user1 saved rfq2, user2 did not)")
+
+    # and for a signed-in user the toggle really does flip back and forth
+    r = client.post("/api/rfqs/2/save", headers=bearer(tokens["buyer.one@test.com"]))
+    assert r.status_code == 200 and r.json()["saved"] is False, r.json()
+    print("signed-in save toggle -> saved", True, "then", r.json()["saved"])
 
     # anonymous parity: legacy global flag still drives the saved field
     sA = {i["id"]: i["saved"] for i in client.get("/api/rfqs").json()["items"]}

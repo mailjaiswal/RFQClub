@@ -92,6 +92,49 @@ reaches `1.0.0`. Entries are grouped by the development phase that shipped them.
   plus Clear) without touching the date picker.
 
 ### Fixed
+- **Research passes marked rows "DROP" and nothing happened.** Every enrichment
+  batch since the first pass has occasionally written a `DROP - ...` verdict for
+  rows that are real, Indian and registry-alive but are not a business a rep can
+  win — a pre-operational project vehicle, a property developer filed under a CNC
+  machining NIC, a shell whose director is barred under s.164(2)(a), a permanently
+  closed listing. Those words only ever reached the free-text `Data Source`
+  column, so the row stayed `Valid Lead` and kept its place in the calling queue.
+  `lead_models.map_source_status()` now recognises an `Out of scope - <reason>`
+  prefix (matched by prefix like `Dead - ...`, because the reason differs every
+  time) and hides the lead from sales *without* disqualifying it, so a human can
+  still read the reason and reverse it; `apply_exp_enrichment.py` writes the
+  status from a batch's `out_of_scope` key, guarded so it can only replace
+  `Valid Lead`/blank and never overwrite or resurrect a `Dead - ...` row.
+  Scope rule held throughout: a row is hidden only when research proved it is not
+  an operational industrial unit — never merely because its sector is unfashionable.
+- **Registry-dead companies were landing in the rep queue.** The lead importer
+  mapped the workbook `Lead Status` through an exact-key dict, so the batches'
+  `Dead - Strike Off` / `Dead - Amalgamated` / `Dead - Under Liquidation` /
+  `Dead - Dissolved` / `Dead - CIRP` values fell through to the default and were
+  created as fresh, unhidden `uncontacted` leads — 472 of them after the latest
+  harvest. Mapping now goes through `lead_models.map_source_status()`, which
+  recognises the `dead` prefix, hides the row from sales *and* disqualifies it
+  (the two states keep their own columns), and `import_leads.upsert_lead()`
+  re-reads existing leads against it so already-imported dead rows get tightened
+  in the same pass (never widened, and never touching a lead a rep has worked).
+  `api/lead_models.py`, `api/import_leads.py`.
+- **A category re-tag duplicated the lead instead of moving it.** `Lead.track`
+  derives from `category.default_track` under `UNIQUE(company_id, track)`, so when
+  a harvest corrected a company's category the importer tried to create a *second*
+  lead on the new track while the stale old-track row stayed in the queue — the
+  same company appeared twice, and the wrong one carried the rep's history.
+  `import_leads.py` now retargets the existing lead (track, category and
+  `status` recomputed) and prunes any leftover un-worked duplicate of the same
+  company, reporting `leads_retargeted` / `duplicate rows cut` / `track conflicts`
+  so a collision with real rep work is visible rather than silently overwritten.
+- **A stale legacy category could veto a researched match.** `rfq_categories.classify()`
+  used the workbook's legacy vertical as a prior, but the prior was only honoured
+  when its *exact* label was already a category key, so rows filed under free-text
+  variants (`"Foundry and Casting"`, `"Metal Sheet Work"`, `"CNC Job Work"`) fell
+  through and the name/address signal decided alone — which is how a fastener-NIC
+  row ended up tagged as CNC job work. Aliases now resolve through the same
+  legacy-prior path as canonical labels, and the auto-alias is recorded in
+  `Category Rationale` so the decision is traceable.
 - **Sales reps could see the manager-only "Team & access" tab.** The rail's
   Manager section and `/console/team` were gated on a *client-side* role guess
   derived from `/me`, which drifted from the server's own scoping — most

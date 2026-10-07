@@ -37,7 +37,7 @@ import config  # noqa: E402
 import db  # noqa: E402
 import lead_models as lm  # noqa: E402
 from db import SessionLocal  # noqa: E402
-from sqlalchemy import select  # noqa: E402
+from sqlalchemy import func, select  # noqa: E402
 
 import rfq_categories as rc  # noqa: E402
 
@@ -328,18 +328,110 @@ def upsert_contact(session, company: lm.Company, rec: dict, stats: dict, ref: st
     stats["contacts_created"] += 1
 
 
+def _untouched(session, lead: lm.Lead) -> bool:
+    """True only for a lead no rep has ever touched.
+
+    A lead is an artifact, not a work record, when it is still in the starting
+    status, has no owner, carries no scheduling, and nothing in the activity,
+    task or status-history tables points at it. Only such rows may be moved or
+    removed by the importer - everything else belongs to a rep's history.
+    """
+    if lead.status != lm.DEFAULT_STATUS or lead.owner_id is not None:
+        return False
+    if lead.next_action_at or lead.wants_call_back_at or lead.last_contacted_at:
+        return False
+    for model in (lm.LeadActivity, lm.LeadTask, lm.LeadStatusHistory):
+        if session.scalar(select(func.count()).select_from(model)
+                          .where(model.lead_id == lead.id)):
+            return False
+    return True
+
+
+def _adopt_stale_lead(session, company: lm.Company, track: str, stats: dict):
+    """Reuse this company's existing lead instead of inserting a second one.
+
+    A lead's `track` comes from its category's default_track, so when a re-tag
+    moves a company between verticals the previous run's lead is left on a stale
+    track and a plain insert would give the same company two queue entries - one
+    of which no rep will ever claim. Two rows per company is legitimate only for
+    a marketplace participant that both bids and posts, never for a workbook
+    re-classification.
+    """
+    others = session.scalars(
+        select(lm.Lead).where(lm.Lead.company_id == company.id,
+                              lm.Lead.track != track).order_by(lm.Lead.id)
+    ).all()
+    if not others:
+        return None
+
+    worked = next((l for l in others if not _untouched(session, l)), None)
+    if worked is not None:
+        # A rep has put history on this lead. Do not rewrite its track and do not
+        # add a competing row; just let the existing one carry the reconcile.
+        stats["lead_track_conflicts"] += 1
+        return worked
+
+    lead, surplus = others[0], others[1:]
+    lead.track = track
+    stats["leads_retargeted"] += 1
+    for extra in surplus:
+        # Proven untouched above, so no activity/task/history references it.
+        session.delete(extra)
+        stats["lead_dupes_removed"] += 1
+    return lead
+
+
+# Only rows the workbook import itself created may be pruned. A lead planted by
+# any other path is somebody's decision and is never touched here.
+WORKBOOK_SOURCES = ("bns", "expansion")
+
+
+def _prune_stale_tracks(session, company: lm.Company, keep: lm.Lead, track: str,
+                        stats: dict) -> None:
+    """Remove leftover second-track rows for one company.
+
+    Reached when the company already has a lead on the correct track: any *other*
+    untouched, import-created row for the same company is a relic of an earlier
+    category that has since been re-tagged, not a marketplace dual-role. Leaving
+    it means the same company shows up twice in the shared pool and the copy nobody
+    claimed simply ages there.
+    """
+    for l in session.scalars(
+            select(lm.Lead).where(lm.Lead.company_id == company.id,
+                                  lm.Lead.id != keep.id)).all():
+        if l.track == track or l.source not in WORKBOOK_SOURCES:
+            continue
+        if not _untouched(session, l):
+            continue
+        session.delete(l)
+        stats["lead_dupes_removed"] += 1
+
+
 def upsert_lead(session, company: lm.Company, rec: dict, stats: dict, priority: dict, system: str = ""):
     track = rc.CATEGORIES.get(company.category_primary, {}).get(
         "default_track", "supplier")
+    src = clean_text(rec.get("Lead Status")).lower()
+    status, excluded, excl_reason, disq_reason = lm.map_source_status(src)
     lead = session.scalar(select(lm.Lead).where(
         lm.Lead.company_id == company.id, lm.Lead.track == track))
+    if lead is None:
+        lead = _adopt_stale_lead(session, company, track, stats)
     if lead is not None:
+        # Reconcile only TOWARDS the source of truth: a row the workbook has since
+        # marked registry-dead or out-of-scope must not keep sitting in the rep
+        # queue from an earlier import. Never widen, never touch a lead a rep has
+        # already worked, so re-running the import stays a no-op.
+        if excluded and not lead.excluded_from_sales:
+            lead.excluded_from_sales = True
+            lead.exclusion_reason = excl_reason
+            if lead.status == lm.DEFAULT_STATUS:
+                lead.status = status
+            if disq_reason and not lead.disqualify_reason:
+                lead.disqualify_reason = disq_reason
+            stats["leads_reconciled"] += 1
+        _prune_stale_tracks(session, company, lead, track, stats)
         stats["duplicates_skipped"] += 1
         return lead
-
-    src = clean_text(rec.get("Lead Status")).lower()
-    status, excluded, reason = lm.SOURCE_STATUS_MAP.get(
-        src, (lm.DEFAULT_STATUS, False, ""))
 
     rank_score = priority.get(norm_name(company.name))
     lead = lm.Lead(
@@ -352,11 +444,12 @@ def upsert_lead(session, company: lm.Company, rec: dict, stats: dict, priority: 
     )
     # `exclusion_reason` means "hidden from the rep queue"; `disqualify_reason`
     # means "this lead is dead". They are different states and must not share a
-    # column, otherwise a bad-data lead reads as out-of-geography.
-    if excluded:
-        lead.exclusion_reason = reason
-    elif status == "incorrect":
-        lead.disqualify_reason = reason
+    # column, otherwise a bad-data lead reads as out-of-geography. A registry-dead
+    # row legitimately carries both.
+    if excl_reason:
+        lead.exclusion_reason = excl_reason
+    if disq_reason:
+        lead.disqualify_reason = disq_reason
     if rank_score:
         lead.priority_rank, lead.priority_score = rank_score
     session.add(lead)
@@ -371,6 +464,8 @@ def _blank_stats() -> dict:
         "rows_read": 0, "companies_created": 0, "companies_updated": 0,
         "contacts_created": 0, "contacts_skipped_no_person": 0,
         "leads_created": 0, "duplicates_skipped": 0,
+        "leads_reconciled": 0,
+        "leads_retargeted": 0, "lead_dupes_removed": 0, "lead_track_conflicts": 0,
         "rows_rejected": 0, "rejected_detail": [], "excluded_from_sales": 0,
     }
 
@@ -439,6 +534,10 @@ def run(dry: bool = False, expansion: bool = True, note: str = "") -> dict:
                   % (system, sheet, st["rows_read"], st["companies_created"],
                      st["contacts_created"], st["leads_created"],
                      st["duplicates_skipped"]))
+            if st["leads_reconciled"]:
+                print("  %-14s   -> %d existing lead(s) hidden because the workbook "
+                      "now marks them dead / out of scope"
+                      % ("", st["leads_reconciled"]))
 
         if dry:
             session.rollback()
@@ -530,6 +629,16 @@ def main() -> None:
     print("  duplicates_skipped   %5d" % stats["duplicates_skipped"])
     print("  rows_rejected        %5d" % stats["rows_rejected"])
     print("  excluded_from_sales  %5d" % stats["excluded_from_sales"])
+    print("  leads_reconciled     %5d  (existing leads tightened from the workbook)"
+          % stats["leads_reconciled"])
+    if stats["leads_retargeted"] or stats["lead_dupes_removed"] \
+            or stats["lead_track_conflicts"]:
+        print("  leads_retargeted     %5d  (category re-tag moved them to the new "
+              "track instead of duplicating)" % stats["leads_retargeted"])
+        print("  duplicate rows cut   %5d  (untouched second-lead artifacts)"
+              % stats["lead_dupes_removed"])
+        print("  track conflicts      %5d  (a worked lead was left alone)"
+              % stats["lead_track_conflicts"])
 
     if not a.dry:
         session = SessionLocal()

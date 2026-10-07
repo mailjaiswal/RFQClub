@@ -87,6 +87,48 @@ SOURCE_STATUS_MAP = {
     "nothing found": ("incorrect", False, "No data found for this company"),
 }
 SOURCE_EXCLUDED = ("non-indian", "foreign - out of scope", "ambiguous")
+# Registry status written by the enrichment batches, e.g. "Dead - Strike Off".
+DEAD_STATUS_PREFIX = "dead"
+
+# Written by an enrichment batch when research PROVED the row is not an entity a
+# rep can do business with, even though the registry says it is alive: a project
+# vehicle that has not built anything, a holding/trading shell with no works, a
+# real-estate or jewellery name that only shares a word with an industrial unit.
+# The suffix is free text because the reason is different every time, so it is
+# matched by prefix the same way `Dead - ...` is. Note this is NOT `nothing found`
+# (which means the data itself is unusable) and NOT `incorrect`: the company is
+# real and Indian, it is simply not a lead, so it keeps a normal status and is
+# hidden from the queue rather than disqualified - the same treatment as a
+# Non-Indian row, and reversible by a human reading the exclusion reason.
+OUT_OF_SCOPE_PREFIX = "out of scope"
+
+
+def map_source_status(src: str):
+    """BnS / Expansion workbook `Lead Status` ->
+    (status, excluded_from_sales, exclusion_reason, disqualify_reason).
+
+    A `Dead - <MCA status>` row is BOTH hidden from the rep queue and disqualified:
+    a struck-off / dissolved / amalgamated company cannot be onboarded, unlike a
+    Non-Indian row which is kept live for a possible future partner. Centralised
+    here because the suffix varies per batch (Strike Off, Amalgamated, Under
+    Liquidation, Dissolved, CIRP) so an exact-key map could never cover it.
+    """
+    key = (src or "").strip().lower()
+    if key.startswith(DEAD_STATUS_PREFIX):
+        detail = key.partition("-")[2].strip()
+        return ("incorrect", True, "Registry-dead (retained, hidden from sales)",
+                "MCA status: " + (detail or "struck off / dissolved"))
+    if key.startswith(OUT_OF_SCOPE_PREFIX):
+        detail = key.partition("-")[2].strip()
+        return (DEFAULT_STATUS, True,
+                "Out of scope (retained, hidden from sales): "
+                + (detail or "not an operational industrial unit"), "")
+    status, excluded, reason = SOURCE_STATUS_MAP.get(
+        key, (DEFAULT_STATUS, False, ""))
+    # the single `reason` string meant "why hidden" for excluded rows and
+    # "why wrong data" for everything else - split it into the right column.
+    return status, excluded, reason if excluded else "", "" if excluded else reason
+
 
 TASK_STATUSES = ("open", "done", "cancelled")
 
