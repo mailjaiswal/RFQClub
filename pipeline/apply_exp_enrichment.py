@@ -28,6 +28,12 @@ that sheet with stricter rules:
     the registry's own, or the write is refused: a typo would create a category the
     importer cannot map to a track. It is fill-blank-only too - a second pass that
     disagrees is reported, never silently applied.
+  - `address` is screened by `address_hygiene.guard()`. The keyword pass reads the
+    Address column as sector evidence and weights it twice, so prose that used to be
+    written there ("Works: Plot 47 ...", "no works address published anywhere") was
+    silently asserting Job Work / Machining on rows whose researched sector was empty.
+    A signal word in an address is now relabelled, or lifted out into Data Source, or
+    the write is refused outright - never passed through unchallenged.
 
 Usage:  python apply_exp_enrichment.py [--dry] [batch.json ...]
 """
@@ -38,6 +44,7 @@ import openpyxl
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import rfq_categories as rc            # the single source of valid labels
+import address_hygiene                 # keeps sector prose out of the Address column
 from pipeline_paths import ENRICH_DIR, data
 
 XLSX = str(data("Swaniki_Expansion_Database.xlsx"))
@@ -89,6 +96,7 @@ def main(paths, dry=False):
         matched[key] = r
         got = False
         reachable = bool(rec.get("found", 1))
+        addr_notes = []
         for jk, hdr in FIELD_MAP.items():
             val = str(rec.get(jk) or "").strip()
             if not val or hdr not in col:
@@ -101,6 +109,25 @@ def main(paths, dry=False):
             cell = ws.cell(row=r, column=col[hdr])
             if cell.value not in (None, ""):          # never overwrite
                 continue
+            if jk == "address":
+                name = str(ws.cell(row=r, column=col["Company"]).value or "")
+                legacy = (str(ws.cell(row=r, column=col["Category"]).value or "").strip()
+                          if "Category" in col else "")
+                web = (str(rec.get("website") or "").strip()
+                       or str(ws.cell(row=r, column=col["Website"]).value or ""))
+                kept, prose, warn = address_hygiene.guard(
+                    val, company=name, legacy=legacy, website=web)
+                if warn:
+                    print("  [address guard] row %d %s\n      %s\n      -> %s"
+                          % (r, name[:52], warn, kept[:120] or "(cell left empty)"))
+                for p in prose:
+                    addr_notes.append(
+                        "address wording held here, not in the Address column "
+                        "(%s), because the keyword pass reads that column as sector "
+                        "evidence: %s" % (today, p))
+                val = kept
+                if not val:
+                    continue
             if not dry:
                 cell.value = val
             if jk in CHANNEL_FIELDS:
@@ -142,7 +169,7 @@ def main(paths, dry=False):
 
         old_ds = str(ws.cell(row=r, column=col["Data Source"]).value or "")
         src = str(rec.get("source") or "").strip()
-        add = []
+        add = list(addr_notes)          # prose lifted out of the Address cell
         if cat_line and cat_line not in old_ds:
             add.append(cat_line)
         if src and norm(src) not in norm(old_ds):
