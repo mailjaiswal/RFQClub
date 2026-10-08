@@ -18,6 +18,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
+from pydantic import BaseModel
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -1109,3 +1110,23 @@ def reports(
         result["team_breakdown"] = team_breakdown
 
     return result
+
+
+class DncBody(BaseModel):
+    do_not_call: bool
+
+
+@router.post("/contacts/{contact_id}/dnc")
+def set_contact_dnc(
+    contact_id: int,
+    body: DncBody,
+    session: Session = Depends(db.get_db),
+    user: models.User = Depends(require_sales),
+):
+    c = session.get(lm.Contact, contact_id)
+    if not c:
+        raise HTTPException(404, "Contact not found")
+    c.do_not_call = bool(body.do_not_call)
+    c.updated_at = lm._utcnow()
+    session.commit()
+    return {"contact_id": c.id, "do_not_call": c.do_not_call}

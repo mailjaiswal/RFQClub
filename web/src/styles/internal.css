@@ -406,3 +406,9 @@
   animation: in-pulse 1.3s ease-in-out infinite;
   display: inline-block;
 }
+
+/* ---- keyboard navigation row focus ---- */
+.in-table tr.row.kb-focus {
+  background: rgba(63, 67, 151, 0.08) !important;
+  box-shadow: inset 3px 0 0 var(--accent, #3f4397);
+}

@@ -211,6 +211,47 @@ function Queue() {
     window.history.replaceState(null, "", `/console/leads?${usp.toString()}`);
   }, [localSort, localDir, sp]);
 
+  const [activeIdx, setActiveIdx] = useState<number>(-1);
+  const activeIdxRef = useRef(activeIdx);
+  activeIdxRef.current = activeIdx;
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(target?.tagName) || target?.isContentEditable) {
+        return;
+      }
+      const curRows = rowsRef.current;
+      const curIdx = activeIdxRef.current;
+      if (!curRows.length) return;
+
+      if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        const next = Math.min(curRows.length - 1, curIdx + 1);
+        setActiveIdx(next);
+        if (curRows[next]) warm(curRows[next].id);
+      } else if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const next = Math.max(0, curIdx - 1);
+        setActiveIdx(next);
+        if (curRows[next]) warm(curRows[next].id);
+      } else if (e.key === "Enter" && curIdx >= 0 && curRows[curIdx]) {
+        e.preventDefault();
+        openLead(curRows[curIdx].id);
+      } else if (e.key === "x" && curIdx >= 0 && curRows[curIdx]) {
+        e.preventDefault();
+        toggleSelect(curRows[curIdx].id);
+      } else if (e.key === "Escape") {
+        setSelectedIds(new Set());
+        setActiveIdx(-1);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [openLead, toggleSelect, warm]);
+
   const head = (label: string, key: string) => (
     <th className="sortable" onClick={() => toggleSort(key)} title={`Sort by ${label.toLowerCase()}`}>
       {label}<span className="sort-caret">{localSort === key ? (localDir === "desc" ? " ↓" : " ↑") : ""}</span>
@@ -248,9 +289,14 @@ function Queue() {
             {team.map((t) => <option key={t.email} value={t.email}>{t.email}</option>)}
           </select>
         )}
-        <span className="in-faint" style={{ marginLeft: "auto" }}>
-          {total} leads{pending && data ? " · updating" : ""}
-        </span>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
+          <span className="in-faint" style={{ fontSize: 11 }}>
+            ⌨ <kbd style={{ padding: "1px 4px", borderRadius: 3, background: "var(--line, #eee)", border: "1px solid var(--line-2, #ccc)" }}>j</kbd>/<kbd style={{ padding: "1px 4px", borderRadius: 3, background: "var(--line, #eee)", border: "1px solid var(--line-2, #ccc)" }}>k</kbd> navigate · <kbd style={{ padding: "1px 4px", borderRadius: 3, background: "var(--line, #eee)", border: "1px solid var(--line-2, #ccc)" }}>Enter</kbd> open · <kbd style={{ padding: "1px 4px", borderRadius: 3, background: "var(--line, #eee)", border: "1px solid var(--line-2, #ccc)" }}>x</kbd> select
+          </span>
+          <span className="in-faint">
+            {total} leads{pending && data ? " · updating" : ""}
+          </span>
+        </div>
       </div>
 
       {(() => {
@@ -307,11 +353,12 @@ function Queue() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((l) => (
+            {rows.map((l, idx) => (
               <LeadTableRow
                 key={l.id}
                 l={l}
                 selected={selectedIds.has(l.id)}
+                isFocused={activeIdx === idx}
                 onSelect={toggleSelect}
                 onOpen={openLead}
                 onWarm={warm}
@@ -346,15 +393,15 @@ function Queue() {
 }
 
 const LeadTableRow = React.memo(function LeadTableRow({
-  l, selected, onSelect, onOpen, onWarm, onCancelWarm, isManager, view, claiming, onClaim,
+  l, selected, isFocused, onSelect, onOpen, onWarm, onCancelWarm, isManager, view, claiming, onClaim,
 }: {
-  l: LeadRow; selected: boolean; onSelect: (id: number) => void;
+  l: LeadRow; selected: boolean; isFocused: boolean; onSelect: (id: number) => void;
   onOpen: (id: number) => void; onWarm: (id: number) => void; onCancelWarm: () => void;
   isManager: boolean; view: string; claiming: boolean; onClaim: (id: number) => void;
 }) {
   const na = relTime(l.next_action_at);
   return (
-    <tr className={`row${selected ? " selected" : ""}`} onClick={() => onOpen(l.id)}
+    <tr className={`row${selected ? " selected" : ""}${isFocused ? " kb-focus" : ""}`} onClick={() => onOpen(l.id)}
       onMouseEnter={() => onWarm(l.id)} onMouseLeave={onCancelWarm}>
       <td onClick={(e) => e.stopPropagation()} style={{ width: 36, textAlign: "center" }}>
         <input

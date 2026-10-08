@@ -239,6 +239,12 @@ export const getReports = (p: { from?: string; to?: string; owner_email?: string
   return req<ReportData>(`/api/sales/reports${s ? `?${s}` : ""}`);
 };
 
+export const setContactDnc = (contactId: number, do_not_call: boolean) =>
+  req<{ contact_id: number; do_not_call: boolean }>(`/api/sales/contacts/${contactId}/dnc`, {
+    method: "POST",
+    body: JSON.stringify({ do_not_call }),
+  });
+
 // ---------------------------------------------------------------------------
 // Cache keys + write-through helpers (see lib/cache.ts)
 //

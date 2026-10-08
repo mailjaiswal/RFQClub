@@ -8,7 +8,7 @@ import { StatusPill, fmtDate, relTime, KIND_ICON } from "@/components/console/ui
 import { useCached } from "@/lib/cache";
 import {
   addActivity, addTask, assignLeads, completeTask, detailKey, getLead, markQueuesStale,
-  mutateDetail, patchDetail, patchRows, peekRow, setNextStep, setStatus,
+  mutateDetail, patchDetail, patchRows, peekRow, setContactDnc, setNextStep, setStatus,
   type Activity, type Contact, type LeadDetail, type SalesMeta, type Task,
 } from "@/lib/sales-api";
 
@@ -154,6 +154,13 @@ export default function LeadDetailPage() {
       tasks: cur.tasks.map((t) => (t.id === taskId ? { ...t, status: "done", overdue: false, completed_at: new Date().toISOString() } : t)),
     }));
     run(() => completeTask(taskId));
+  }
+  function handleToggleDnc(contactId: number, nextDnc: boolean) {
+    mutateDetail(id, (cur) => ({
+      ...cur,
+      contacts: cur.contacts.map((c) => (c.id === contactId ? { ...c, do_not_call: nextDnc } : c)),
+    }));
+    run(() => setContactDnc(contactId, nextDnc));
   }
 
   if (!d) {
@@ -309,7 +316,7 @@ export default function LeadDetailPage() {
           <div className="in-card in-pad">
             <div className="in-kind" style={{ marginBottom: 8 }}>Contacts · {d.contacts.length}</div>
             {!d.contacts.length && <p className="in-faint" style={{ margin: 0 }}>No contacts recorded.</p>}
-            {d.contacts.map((c) => <ContactRow key={c.id} c={c} />)}
+            {d.contacts.map((c) => <ContactRow key={c.id} c={c} onToggleDnc={handleToggleDnc} />)}
           </div>
 
           {/* Script */}
@@ -417,7 +424,7 @@ function withProto(u: string): string {
 }
 
 // ------------------------------------------------------------------ contacts
-function ContactRow({ c }: { c: Contact }) {
+function ContactRow({ c, onToggleDnc }: { c: Contact; onToggleDnc?: (cId: number, nextDnc: boolean) => void }) {
   const tel = c.phone_primary || c.phone_secondary;
   const wa = c.whatsapp || tel;
   const actions: React.ReactNode[] = [];
@@ -425,6 +432,19 @@ function ContactRow({ c }: { c: Contact }) {
   if (wa && !c.do_not_call) actions.push(<a key="wa" className="in-btn sm" href={`https://wa.me/${digits(wa)}`} target="_blank" rel="noreferrer">✆ WhatsApp</a>);
   if (c.email) actions.push(<a key="mail" className="in-btn sm" href={`mailto:${c.email}`}>✉ Email</a>);
   if (c.do_not_call) actions.push(<span key="dnc" className="in-pill st-dead">do-not-call</span>);
+  if (onToggleDnc) {
+    actions.push(
+      <button
+        key="toggle-dnc"
+        className="in-btn sm"
+        style={{ fontSize: 11, opacity: 0.85 }}
+        title={c.do_not_call ? "Clear suppression and allow outbound" : "Suppress outbound calls (DPDP DNC)"}
+        onClick={() => onToggleDnc(c.id, !c.do_not_call)}
+      >
+        {c.do_not_call ? "✓ Clear DNC" : "🚫 Mark DNC"}
+      </button>
+    );
+  }
   return (
     <div className="in-contact">
       <div className="in-row in-wrap" style={{ gap: 6 }}>
