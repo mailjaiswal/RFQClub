@@ -361,39 +361,216 @@
 .in-dt > .in-btn .ic { font-size: 13px; }
 .in-dt > .in-btn .caret { margin-left: auto; opacity: 0.6; font-size: 10px; }
 .in-dt-pop {
-  position: absolute; z-index: 40; top: calc(100% + 8px); left: 0;
-  width: 292px; max-width: 92vw; padding: 12px;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
-  box-shadow: 0 26px 54px rgba(91, 75, 255, 0.2);
-  display: flex; flex-direction: column; gap: 10px;
+  position: absolute; z-index: 50; top: calc(100% + 8px); left: 0;
+  width: 350px; max-width: 95vw; padding: 14px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+  box-shadow: 0 20px 48px -8px rgba(15, 23, 42, 0.22);
+  display: flex; flex-direction: column; gap: 11px;
 }
 .in-dt-pop.right { left: auto; right: 0; }
-.in-dt-read { display: flex; align-items: center; gap: 4px; }
-.in-dt-read > button { border: 0; background: transparent; color: var(--dim); font: inherit; font-size: 17px; font-weight: 800; cursor: pointer; border-radius: 9px; padding: 2px 7px; }
-.in-dt-read > button.on { background: rgba(91, 75, 255, 0.1); color: var(--accent); }
-.in-dt-read > span { color: var(--faint); font-weight: 800; font-size: 17px; }
-.in-dt-read > .ap { font-size: 12px; font-weight: 700; }
-.in-dt-day { display: flex; align-items: center; gap: 6px; }
-.in-dt-day .chips { display: flex; gap: 5px; flex-wrap: wrap; flex: 1; min-width: 0; }
-.in-dt-day .in-step { padding: 5px 9px; font-size: 11px; }
-.in-clock { position: relative; width: 184px; height: 184px; margin: 0 auto; }
-.in-clock-ring { position: absolute; inset: 0; width: 100%; height: 100%; }
-.in-clock-ring circle { fill: #fbfaff; stroke: var(--line); stroke-width: 1.5; }
-.in-clock-ring circle.pivot { fill: var(--accent); stroke: none; }
-.in-clock-ring line.hand { stroke: var(--accent); stroke-width: 2; stroke-linecap: round; opacity: 0.55; }
-.in-clock-btn {
-  position: absolute; transform: translate(-50%, -50%);
-  width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer;
-  background: transparent; color: var(--dim); font: inherit; font-size: 12.5px; font-weight: 650;
-  display: grid; place-items: center; padding: 0; transition: background 0.12s, color 0.12s;
+
+/* ---- Redesigned Day & Time Picker ---- */
+.in-dt-summary-banner {
+  background: rgba(91, 75, 255, 0.06);
+  border: 1px solid rgba(91, 75, 255, 0.16);
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.in-clock-btn:hover { background: rgba(91, 75, 255, 0.1); color: var(--accent); }
-.in-clock-btn.sel { background: var(--grad); color: #fff; font-weight: 800; box-shadow: 0 8px 18px rgba(91, 75, 255, 0.3); }
-.in-dt-fine { display: flex; align-items: center; justify-content: center; gap: 5px; }
-.in-dt-fine .in-btn { padding: 4px 8px; font-size: 11px; }
-.in-dt-quick { display: flex; gap: 5px; justify-content: center; flex-wrap: wrap; }
-.in-dt-quick .in-step { font-size: 11px; padding: 5px 9px; }
-.in-dt-foot { display: flex; align-items: center; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--line-2); padding-top: 9px; }
+.in-dt-summary-icon { font-size: 16px; line-height: 1; }
+.in-dt-summary-body { flex: 1; min-width: 0; }
+.in-dt-summary-title { font-size: 12.5px; font-weight: 700; color: var(--accent); line-height: 1.3; }
+.in-dt-summary-sub { font-size: 11px; color: var(--dim); margin-top: 1px; }
+
+.in-dt-sec { display: flex; flex-direction: column; gap: 5px; }
+.in-dt-sec-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--faint);
+}
+
+.in-dt-presets-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+.in-dt-preset-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.in-dt-preset-card:hover {
+  border-color: var(--accent);
+  background: rgba(91, 75, 255, 0.04);
+}
+.in-dt-preset-card.active {
+  background: var(--grad);
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(91, 75, 255, 0.28);
+}
+.in-dt-preset-card .pr-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+.in-dt-preset-card .pr-sub {
+  font-size: 9px;
+  color: var(--faint);
+  margin-top: 2px;
+  white-space: nowrap;
+}
+.in-dt-preset-card.active .pr-title,
+.in-dt-preset-card.active .pr-sub {
+  color: #ffffff;
+}
+
+.in-dt-date-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.in-dt-nav-btn {
+  padding: 4px 9px;
+  font-size: 10.5px;
+}
+.in-dt-date-input {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.in-dt-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+.in-dt-slot-pill {
+  padding: 5px 2px;
+  font-size: 10.5px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--card);
+  color: var(--dim);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.12s ease;
+}
+.in-dt-slot-pill:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.in-dt-slot-pill.active {
+  background: rgba(91, 75, 255, 0.12);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.in-dt-ampm-switch {
+  display: flex;
+  background: var(--line-2);
+  border-radius: 7px;
+  padding: 2px;
+  gap: 2px;
+}
+.in-dt-ampm-btn {
+  border: 0;
+  background: transparent;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 5px;
+  cursor: pointer;
+  color: var(--dim);
+}
+.in-dt-ampm-btn.active {
+  background: var(--panel);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+
+.in-dt-chips-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--faint);
+}
+
+.in-dt-hours-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3.5px;
+}
+.in-dt-chip {
+  padding: 3.5px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--dim);
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+.in-dt-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.in-dt-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.in-dt-minutes-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.in-dt-fine-btn {
+  padding: 3px 6px;
+  font-size: 10px;
+  color: var(--dim);
+}
+
+.in-dt-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--line-2);
+  padding-top: 9px;
+  margin-top: 2px;
+}
+.in-dt-clear-btn {
+  color: var(--faint);
+  font-size: 11px;
+}
+.in-dt-set-btn {
+  font-weight: 700;
+  padding: 5px 12px;
+  font-size: 11.5px;
+}
 
 /* ---- skeleton shimmer ---- */
 @keyframes in-pulse {
