@@ -159,7 +159,7 @@ function Queue() {
     setBulkBusy(true); setErr("");
     const me = (user?.email || "").toLowerCase();
     for (const id of ids) {
-      if (view === "unassigned") dropRows(id);
+      if (view === "unassigned" || view === "excluded") dropRows(id);
       else patchRows(id, { owner_email: me });
     }
     markQueuesStale();
@@ -179,7 +179,7 @@ function Queue() {
     // Write the outcome through to the cache first: the row leaves the unclaimed
     // pool (or shows your name) the instant you click, then the revalidate after
     // the server confirms keeps the counts honest.
-    if (view === "unassigned") dropRows(id);
+    if (view === "unassigned" || view === "excluded") dropRows(id);
     else patchRows(id, { owner_email: (user?.email || "").toLowerCase() });
     markQueuesStale();
     try { await assignLeads([id]); }
@@ -343,7 +343,7 @@ function Queue() {
         <div className="in-batchbar">
           <span><b>{selectedIds.size}</b> leads selected</span>
           <button className="in-btn primary sm" disabled={bulkBusy} onClick={() => bulkClaim([...selectedIds])}>
-            {bulkBusy ? "Claiming…" : `Claim ${selectedIds.size} to me`}
+            {bulkBusy ? "Claiming…" : view === "excluded" ? `Claim ${selectedIds.size} to My Queue` : `Claim ${selectedIds.size} to me`}
           </button>
           <button className="in-btn sm" onClick={() => setSelectedIds(new Set())}>Clear selection</button>
         </div>
@@ -448,7 +448,7 @@ const LeadTableRow = React.memo(function LeadTableRow({
       </td>
       <td className="sub">{l.last_contacted_at ? fmtDate(l.last_contacted_at) : <span className="in-faint">never</span>}</td>
       <td>
-        {!l.owner_email && view !== "excluded" && (
+        {!l.owner_email && (
           <button className="in-btn sm" disabled={claiming}
             onClick={(e) => { e.stopPropagation(); onClaim(l.id); }}>
             {claiming ? "Claiming…" : "Claim"}

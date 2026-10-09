@@ -883,10 +883,16 @@ def assign_leads(
         if lead is None:
             continue
         lead.owner_id = target_id
+        # When assigning or claiming an out-of-scope lead, reinstate it into active sales
+        reinstated = False
+        if lead.excluded_from_sales and target_id is not None:
+            lead.excluded_from_sales = False
+            reinstated = True
         label = owner_email or ("self" if target_id == user.id else "pool")
+        note = f"assigned -> {label} (reinstated to active sales)" if reinstated else f"assigned -> {label}"
         session.add(lm.LeadStatusHistory(
             lead_id=lead.id, from_status=lead.status, to_status=lead.status,
-            changed_by=user.id, changed_by_email=user.email, note=f"assigned -> {label}"))
+            changed_by=user.id, changed_by_email=user.email, note=note))
         changed += 1
     session.commit()
     invalidate_summary_cache()

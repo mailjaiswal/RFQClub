@@ -25,7 +25,7 @@ const QUICK_TIME_SLOTS = [
   { label: "5:00 PM", h: 17, m: 0 },
 ];
 
-const COMMON_HOURS = [9, 10, 11, 12, 1, 2, 3, 4, 5, 6];
+const ALL_HOURS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const MINUTE_STEPS = [0, 15, 30, 45];
 
 interface Parts {
@@ -377,7 +377,7 @@ export function DateTimeField({
             {/* Hours Chips */}
             <div className="in-dt-chips-label">Hour</div>
             <div className="in-dt-hours-row">
-              {COMMON_HOURS.map((hr) => {
+              {ALL_HOURS.map((hr) => {
                 const isSel = h12 === hr;
                 return (
                   <button
