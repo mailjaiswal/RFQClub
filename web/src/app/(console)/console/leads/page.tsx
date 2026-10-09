@@ -66,6 +66,7 @@ function Queue() {
   const { data, error: apiErr, pending, revalidate } = useCached<LeadsResponse>(
     key,
     () => getLeads(query).then((r) => { rememberRows(r.items); return r; }),
+    { persist: true, maxAgeMs: 30_000 },
   );
   useEffect(() => { setMore([]); setSelectedIds(new Set()); }, [key]);
 
@@ -76,6 +77,20 @@ function Queue() {
   const rawRows = useMemo(() => [...(data?.items ?? []), ...more], [data, more]);
   const total = data?.total ?? 0;
   const busy = pending && !data;
+
+  // Predictive background prefetch: warm the top leads during idle time so clicking any of them is 0ms
+  useEffect(() => {
+    if (!rawRows.length) return;
+    const t = window.setTimeout(() => {
+      const topBatch = rawRows.slice(0, 8);
+      topBatch.forEach((r, idx) => {
+        window.setTimeout(() => {
+          prefetchLead(r.id);
+        }, idx * 100);
+      });
+    }, 300);
+    return () => window.clearTimeout(t);
+  }, [rawRows]);
 
   // Instant in-memory sorting of loaded rows (0ms latency, zero unmounts)
   const rows = useMemo(() => {
@@ -402,7 +417,7 @@ const LeadTableRow = React.memo(function LeadTableRow({
   const na = relTime(l.next_action_at);
   return (
     <tr className={`row${selected ? " selected" : ""}${isFocused ? " kb-focus" : ""}`} onClick={() => onOpen(l.id)}
-      onMouseEnter={() => onWarm(l.id)} onMouseLeave={onCancelWarm}>
+      onMouseEnter={() => onWarm(l.id)} onMouseDown={() => onWarm(l.id)} onTouchStart={() => onWarm(l.id)} onMouseLeave={onCancelWarm}>
       <td onClick={(e) => e.stopPropagation()} style={{ width: 36, textAlign: "center" }}>
         <input
           type="checkbox"

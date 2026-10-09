@@ -134,6 +134,14 @@ export const getSummary = () => req<Summary>("/api/sales/summary");
 export const getLeads = (p: LeadQuery = {}) => req<LeadsResponse>(`/api/sales/leads${qs(p)}`);
 export const getLead = (id: number | string) => req<LeadDetail>(`/api/sales/leads/${id}`);
 
+export interface SyncResponse {
+  server_time: string;
+  count: number;
+  items: LeadRow[];
+}
+export const syncLeads = (since?: string, limit = 250) =>
+  req<SyncResponse>(`/api/sales/sync?limit=${limit}${since ? `&since=${encodeURIComponent(since)}` : ""}`);
+
 export const setStatus = (id: number, status: string, note = "") =>
   req<{ ok: boolean; status: string; status_label: string }>(`/api/sales/leads/${id}/status`,
     { method: "POST", body: JSON.stringify({ status, note }) });
@@ -146,6 +154,20 @@ export interface ActivityIn {
 export const addActivity = (id: number, body: ActivityIn) =>
   req<{ ok: boolean; activity_id: number; status: string; next_action_at: string | null }>(
     `/api/sales/leads/${id}/activity`, { method: "POST", body: JSON.stringify(body) });
+
+export interface SendEmailPayload {
+  to_email: string;
+  contact_id?: number | null;
+  subject: string;
+  body: string;
+  template_key?: string;
+}
+
+export const sendLeadEmail = (leadId: number, payload: SendEmailPayload) =>
+  req<{ ok: boolean; activity_id: number; to: string; subject: string; notice?: string; sent_at: string }>(
+    `/api/sales/leads/${leadId}/email`,
+    { method: "POST", body: JSON.stringify(payload) }
+  );
 
 export const addTask = (id: number, body: { title: string; due_at?: string | null; assigned_to_email?: string | null }) =>
   req<{ ok: boolean; task: Task }>(`/api/sales/leads/${id}/task`, { method: "POST", body: JSON.stringify(body) });

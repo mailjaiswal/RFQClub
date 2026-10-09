@@ -57,13 +57,18 @@ def is_configured() -> bool:
     return provider() != "dev"
 
 
-def _send_resend(to: str, subject: str, text: str, html: str) -> None:
+def _send_resend(to: str, subject: str, text: str, html: str, reply_to: str | None = None) -> None:
     try:
+        payload = {
+            "from": _display_addr(), "to": [to], "subject": subject,
+            "html": html, "text": text,
+        }
+        if reply_to:
+            payload["reply_to"] = reply_to
         r = httpx.post(
             "https://api.resend.com/emails",
             headers={"Authorization": f"Bearer {config.RESEND_API_KEY}"},
-            json={"from": _display_addr(), "to": [to], "subject": subject,
-                  "html": html, "text": text},
+            json=payload,
             timeout=12.0,
         )
     except httpx.HTTPError as exc:
@@ -72,9 +77,11 @@ def _send_resend(to: str, subject: str, text: str, html: str) -> None:
         raise MailError(f"Resend {r.status_code}: {r.text[:200]}")
 
 
-def _send_smtp(to: str, subject: str, text: str, html: str) -> None:
+def _send_smtp(to: str, subject: str, text: str, html: str, reply_to: str | None = None) -> None:
     msg = EmailMessage()
     msg["From"] = _display_addr()
+    if reply_to:
+        msg["Reply-To"] = reply_to
     msg["To"] = to
     msg["Subject"] = subject
     msg.set_content(text)
@@ -99,7 +106,7 @@ def _send_smtp(to: str, subject: str, text: str, html: str) -> None:
         raise MailError(f"SMTP send failed: {exc}") from exc
 
 
-def send(to: str, subject: str, text: str, html: str | None = None) -> None:
+def send(to: str, subject: str, text: str, html: str | None = None, reply_to: str | None = None) -> None:
     """Deliver one email. Raises MailError on any failure."""
     if not to or "@" not in to:
         raise MailError(f"Refusing to send to invalid address {to!r}")
@@ -108,9 +115,34 @@ def send(to: str, subject: str, text: str, html: str | None = None) -> None:
     if p == "dev":
         raise MailError("No email provider configured (set RESEND_API_KEY or SMTP_HOST)")
     if p == "resend":
-        _send_resend(to, subject, text, html)
+        _send_resend(to, subject, text, html, reply_to=reply_to)
     else:
-        _send_smtp(to, subject, text, html)
+        _send_smtp(to, subject, text, html, reply_to=reply_to)
+
+
+def send_sales_email(to: str, subject: str, body_text: str, from_rep_email: str | None = None) -> dict:
+    """Deliver a 1-on-1 sales outreach email.
+    Formats the body cleanly without promotional HTML baggage so it lands directly
+    in the Primary inbox rather than Spam or Promotions.
+    In dev mode, gracefully succeeds so the console demo does not break.
+    """
+    if not to or "@" not in to:
+        raise MailError(f"Invalid recipient email address: {to!r}")
+
+    import html as html_lib
+    escaped_body = html_lib.escape(body_text).replace("\n", "<br>")
+    html = (
+        "<div style='font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif;"
+        "font-size:14px;line-height:1.65;color:#1e293b;max-width:620px;margin:0 auto;padding:12px 6px;'>"
+        f"{escaped_body}"
+        "</div>"
+    )
+    p = provider()
+    if p == "dev":
+        return {"status": "sent", "mode": "dev", "notice": "Demo mode: Email recorded and logged to timeline"}
+
+    send(to, subject, body_text, html, reply_to=from_rep_email)
+    return {"status": "sent", "mode": p, "notice": "Email delivered"}
 
 
 # ---- templates -----------------------------------------------------------

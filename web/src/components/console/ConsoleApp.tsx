@@ -17,7 +17,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { authMe, changePassword, type AuthUser } from "@/lib/api";
-import { clearSession, getToken } from "@/lib/session";
+import { clearSession, getToken, getUser } from "@/lib/session";
 import { ageOf, peek, refresh, useCached } from "@/lib/cache";
 import {
   getMeta, getSummary, getTeam, metaCacheKey, summaryCacheKey, teamCacheKey,
@@ -46,11 +46,26 @@ const SALES_ROLES = new Set(["sales", "sales_manager"]);
 
 export default function ConsoleApp({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [status, setStatus] = useState<Status>("checking");
-  const [user, setUser] = useState<AuthUser | null>(null);
-  // `meta` is a stable vocabulary, so a sessionStorage copy lets a reload render
-  // the console at once instead of waiting on the API to answer first. Its key is
-  // impersonation-scoped because meta also carries the viewer's capabilities.
+  // Instant local boot: If a valid session user exists in local storage and carries
+  // sales credentials, initialize straight into "ready" so the console shell and child
+  // components paint on 0ms without waiting on the network authMe() roundtrip.
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    if (typeof window === "undefined") return null;
+    const cached = getUser();
+    return cached as AuthUser | null;
+  });
+  const [status, setStatus] = useState<Status>(() => {
+    if (typeof window === "undefined") return "checking";
+    const token = getToken();
+    const cached = getUser();
+    if (!token) return "needs_login";
+    if (cached && (SALES_ROLES.has((cached.role || "").toLowerCase()) || (cached as AuthUser).is_console_admin)) {
+      return "ready";
+    }
+    return "checking";
+  });
+  // `meta` is a stable vocabulary, so a local copy lets a reload render
+  // the console at once instead of waiting on the API to answer first.
   const [meta, setMeta] = useState<SalesMeta | null>(() => peek<SalesMeta>(metaCacheKey()) ?? null);
   const [deniedMsg, setDeniedMsg] = useState("");
   const [actAs, setActAsRaw] = useState(() =>

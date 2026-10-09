@@ -24,20 +24,44 @@ interface Entry { data: unknown; ts: number; persist: boolean }
 const store = new Map<string, Entry>();
 const subs = new Map<string, Set<(data: unknown) => void>>();
 const inflight = new Map<string, Promise<unknown>>();
-const SS_PREFIX = "rfqclub_cache:";
+const STORAGE_PREFIX = "rfq_cache_v2:";
 
-function ssKey(key: string) { return SS_PREFIX + key; }
+function storageKey(key: string) { return STORAGE_PREFIX + key; }
 
-/** Restore sessionStorage-persisted keys once (per tab, per load). */
-function hydrate(key: string): Entry | undefined {
-  if (typeof window === "undefined") return undefined;
+function getStorage(): Storage | null {
+  if (typeof window === "undefined") return null;
   try {
-    const raw = sessionStorage.getItem(ssKey(key));
+    const testKey = "__rc_test__";
+    window.localStorage.setItem(testKey, "1");
+    window.localStorage.removeItem(testKey);
+    return window.localStorage;
+  } catch {
+    try {
+      return window.sessionStorage;
+    } catch {
+      return null;
+    }
+  }
+}
+
+/** Restore persisted keys once per session/tab with real timestamp. */
+function hydrate(key: string): Entry | undefined {
+  const storage = getStorage();
+  if (!storage) return undefined;
+  try {
+    const raw = storage.getItem(storageKey(key));
     if (!raw) return undefined;
-    const entry: Entry = { data: JSON.parse(raw), ts: 0, persist: true };
+    const parsed = JSON.parse(raw);
+    const entry: Entry = {
+      data: parsed.data !== undefined ? parsed.data : parsed,
+      ts: typeof parsed.ts === "number" ? parsed.ts : 0,
+      persist: true,
+    };
     store.set(key, entry);
     return entry;
-  } catch { return undefined; }
+  } catch {
+    return undefined;
+  }
 }
 
 export function peek<T>(key: string): T | undefined {
@@ -46,20 +70,47 @@ export function peek<T>(key: string): T | undefined {
 }
 
 function ageMs(key: string): number {
-  const hit = store.get(key);
-  return hit ? Date.now() - hit.ts : Infinity;
+  const hit = store.get(key) ?? hydrate(key);
+  return hit ? Math.max(0, Date.now() - hit.ts) : Infinity;
 }
 
 /** How old the cached copy of `key` is (Infinity when nothing is stored). */
 export const ageOf = ageMs;
 
-const MAX_STORE_ENTRIES = 150;
+const MAX_STORE_ENTRIES = 180;
 
 function notify(key: string, data: unknown) {
   subs.get(key)?.forEach((fn) => { try { fn(data); } catch { /* component unmounted */ } });
 }
 
-export function put(key: string, data: unknown, persist = false) {
+function pruneStorage(storage: Storage) {
+  try {
+    const keys: { k: string; ts: number }[] = [];
+    for (let i = 0; i < storage.length; i++) {
+      const k = storage.key(i);
+      if (k && k.startsWith(STORAGE_PREFIX)) {
+        try {
+          const raw = storage.getItem(k);
+          const parsed = raw ? JSON.parse(raw) : null;
+          keys.push({ k, ts: parsed?.ts || 0 });
+        } catch {
+          keys.push({ k, ts: 0 });
+        }
+      }
+    }
+    if (keys.length > MAX_STORE_ENTRIES) {
+      keys.sort((a, b) => a.ts - b.ts);
+      const toRemove = keys.slice(0, keys.length - MAX_STORE_ENTRIES + 20);
+      for (const item of toRemove) {
+        storage.removeItem(item.k);
+      }
+    }
+  } catch {
+    /* ignore prune errors */
+  }
+}
+
+export function put(key: string, data: unknown, persist = true) {
   if (store.size >= MAX_STORE_ENTRIES && !store.has(key)) {
     let oldestKey: string | null = null;
     let oldestTs = Infinity;
@@ -73,9 +124,24 @@ export function put(key: string, data: unknown, persist = false) {
       store.delete(oldestKey);
     }
   }
-  store.set(key, { data, ts: Date.now(), persist });
-  if (persist && typeof window !== "undefined") {
-    try { sessionStorage.setItem(ssKey(key), JSON.stringify(data)); } catch { /* quota */ }
+
+  const now = Date.now();
+  store.set(key, { data, ts: now, persist });
+
+  if (persist) {
+    const storage = getStorage();
+    if (storage) {
+      try {
+        storage.setItem(storageKey(key), JSON.stringify({ data, ts: now }));
+      } catch {
+        pruneStorage(storage);
+        try {
+          storage.setItem(storageKey(key), JSON.stringify({ data, ts: now }));
+        } catch {
+          /* quota strictly exceeded, in-memory remains authoritative */
+        }
+      }
+    }
   }
   notify(key, data);
 }
@@ -97,6 +163,24 @@ export function markStale(prefix: string) {
   for (const [key, entry] of store.entries()) {
     if (key.startsWith(prefix)) entry.ts = 0;
   }
+  const storage = getStorage();
+  if (storage) {
+    try {
+      for (let i = 0; i < storage.length; i++) {
+        const k = storage.key(i);
+        if (k && k.startsWith(STORAGE_PREFIX + prefix)) {
+          const raw = storage.getItem(k);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            parsed.ts = 0;
+            storage.setItem(k, JSON.stringify(parsed));
+          }
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 export function cacheKeys(prefix: string): string[] {
@@ -107,8 +191,9 @@ export function cacheKeys(prefix: string): string[] {
 export function refresh<T>(key: string, fetcher: () => Promise<T>, opts: { persist?: boolean } = {}): Promise<T> {
   const running = inflight.get(key);
   if (running) return running as Promise<T>;
+  const shouldPersist = opts.persist !== false;
   const p = fetcher()
-    .then((data) => { put(key, data, !!opts.persist); return data; })
+    .then((data) => { put(key, data, shouldPersist); return data; })
     .finally(() => { inflight.delete(key); });
   inflight.set(key, p);
   return p;
@@ -123,8 +208,8 @@ export interface Cached<T> {
 }
 
 /**
- * Read `key` from cache immediately, then revalidate in the background.
- * `fetcher` may change identity freely — only `key` drives the effect.
+ * Read `key` from cache immediately (0ms paint), then revalidate in the background
+ * if stale or older than maxAgeMs.
  */
 export function useCached<T>(
   key: string,
@@ -136,6 +221,7 @@ export function useCached<T>(
   const optsRef = useRef(opts);
   optsRef.current = opts;
   const enabled = opts.enabled !== false;
+  const maxAge = opts.maxAgeMs ?? 30_000;
 
   const [data, setData] = useState<T | undefined>(() => (enabled ? peek<T>(key) : undefined));
   const [error, setError] = useState("");
@@ -154,17 +240,19 @@ export function useCached<T>(
     if (!set) subs.set(key, (set = new Set()));
     set.add(sub);
 
-    if (hit === undefined || ageMs(key) > (opts.maxAgeMs ?? 0)) {
-      refresh(key, () => fetcherRef.current(), optsRef.current)
+    const isStale = hit === undefined || ageMs(key) > maxAge;
+    if (isStale) {
+      refresh(key, () => fetcherRef.current(), { persist: optsRef.current.persist !== false })
+        .then(() => { if (alive) setPending(false); })
         .catch((e) => { if (alive) setError(String((e as Error)?.message || e)); });
     }
     return () => { alive = false; set.delete(sub); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, enabled]);
+  }, [key, enabled, maxAge]);
 
   const revalidate = useCallback(() => {
     if (!enabled) return;
-    refresh(key, () => fetcherRef.current(), optsRef.current)
+    refresh(key, () => fetcherRef.current(), { persist: optsRef.current.persist !== false })
       .catch((e) => setError(String((e as Error)?.message || e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, enabled]);

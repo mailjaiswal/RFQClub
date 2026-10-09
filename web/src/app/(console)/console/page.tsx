@@ -21,7 +21,7 @@ export default function ConsoleDashboard() {
   const { user, isManager } = useConsole();
   // Cached first, verified second: coming back to the dashboard (or bouncing off
   // a lead you just worked) paints the numbers you already saw, then refreshes.
-  const { data, error, pending } = useCached<Summary>(summaryCacheKey(), getSummary);
+  const { data, error, pending } = useCached<Summary>(summaryCacheKey(), getSummary, { persist: true, maxAgeMs: 30_000 });
   const [busy, setBusy] = useState(false);
   const [csvErr, setCsvErr] = useState("");
   const err = error || csvErr;

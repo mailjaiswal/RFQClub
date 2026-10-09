@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session, selectinload
 import config  # noqa: F401  (kept for parity / future allowlist checks)
 import db
 import lead_models as lm
+import mailer
 import models
 import security
 from auth import require_sales, require_sales_manager
@@ -33,6 +34,15 @@ from schemas import (ActivityIn, AssignIn, LeadStatusIn, NextStepIn, TaskIn,
 
 # The router-level gate: require a valid sales token for EVERY route below.
 router = APIRouter(prefix="/api/sales", tags=["sales"], dependencies=[Depends(require_sales)])
+
+
+class SendEmailIn(BaseModel):
+    to_email: str
+    contact_id: int | None = None
+    subject: str
+    body: str
+    template_key: str | None = None
+
 
 
 # ---------------------------------------------------------------------------
@@ -305,6 +315,13 @@ def sales_meta(
 # ---------------------------------------------------------------------------
 # GET /api/sales/summary — dashboard tiles + funnel (rep view) / leaderboard (mgr)
 # ---------------------------------------------------------------------------
+_SUMMARY_CACHE: dict[tuple, tuple[float, dict]] = {}
+
+
+def invalidate_summary_cache() -> None:
+    _SUMMARY_CACHE.clear()
+
+
 def _status_counts(session, owner_id: int | None = None) -> dict[str, int]:
     q = select(lm.Lead.status, func.count()).group_by(lm.Lead.status)
     if owner_id is not None:
@@ -320,6 +337,13 @@ def sales_summary(
 ):
     user = _resolve_act_as(session, user, x_act_as)
     now = datetime.now(timezone.utc)
+    now_ts = now.timestamp()
+    cache_key = (user.id, _is_manager(user), x_act_as)
+    if cache_key in _SUMMARY_CACHE:
+        cached_ts, cached_data = _SUMMARY_CACHE[cache_key]
+        if now_ts - cached_ts < 20.0:  # 20 second TTL
+            return cached_data
+
     active = lm.Lead.excluded_from_sales.is_(False)
 
     def count(*where):
@@ -379,6 +403,7 @@ def sales_summary(
         board = sorted(by_owner.values(), key=lambda x: (-x["onboarded"], -x["in_conversation"]))
         out["leaderboard"] = board
 
+    _SUMMARY_CACHE[cache_key] = (now_ts, out)
     return out
 
 
@@ -511,6 +536,43 @@ def list_leads(
 
 
 # ---------------------------------------------------------------------------
+# GET /api/sales/sync — delta sync: only modified records since last client timestamp
+# ---------------------------------------------------------------------------
+@router.get("/sync")
+def sync_leads(
+    since: str | None = Query(None, description="ISO timestamp of last known state"),
+    limit: int = Query(250, ge=1, le=500),
+    x_act_as: str = Header("", alias="X-Act-As"),
+    session: Session = Depends(db.get_db),
+    user: models.User = Depends(require_sales),
+):
+    """Returns only leads modified on or after `since` (delta).
+    Allows client-side persistent caches to synchronize in <15ms without refetching whole datasets.
+    """
+    user = _resolve_act_as(session, user, x_act_as)
+    is_manager = _is_manager(user)
+    now = datetime.now(timezone.utc)
+
+    query = session.query(lm.Lead).options(
+        selectinload(lm.Lead.company).selectinload(lm.Company.contacts),
+        selectinload(lm.Lead.owner),
+    )
+    if not is_manager:
+        query = query.filter(lm.Lead.owner_id == user.id, lm.Lead.excluded_from_sales.is_(False))
+
+    since_dt = _parse_dt(since)
+    if since_dt:
+        query = query.filter(lm.Lead.updated_at >= since_dt)
+
+    rows = query.order_by(lm.Lead.updated_at.asc()).limit(limit).all()
+    return {
+        "server_time": _iso(now),
+        "count": len(rows),
+        "items": [_lead_row(session, l) for l in rows],
+    }
+
+
+# ---------------------------------------------------------------------------
 # GET /api/sales/leads/{id} — full record: company, contacts, timeline, tasks, script
 # ---------------------------------------------------------------------------
 def _script_out(session, category_key: str, track: str) -> dict | None:
@@ -599,6 +661,7 @@ def _apply_status(session, lead: lm.Lead, to_status: str, note: str, actor: mode
     session.add(lm.LeadStatusHistory(
         lead_id=lead.id, from_status=from_status, to_status=to_status,
         changed_by=actor.id, changed_by_email=actor.email, note=note or ""))
+    invalidate_summary_cache()
 
 
 @router.post("/leads/{lead_id}/status")
@@ -655,8 +718,70 @@ def add_activity(
     if payload.set_status:
         _apply_status(session, lead, payload.set_status, payload.summary[:1000], user)
     session.commit()
+    invalidate_summary_cache()
     return {"ok": True, "activity_id": act.id, "lead_id": lead.id,
             "status": lead.status, "next_action_at": _iso(lead.next_action_at)}
+
+
+# ---------------------------------------------------------------------------
+# POST /api/sales/leads/{id}/email — send 1-on-1 sales outreach & log touchpoint
+# ---------------------------------------------------------------------------
+@router.post("/leads/{lead_id}/email", status_code=200)
+def send_lead_email(
+    lead_id: int,
+    payload: SendEmailIn,
+    session: Session = Depends(db.get_db),
+    user: models.User = Depends(require_sales),
+):
+    lead = session.get(lm.Lead, lead_id)
+    if not lead:
+        raise HTTPException(404, "Lead not found")
+    to_addr = payload.to_email.strip()
+    if not to_addr or "@" not in to_addr:
+        raise HTTPException(422, "Valid recipient email address is required")
+    if not payload.subject.strip():
+        raise HTTPException(422, "Email subject is required")
+    if not payload.body.strip():
+        raise HTTPException(422, "Email body is required")
+
+    try:
+        res = mailer.send_sales_email(
+            to=to_addr,
+            subject=payload.subject.strip(),
+            body_text=payload.body.strip(),
+            from_rep_email=user.email,
+        )
+    except mailer.MailError as exc:
+        raise HTTPException(502, f"Failed to deliver email: {exc}")
+
+    now = datetime.now(timezone.utc)
+    summary_txt = f"Sent email to {to_addr}: {payload.subject.strip()}"
+    act = lm.LeadActivity(
+        lead_id=lead.id,
+        contact_id=payload.contact_id,
+        kind="email",
+        direction="outbound",
+        outcome="email_sent",
+        summary=summary_txt,
+        pain_point="",
+        objection=f"Template: {payload.template_key}" if payload.template_key else "",
+        created_by=user.id,
+        created_by_email=user.email,
+    )
+    session.add(act)
+    lead.last_contacted_at = now
+    lead.followup_count = (lead.followup_count or 0) + 1
+    session.commit()
+    invalidate_summary_cache()
+
+    return {
+        "ok": True,
+        "activity_id": act.id,
+        "to": to_addr,
+        "subject": payload.subject,
+        "notice": res.get("notice", "Email sent"),
+        "sent_at": _iso(act.created_at),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -684,6 +809,7 @@ def add_task(
     if task.due_at and (lead.next_action_at is None or task.due_at < lead.next_action_at):
         lead.next_action_at = task.due_at
     session.commit()
+    invalidate_summary_cache()
     return {"ok": True, "task": _task_out(task)}
 
 
@@ -698,6 +824,7 @@ def complete_task(
     task.status = "done"
     task.completed_at = datetime.now(timezone.utc)
     session.commit()
+    invalidate_summary_cache()
     return {"ok": True, "task": _task_out(task)}
 
 
@@ -715,6 +842,7 @@ def set_next_step(
     lead.next_action_at = _parse_dt(payload.next_action_at)
     lead.next_action_note = payload.next_action_note
     session.commit()
+    invalidate_summary_cache()
     return {"ok": True, "next_action_at": _iso(lead.next_action_at),
             "next_action_note": lead.next_action_note}
 
@@ -761,6 +889,7 @@ def assign_leads(
             changed_by=user.id, changed_by_email=user.email, note=f"assigned -> {label}"))
         changed += 1
     session.commit()
+    invalidate_summary_cache()
     return {"ok": True, "assigned": changed, "owner_id": target_id}
 
 

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useConsole } from "@/components/console/ConsoleApp";
 import { DateTimeField } from "@/components/console/ClockPicker";
 import { StatusPill, fmtDate, relTime, KIND_ICON } from "@/components/console/ui";
+import { EmailComposerModal } from "@/components/console/EmailComposerModal";
 import { useCached } from "@/lib/cache";
 import {
   addActivity, addTask, assignLeads, completeTask, detailKey, getLead, markQueuesStale,
@@ -30,11 +31,14 @@ export default function LeadDetailPage() {
   // paints the whole page with no wait. A cold deep link falls back to the queue
   // row snapshot for the header while the payload streams in.
   const { data: d, error: apiErr, revalidate } = useCached<LeadDetail>(
-    detailKey(id), () => getLead(id), { enabled: !!id },
+    detailKey(id), () => getLead(id), { enabled: !!id, persist: true, maxAgeMs: 60_000 },
   );
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [emailContactId, setEmailContactId] = useState<number | null>(null);
+  const [emailFlash, setEmailFlash] = useState("");
 
   // The next-step fields are held at page level so exactly one control decides
   // when they are persisted, and the sticky bar can say honestly whether anything
@@ -241,6 +245,52 @@ export default function LeadDetailPage() {
   const ownedByMe = !!d.owner_email && d.owner_email.toLowerCase() === (user?.email || "").toLowerCase();
   const canWork = ownedByMe || isManager || !d.owner_email;
 
+  // Follow-up lock mechanism: When opening a lead with an upcoming scheduled touchpoint/meeting,
+  // lock the lead by default and require manual unlock to edit or advance stage.
+  const hasScheduledFollowup = !!d.next_action_at && new Date(d.next_action_at).getTime() > Date.now() - 3600_000;
+  const [unlocked, setUnlocked] = useState(false);
+  useEffect(() => {
+    setUnlocked(false);
+  }, [d.id]);
+
+  const isLocked = hasScheduledFollowup && !unlocked;
+  const canWorkEffective = canWork && !isLocked;
+
+  function openEmailComposer(contactId?: number) {
+    setEmailContactId(contactId ?? null);
+    setEmailModalOpen(true);
+  }
+
+  function handleEmailSent(info: { to: string; subject: string; summary: string }) {
+    const nowIso = new Date().toISOString();
+    const draft: Activity = {
+      id: -Date.now(),
+      kind: "email",
+      direction: "outbound",
+      outcome: "email_sent",
+      summary: info.summary,
+      pain_point: "",
+      objection: "",
+      competitor: "",
+      duration_seconds: null,
+      contact_id: emailContactId,
+      by_email: me,
+      created_at: nowIso,
+    };
+    mutateDetail(id, (cur) => ({
+      ...cur,
+      last_contacted_at: nowIso,
+      followup_count: (cur.followup_count || 0) + 1,
+      activities: [draft, ...cur.activities],
+    }));
+    patchRows(id, {
+      last_contacted_at: nowIso,
+    });
+    setEmailFlash(`✓ Email successfully delivered to ${info.to} and logged to timeline`);
+    setTimeout(() => setEmailFlash(""), 5000);
+    revalidate();
+  }
+
   return (
     <>
       {/* ---- header ---- */}
@@ -248,13 +298,68 @@ export default function LeadDetailPage() {
         <button className="in-btn sm" onClick={goBack}>← Back</button>
         <h1 className="display" style={{ fontSize: 19, margin: 0 }}>{co?.name || "(no name)"}</h1>
         <StatusPill status={d.status} label={d.status_label} />
+        {hasScheduledFollowup && (
+          <button
+            type="button"
+            className={`in-pill ${isLocked ? "st-potential" : "st-onboarded"}`}
+            style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5, border: "none", font: "inherit" }}
+            onClick={() => setUnlocked(!unlocked)}
+            title={isLocked ? "Click to unlock editing" : "Click to re-lock lead"}
+          >
+            <span>{isLocked ? "🔒" : "🔓"}</span>
+            <span>{isLocked ? "Locked" : "Unlocked"}</span>
+          </button>
+        )}
         {d.excluded_from_sales && <span className="in-pill st-dead">out of scope</span>}
         <span className="in-right in-faint" style={{ fontSize: 11 }}>
           {d.track}{co?.hub_city ? ` · ${co.hub_city}` : ""}{d.priority_rank ? ` · priority #${d.priority_rank}` : ""}
         </span>
       </div>
 
+      {emailFlash && (
+        <div className="in-card in-pad in-ok" style={{ marginBottom: 12, background: "rgba(31, 169, 113, 0.08)", border: "1px solid rgba(31, 169, 113, 0.3)" }}>
+          {emailFlash}
+        </div>
+      )}
+
       {(err || apiErr) && <p className="in-err" style={{ marginBottom: 10 }}>{err || apiErr}</p>}
+
+      {/* ---- scheduled follow-up lock banner ---- */}
+      {hasScheduledFollowup && (
+        <div className={`in-card in-pad in-lock-banner ${isLocked ? "is-locked" : "is-unlocked"}`}>
+          <div className="in-lock-left">
+            <div className="in-lock-icon-badge" aria-hidden>
+              {isLocked ? "🔒" : "🔓"}
+            </div>
+            <div>
+              <div className="in-lock-title">
+                <span className="in-lock-tag">{isLocked ? "Lead Locked" : "Lead Unlocked"}</span>
+                <span>Next meeting / follow-up is on <b className="in-lock-date">{fmtDate(d.next_action_at, true)}</b></span>
+                {relTime(d.next_action_at) && <span className="in-lock-rel">({relTime(d.next_action_at)?.text})</span>}
+              </div>
+              {d.next_action_note && (
+                <div className="in-lock-note">
+                  <span>Agenda / Note:</span> {d.next_action_note}
+                </div>
+              )}
+              <div className="in-lock-sub">
+                {isLocked
+                  ? "This lead is locked to protect the scheduled meeting details and pipeline stage. Click Unlock to make changes."
+                  : "Editing is enabled for this session. Remember to re-lock the lead once done."}
+              </div>
+            </div>
+          </div>
+          <div className="in-lock-right">
+            <button
+              type="button"
+              className={`in-btn sm in-lock-btn ${isLocked ? "primary" : ""}`}
+              onClick={() => setUnlocked(!unlocked)}
+            >
+              {isLocked ? "🔓 Unlock to edit" : "🔒 Re-lock lead"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ---- ownership / claim bar ---- */}
       <div className="in-card" style={{ padding: "10px 14px", marginBottom: 14 }}>
@@ -264,6 +369,14 @@ export default function LeadDetailPage() {
             ? <b style={{ color: "var(--txt)" }}>{d.owner_email}</b>
             : <span className="in-faint">unclaimed</span>}
           <div className="in-right in-row in-wrap">
+            <button
+              type="button"
+              className="in-btn sm"
+              onClick={() => openEmailComposer()}
+              title="Compose custom or templated sales outreach email"
+            >
+              ✉ Compose Email
+            </button>
             {!d.owner_email && <button className="in-btn primary sm" disabled={busy} onClick={claimSelf}>Claim to me</button>}
             {ownedByMe && <button className="in-btn sm" disabled={busy} onClick={releaseToPool}>Release to pool</button>}
             {isManager && <AssignControl current={d.owner_email} busy={busy} onAssign={reassign} />}
@@ -273,7 +386,10 @@ export default function LeadDetailPage() {
 
       {/* ---- status stepper ---- */}
       <div className="in-card" style={{ padding: "12px 14px", marginBottom: 14 }}>
-        <div className="in-kind" style={{ marginBottom: 8 }}>Stage</div>
+        <div className="in-row" style={{ marginBottom: 8 }}>
+          <span className="in-kind">Stage</span>
+          {isLocked && <span className="in-faint" style={{ fontSize: 11, marginLeft: "auto" }}>🔒 Locked until unlocked</span>}
+        </div>
         <div className="in-steps">
           {(meta?.stepper || []).map((s) => {
             const order = (meta?.stepper || []).map((x) => x.key);
@@ -282,27 +398,29 @@ export default function LeadDetailPage() {
             const cls = s.key === d.status || (d.status === "qualified" && s.key === "connected") ? "cur"
               : curIdx >= 0 && myIdx >= 0 && myIdx < curIdx ? "done" : "";
             return (
-              <button key={s.key} className={`in-step ${cls}`} disabled={busy || !canWork}
+              <button key={s.key} className={`in-step ${cls}`} disabled={busy || !canWorkEffective}
+                title={isLocked ? "Lead is locked. Click 'Unlock to edit' above to change stage." : undefined}
                 onClick={() => changeStatus(s.key)}>{s.label}</button>
             );
           })}
           <span className="in-faint" style={{ padding: "0 6px" }}>|</span>
           {DEAD_ENDS.map((s) => (
-            <button key={s.key} className={`in-btn sm ${s.cls}`} disabled={busy || !canWork}
+            <button key={s.key} className={`in-btn sm ${s.cls}`} disabled={busy || !canWorkEffective}
+              title={isLocked ? "Lead is locked. Click 'Unlock to edit' above to change stage." : undefined}
               onClick={() => changeStatus(s.key)}>{s.label}</button>
           ))}
         </div>
       </div>
 
       {/* ---- quick actions: one-tap scheduling + one-tap touchpoint logging ---- */}
-      <QuickActions d={d} meta={meta} busy={busy} canWork={canWork}
+      <QuickActions d={d} meta={meta} busy={busy} canWork={canWorkEffective} isLocked={isLocked}
         onSave={saveNextStep} onLog={logActivity} />
 
       <div className="in-detail">
         {/* ================= LEFT COLUMN ================= */}
         <div className="in-col">
           {/* Next step — pinned to the top so the key action is always in view */}
-          <NextStepEditor d={d} busy={busy} canWork={canWork}
+          <NextStepEditor d={d} busy={busy} canWork={canWorkEffective} isLocked={isLocked}
             at={at} note={note} setAt={setAt} setNote={setNote}
             dirty={dirty} onSave={saveNow} onAutoSave={saveNextStep} onDiscard={discardNext} onClear={clearNext} />
 
@@ -316,7 +434,9 @@ export default function LeadDetailPage() {
           <div className="in-card in-pad">
             <div className="in-kind" style={{ marginBottom: 8 }}>Contacts · {d.contacts.length}</div>
             {!d.contacts.length && <p className="in-faint" style={{ margin: 0 }}>No contacts recorded.</p>}
-            {d.contacts.map((c) => <ContactRow key={c.id} c={c} onToggleDnc={handleToggleDnc} />)}
+            {d.contacts.map((c) => (
+              <ContactRow key={c.id} c={c} onToggleDnc={handleToggleDnc} onComposeEmail={openEmailComposer} />
+            ))}
           </div>
 
           {/* Script */}
@@ -333,11 +453,11 @@ export default function LeadDetailPage() {
           {/* Log a touchpoint */}
           <div className="in-card in-pad">
             <div className="in-kind" style={{ marginBottom: 8 }}>Log a touchpoint</div>
-            <ActivityForm d={d} meta={meta} busy={busy} canWork={canWork} onSubmit={logActivity} />
+            <ActivityForm d={d} meta={meta} busy={busy} canWork={canWorkEffective} isLocked={isLocked} onSubmit={logActivity} />
           </div>
 
           {/* Tasks */}
-          <TaskPanel d={d} busy={busy} canWork={canWork}
+          <TaskPanel d={d} busy={busy} canWork={canWorkEffective}
             onAdd={addTaskOpt}
             onComplete={completeTaskOpt} />
 
@@ -371,8 +491,18 @@ export default function LeadDetailPage() {
       </div>
 
       {/* ---- the page's explicit save control ---- */}
-      <SaveBar dirty={dirty} busy={busy} canWork={canWork} savedFlash={savedFlash}
+      <SaveBar dirty={dirty} busy={busy} canWork={canWorkEffective} savedFlash={savedFlash}
         onSave={saveNow} onDiscard={discardNext} />
+
+      {/* ---- inside-sales email composer modal ---- */}
+      {emailModalOpen && (
+        <EmailComposerModal
+          d={d}
+          initialContactId={emailContactId}
+          onClose={() => setEmailModalOpen(false)}
+          onSent={handleEmailSent}
+        />
+      )}
     </>
   );
 }
@@ -424,13 +554,37 @@ function withProto(u: string): string {
 }
 
 // ------------------------------------------------------------------ contacts
-function ContactRow({ c, onToggleDnc }: { c: Contact; onToggleDnc?: (cId: number, nextDnc: boolean) => void }) {
+function ContactRow({
+  c,
+  onToggleDnc,
+  onComposeEmail,
+}: {
+  c: Contact;
+  onToggleDnc?: (cId: number, nextDnc: boolean) => void;
+  onComposeEmail?: (cId: number) => void;
+}) {
   const tel = c.phone_primary || c.phone_secondary;
   const wa = c.whatsapp || tel;
   const actions: React.ReactNode[] = [];
   if (tel && !c.do_not_call) actions.push(<a key="call" className="in-btn sm" href={`tel:${tel}`}>☎ {tel}</a>);
   if (wa && !c.do_not_call) actions.push(<a key="wa" className="in-btn sm" href={`https://wa.me/${digits(wa)}`} target="_blank" rel="noreferrer">✆ WhatsApp</a>);
-  if (c.email) actions.push(<a key="mail" className="in-btn sm" href={`mailto:${c.email}`}>✉ Email</a>);
+  if (c.email) {
+    if (onComposeEmail) {
+      actions.push(
+        <button
+          key="mail-compose"
+          type="button"
+          className="in-btn sm primary"
+          onClick={() => onComposeEmail(c.id)}
+          title={`Send templated email to ${c.email}`}
+        >
+          ✉ Send email
+        </button>
+      );
+    } else {
+      actions.push(<a key="mail" className="in-btn sm" href={`mailto:${c.email}`}>✉ Email</a>);
+    }
+  }
   if (c.do_not_call) actions.push(<span key="dnc" className="in-pill st-dead">do-not-call</span>);
   if (onToggleDnc) {
     actions.push(
@@ -462,8 +616,8 @@ function ContactRow({ c, onToggleDnc }: { c: Contact; onToggleDnc?: (cId: number
 function digits(s: string): string { return (s || "").replace(/\D/g, "").replace(/^0+/, ""); }
 
 // ------------------------------------------------------------------ activity form
-function ActivityForm({ d, meta, busy, canWork, onSubmit }: {
-  d: LeadDetail; meta: ReturnType<typeof useConsole>["meta"]; busy: boolean; canWork: boolean;
+function ActivityForm({ d, meta, busy, canWork, isLocked, onSubmit }: {
+  d: LeadDetail; meta: ReturnType<typeof useConsole>["meta"]; busy: boolean; canWork: boolean; isLocked?: boolean;
   onSubmit: (b: Parameters<typeof addActivity>[1]) => void;
 }) {
   const [kind, setKind] = useState("call");
@@ -476,6 +630,9 @@ function ActivityForm({ d, meta, busy, canWork, onSubmit }: {
   const [nextAt, setNextAt] = useState<string | null>(null);
   const [nextNote, setNextNote] = useState("");
   const [setStatusTo, SetStatusTo] = useState("");
+
+  if (isLocked)
+    return <p className="in-muted" style={{ margin: 0, fontSize: 12 }}>🔒 Touchpoint logging is locked while a follow-up is scheduled. Click &quot;Unlock to edit&quot; above to log activity.</p>;
 
   if (!canWork)
     return <p className="in-faint" style={{ margin: 0 }}>This lead is owned by {d.owner_email}. Only the owner or a manager can log activity.</p>;
@@ -610,8 +767,8 @@ function TaskRow({ t, busy, done, onComplete }: { t: Task; busy: boolean; done?:
 // ------------------------------------------------------------------ next step
 // Controlled from the page: the fields edit a local copy of the stored value and
 // the sticky Save bar (also Ctrl/Cmd+S) is what writes them.
-function NextStepEditor({ d, busy, canWork, at, note, setAt, setNote, dirty, onSave, onAutoSave, onDiscard, onClear }: {
-  d: LeadDetail; busy: boolean; canWork: boolean;
+function NextStepEditor({ d, busy, canWork, isLocked, at, note, setAt, setNote, dirty, onSave, onAutoSave, onDiscard, onClear }: {
+  d: LeadDetail; busy: boolean; canWork: boolean; isLocked?: boolean;
   at: string; note: string; setAt: (v: string) => void; setNote: (v: string) => void;
   dirty: boolean; onSave: () => void;
   onAutoSave: (b: { next_action_at: string | null; next_action_note: string }) => void;
@@ -622,7 +779,8 @@ function NextStepEditor({ d, busy, canWork, at, note, setAt, setNote, dirty, onS
     <div className={`in-card in-pad in-nextstep${dirty ? " dirty" : ""}`}>
       <div className="in-row" style={{ marginBottom: 6 }}>
         <span className="in-kind">Next step</span>
-        {dirty && <span className="in-pill st-potential" style={{ marginLeft: "auto" }}>unsaved</span>}
+        {isLocked && <span className="in-faint" style={{ fontSize: 11, marginLeft: "auto" }}>🔒 Locked</span>}
+        {dirty && !isLocked && <span className="in-pill st-potential" style={{ marginLeft: "auto" }}>unsaved</span>}
       </div>
       {d.next_action_at ? (
         <div className="in-muted" style={{ marginBottom: 8, fontSize: 12 }}>
@@ -630,7 +788,12 @@ function NextStepEditor({ d, busy, canWork, at, note, setAt, setNote, dirty, onS
           {d.next_action_note ? <div className="in-faint" style={{ marginTop: 2 }}>{d.next_action_note}</div> : null}
         </div>
       ) : <div className="in-faint" style={{ marginBottom: 8, fontSize: 12 }}>No next action scheduled.</div>}
-      {canWork && (
+      {isLocked && (
+        <div className="in-muted" style={{ fontSize: 12, padding: "4px 0" }}>
+          🔒 Pinned next step is locked for scheduled meeting. Click &quot;Unlock to edit&quot; above to change schedule.
+        </div>
+      )}
+      {canWork && !isLocked && (
         <div className="in-form">
           <DateTimeField
             value={at}
@@ -736,12 +899,12 @@ const LOG_PRESETS: {
   { label: "Not interested", kind: "call", outcome: "not_interested", summary: "Not interested right now.", stage: "not_interested" },
 ];
 
-function QuickActions({ d, meta, busy, canWork, onSave, onLog }: {
-  d: LeadDetail; meta: SalesMeta | null; busy: boolean; canWork: boolean;
+function QuickActions({ d, meta, busy, canWork, isLocked, onSave, onLog }: {
+  d: LeadDetail; meta: SalesMeta | null; busy: boolean; canWork: boolean; isLocked?: boolean;
   onSave: (b: { next_action_at: string | null; next_action_note: string }) => void;
   onLog: (b: Parameters<typeof addActivity>[1]) => void;
 }) {
-  if (!canWork) return null;
+  if (isLocked || !canWork) return null;
   const note = d.next_action_note || "Follow up";
 
   const slots = [inHours(3), slot(0, 17), slot(1, 10), slot(1, 15), slot(2, 10), slot(3, 10),
