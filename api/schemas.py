@@ -257,3 +257,13 @@ class AiAcceptIn(BaseModel):
     target_rfq_id: int | None = None
     raw_text: str = Field(default="", max_length=20000)     # provenance for drafts
 
+
+class AiTranscribeIn(BaseModel):
+    """A voice note the rep uploaded, base64-encoded. The server transcribes it
+    (Gemini audio, or OpenAI Whisper) and returns plain text so it can be previewed
+    and edited before the usual AI analysis runs on it. `mime`/`filename` only guide
+    the format hint — the model still sees the real audio bytes."""
+    data_base64: str = Field(min_length=1, max_length=20_000_000)
+    mime: str = Field(default="", max_length=100)
+    filename: str = Field(default="", max_length=254)
+

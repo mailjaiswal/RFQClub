@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useConsole } from "@/components/console/ConsoleApp";
 import {
-  aiAccept, aiPreview, aiStatus, createLead, downloadLeadTemplate, fileToBase64,
+  aiAccept, aiPreview, aiStatus, aiTranscribe, createLead, downloadLeadTemplate, fileToBase64,
   importLeadsBase64,
   type AiAnalysis, type AiAcceptResult, type CreateLeadResult, type ImportResult,
   type NewLeadInput, type TeamUser,
@@ -467,6 +467,10 @@ function AiIngestModal({ categories, statuses, tracks, isManager, team, onClose,
   const [fields, setFields] = useState<Record<string, string>>({});
   const [owner, setOwner] = useState("");
   const [result, setResult] = useState<AiAcceptResult | null>(null);
+  const [voiceBusy, setVoiceBusy] = useState(false);
+  const [voiceNote, setVoiceNote] = useState("");
+  const audioRef = useRef<HTMLInputElement | null>(null);
+  const MAX_AUDIO_BYTES = 15 * 1024 * 1024;
 
   useEffect(() => {
     let live = true;
@@ -488,12 +492,13 @@ function AiIngestModal({ categories, statuses, tracks, isManager, team, onClose,
     setFields(next);
   }
 
-  async function preview() {
+  async function preview(src?: string) {
     setErr("");
-    if (!text.trim()) { setErr("Paste some text first."); return; }
+    const body = (src ?? text).trim();
+    if (!body) { setErr("Paste some text first."); return; }
     setBusy(true);
     try {
-      const r = await aiPreview(text.trim());
+      const r = await aiPreview(body);
       setAnalysis(r.analysis);
       const k = r.analysis.kind === "unknown" ? "lead" : r.analysis.kind;
       setKind(k);
@@ -501,6 +506,25 @@ function AiIngestModal({ categories, statuses, tracks, isManager, team, onClose,
       setStep("review");
     } catch (e) { setErr(msg(e)); }
     finally { setBusy(false); }
+  }
+
+  async function transcribeFile(f: File | null) {
+    setErr(""); setVoiceNote("");
+    if (!f) return;
+    const isAudio = (f.type || "").startsWith("audio/") || /\.(mp3|m4a|wav|ogg|oga|opus|webm|aac|flac|amr)$/i.test(f.name);
+    if (!isAudio) { setErr("That file isn't an audio clip (mp3, m4a, wav, ogg, webm…)."); return; }
+    if (f.size > MAX_AUDIO_BYTES) { setErr("That recording is too large — keep it under ~15 minutes / 15 MB."); return; }
+    setVoiceBusy(true);
+    try {
+      const data_base64 = await fileToBase64(f);
+      const r = await aiTranscribe({ data_base64, mime: f.type, filename: f.name });
+      const t = (r.text || "").trim();
+      if (!t) { setErr("I couldn't hear anything usable in that clip — try again, or type it in below."); return; }
+      setText(t);
+      setVoiceNote(`Transcribed from "${f.name}" — check it below, then accept.`);
+      await preview(t);            // go straight into the same preview review
+    } catch (e) { setErr(msg(e)); }
+    finally { setVoiceBusy(false); }
   }
 
   function changeKind(k: string) {
@@ -535,12 +559,12 @@ function AiIngestModal({ categories, statuses, tracks, isManager, team, onClose,
   }
 
   function reset() {
-    setStep("paste"); setText(""); setAnalysis(null); setResult(null); setErr(""); setFields({}); setOwner("");
+    setStep("paste"); setText(""); setAnalysis(null); setResult(null); setErr(""); setFields({}); setOwner(""); setVoiceNote("");
   }
 
   const footer = step === "paste" ? (<>
     <button className="in-btn" onClick={onClose}>Cancel</button>
-    <button className="in-btn primary" onClick={preview} disabled={busy || !text.trim() || configured === false}>
+    <button className="in-btn primary" onClick={() => preview()} disabled={busy || voiceBusy || !text.trim() || configured === false}>
       {busy ? "Analysing…" : "Preview ▸"}</button>
   </>) : step === "review" ? (<>
     <button className="in-btn" onClick={() => setStep("paste")}>‹ Back</button>
@@ -588,6 +612,15 @@ function AiIngestModal({ categories, statuses, tracks, isManager, team, onClose,
             AI ingest is not configured on this server (no model key). Use <b>+ Add lead</b> or
             <b> ⇧ Import</b> instead.</p>
         )}
+        <div className="in-row" style={{ gap: 8, alignItems: "center", marginBottom: 8 }}>
+          <input ref={audioRef} type="file" accept="audio/*" style={{ display: "none" }}
+            onChange={(e) => { transcribeFile(e.target.files?.[0] || null); e.target.value = ""; }} />
+          <button className="in-btn sm" onClick={() => audioRef.current?.click()}
+            disabled={configured === false || voiceBusy || busy}>
+            {voiceBusy ? "Transcribing…" : "🎙 Voice note"}</button>
+          <span className="in-faint" style={{ fontSize: 11 }}>upload a recording, or type / paste text below</span>
+        </div>
+        {voiceNote && <p className="in-ok" style={{ fontSize: 12, margin: "0 0 8px" }}>{voiceNote}</p>}
         <textarea className="in-field" rows={9} value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder={"e.g. Priya from Sharma Precision, Pune — laser cutting, 50 ppl, Rakesh proprietor, +91 90000 12345…"} />

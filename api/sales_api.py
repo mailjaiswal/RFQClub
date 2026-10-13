@@ -33,7 +33,7 @@ import mailer
 import models
 import security
 from auth import require_sales, require_sales_manager
-from schemas import (ActivityIn, AiAcceptIn, AiPreviewIn, AssetCreateIn, AssignIn,
+from schemas import (ActivityIn, AiAcceptIn, AiPreviewIn, AiTranscribeIn, AssetCreateIn, AssignIn,
                      LeadCreateIn, LeadImportIn, LeadStatusIn, NextStepIn, TaskIn,
                      TeamCreateIn, TeamPasswordIn, TeamRoleIn, TeamStatusIn)
 
@@ -1933,6 +1933,30 @@ def ai_ingest_preview(
     analysis = _ai_enrich(session, analysis)
     analysis["source_text"] = text[:4000]
     return {"ok": True, "analysis": analysis}
+
+
+@router.post("/leads/ai/transcribe")
+def ai_ingest_transcribe(
+    payload: AiTranscribeIn,
+    user: models.User = Depends(require_sales),
+):
+    """Turn an uploaded voice note into transcript text, so the SAME preview/accept
+    flow that handles a pasted note can run on it. Returns text only — writes nothing;
+    the rep still confirms via /leads/ai/accept."""
+    import ai_ingest
+    if not ai_ingest.available():
+        raise HTTPException(503,
+            "AI ingestion is not configured on this server. Set GEMINI_API_KEY "
+            "(or the LLM_* fallback) to enable voice notes.")
+    try:
+        text = ai_ingest.transcribe(payload.data_base64, payload.mime, payload.filename)
+    except ValueError as exc:                       # bad/empty/too-large upload
+        raise HTTPException(422, str(exc))
+    except Exception as exc:                        # engine could not answer
+        raise HTTPException(502,
+            f"The AI could not transcribe that clip ({str(exc)[:160]}). Try again.")
+    text = (text or "").strip()
+    return {"ok": True, "text": text[: ai_ingest.MAX_TEXT_CHARS], "chars": len(text)}
 
 
 def _ai_sectors() -> dict:

@@ -514,4 +514,9 @@ export const aiAccept = (body: {
   summary?: string; owner_email?: string; target_rfq_id?: number | null; raw_text?: string;
 }) => req<AiAcceptResult>("/api/sales/leads/ai/accept", { method: "POST", body: JSON.stringify(body) });
 
+export interface AiTranscribeResult { ok: boolean; text: string; chars: number }
+
+export const aiTranscribe = (body: { data_base64: string; mime?: string; filename?: string }) =>
+  req<AiTranscribeResult>("/api/sales/leads/ai/transcribe", { method: "POST", body: JSON.stringify(body) });
+
 

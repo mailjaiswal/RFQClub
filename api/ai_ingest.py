@@ -254,6 +254,131 @@ def analyze(text: str, categories: list[dict], sectors: list[dict]) -> dict:
     return normalize_analysis(data, model=model)
 
 
+# ---- voice-note transcription (multimodal) --------------------------------
+# A rep can upload an audio note instead of typing. Gemini understands audio
+# directly (inline_data), so we ask it to transcribe the clip VERBATIM; the text
+# then flows through the SAME preview/accept pipeline as a pasted note. An
+# OpenAI-compatible provider uses its Whisper endpoint as the fallback.
+
+MAX_AUDIO_BYTES = 15 * 1024 * 1024  # ~15MB raw audio; a few minutes of speech
+
+_AUDIO_PROMPT = (
+    "Transcribe this voice note VERBATIM into plain text. Preserve every number, "
+    "name, phone, price, quantity, currency, company and place exactly as spoken. "
+    "If the speaker mixes Hindi and English, keep the words as spoken (do not "
+    "translate). Do NOT summarise, reorder, comment, or add anything — output ONLY "
+    "the transcript."
+)
+
+_AUDIO_EXT = {
+    "mp3": "audio/mp3", "m4a": "audio/m4a", "wav": "audio/wav",
+    "ogg": "audio/ogg", "oga": "audio/ogg", "opus": "audio/ogg",
+    "webm": "audio/webm", "aac": "audio/aac", "flac": "audio/flac",
+    "amr": "audio/amr", "mp4": "audio/mp4",
+}
+
+
+def _audio_mime(mime: str, filename: str) -> str:
+    m = (mime or "").split(";")[0].strip().lower()
+    if m.startswith("audio/"):
+        return m
+    ext = (filename or "").rsplit(".", 1)[-1].lower()
+    return _AUDIO_EXT.get(ext, "audio/mp3")
+
+
+def _transcribe_gemini(audio_b64: str, mime: str) -> str:
+    payload = {
+        "contents": [{"role": "user", "parts": [
+            {"inline_data": {"mime_type": mime, "data": audio_b64}},
+            {"text": _AUDIO_PROMPT},
+        ]}],
+        "generationConfig": {
+            "temperature": 0.0,
+            "maxOutputTokens": 8192,
+            "thinkingConfig": {"thinkingBudget": 512},
+        },
+    }
+    headers = {"x-goog-api-key": gemini_key(), "Content-Type": "application/json"}
+    last = "unknown"
+    for model in _model_order():
+        for attempt in range(3):
+            try:
+                r = httpx.post(
+                    f"{GEMINI_BASE}/models/{model}:generateContent",
+                    headers=headers, json=payload, timeout=90)
+            except httpx.RequestError as exc:
+                last = str(exc)
+                continue
+            if r.status_code == 200:
+                cand = (r.json().get("candidates") or [{}])[0]
+                parts = (cand.get("content") or {}).get("parts") or []
+                out = "".join(p.get("text", "") for p in parts).strip()
+                finish = cand.get("finishReason")
+                # A clean STOP (even empty = silence) is a valid result; only a
+                # truncated/empty MAX_TOKENS reply is worth retrying on the next model.
+                if out or finish == "STOP":
+                    _state["preferred"] = model
+                    _state["cool"].pop(model, None)
+                    return out
+                last = f"empty (finishReason={finish})"
+                break
+            if r.status_code == 429:
+                last = "429 rate limited"
+                if attempt < 2:
+                    time.sleep(3 * (attempt + 1))
+                    continue
+                _state["cool"][model] = time.time() + _Cool_SECONDS
+                break
+            if r.status_code in (500, 502, 503, 504):
+                last = f"{r.status_code}: {r.text[:150]}"
+                if attempt < 2:
+                    time.sleep(1.5 * (attempt + 1))
+                    continue
+                break
+            last = f"{r.status_code}: {r.text[:150]}"
+            break
+    raise RuntimeError(f"Gemini audio request failed — {last}")
+
+
+def _transcribe_openai(audio_bytes: bytes, mime: str, filename: str) -> str:
+    model = getattr(config, "LLM_TRANSCRIBE_MODEL", "whisper-1")
+    name = filename or "note.mp3"
+    r = httpx.post(
+        "https://api.openai.com/v1/audio/transcriptions",
+        headers={"Authorization": f"Bearer {config.LLM_API_KEY}"},
+        files={"file": (name, audio_bytes, mime)},
+        data={"model": model},
+        timeout=90,
+    )
+    r.raise_for_status()
+    return (r.json().get("text") or "").strip()
+
+
+def transcribe(audio_b64: str, mime: str = "", filename: str = "") -> str:
+    """Turn a base64 audio clip into transcript text. Raises ValueError for a bad
+    upload (caller maps to 422) or RuntimeError when no engine can answer (502)."""
+    import base64 as _b64
+    raw = (audio_b64 or "").strip()
+    if raw.startswith("data:") and "," in raw:      # tolerate a full data URL
+        raw = raw.split(",", 1)[1]
+    try:
+        audio_bytes = _b64.b64decode(raw)
+    except Exception:
+        raise ValueError("The audio upload could not be decoded.")
+    if not audio_bytes:
+        raise ValueError("The recording was empty.")
+    if len(audio_bytes) > MAX_AUDIO_BYTES:
+        raise ValueError("The recording is too large (keep it under ~15 MB).")
+    m = _audio_mime(mime, filename)
+    if gemini_key():
+        text = _transcribe_gemini(raw, m)
+    elif openai_ready():
+        text = _transcribe_openai(audio_bytes, m, filename)
+    else:
+        raise RuntimeError("no AI engine configured")
+    return text.strip()
+
+
 # ---- normalisation (server never trusts the model's shape) ----------------
 
 _KINDS = ("lead", "rfq", "supplier_quote", "unknown")
