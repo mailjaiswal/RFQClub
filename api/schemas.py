@@ -176,3 +176,84 @@ class TeamStatusIn(BaseModel):
 class TeamRoleIn(BaseModel):
     email: str
     role: str                    # sales | sales_manager
+
+
+# ---- Inside-sales console: rep-created leads + bulk import (see sales_api) ----
+class LeadCreateIn(BaseModel):
+    """One new company + its primary contact + its lead, entered by a rep.
+    `company` and `category` are required; everything else is optional. On a
+    name that normalises to an existing company the row MERGES (contact/lead are
+    added if missing) rather than duplicating. `owner_email` is honoured only for
+    a manager/owner; a plain rep always owns what they create."""
+    company: str = Field(min_length=1, max_length=200)
+    category: str = Field(default="", max_length=60)   # category key or label
+    legal_name: str = Field(default="", max_length=200)
+    track: str = Field(default="", max_length=20)       # "" => category default
+    city: str = Field(default="", max_length=120)
+    country: str = Field(default="India", max_length=80)
+    address: str = Field(default="", max_length=1000)
+    website: str = Field(default="", max_length=300)
+    linkedin_url: str = Field(default="", max_length=300)
+    gmb_link: str = Field(default="", max_length=300)
+    gst: str = Field(default="", max_length=40)
+    cin: str = Field(default="", max_length=40)
+    size_band: str = Field(default="", max_length=40)
+    what_they_do: str = Field(default="", max_length=1000)
+    contact_name: str = Field(default="", max_length=200)
+    designation: str = Field(default="", max_length=200)
+    email: str = Field(default="", max_length=200)
+    phone_primary: str = Field(default="", max_length=60)
+    phone_secondary: str = Field(default="", max_length=60)
+    whatsapp: str = Field(default="", max_length=60)
+    decision_maker: bool | None = None
+    status: str = Field(default="", max_length=40)       # "" => uncontacted
+    notes: str = Field(default="", max_length=2000)
+    owner_email: str = Field(default="", max_length=254)
+
+
+class LeadImportIn(BaseModel):
+    """Bulk add from a filled template. Provide EITHER a `data_base64` file
+    (CSV or XLSX, `fmt` inferred from `filename` when blank) OR an inline `rows`
+    list (already-parsed objects keyed like LeadCreateIn). Same merge semantics
+    as a single create; the caller never needs multipart file upload."""
+    filename: str = Field(default="", max_length=300)
+    fmt: str = Field(default="", max_length=10)          # csv | xlsx ("" => infer)
+    data_base64: str = Field(default="", max_length=12_000_000)
+    rows: list[dict] | None = None
+    owner_email: str = Field(default="", max_length=254)  # manager-only target rep
+
+
+# ---- Inside-sales console: Useful Assets library (reference files) ----
+class AssetCreateIn(BaseModel):
+    """Upload a reference file. The bytes ride in as base64 (the hosted app has
+    no persistent disk, so they are stored in the row). Size is capped in the
+    router (ASSET_MAX_BYTES)."""
+    title: str = Field(min_length=1, max_length=200)
+    category: str = Field(default="General", max_length=80)
+    description: str = Field(default="", max_length=2000)
+    filename: str = Field(min_length=1, max_length=300)
+    content_type: str = Field(default="", max_length=120)
+    data_base64: str = Field(min_length=1, max_length=14_000_000)
+
+
+# ---- Inside-sales console: AI "paste anything" ingestion ----
+class AiPreviewIn(BaseModel):
+    """The raw text a rep pastes. The server sends it to the model and returns an
+    analysis (kind + structured record + a plain-English summary) for PREVIEW; it
+    writes nothing until the rep confirms via AiAcceptIn."""
+    text: str = Field(min_length=1, max_length=20000)
+
+
+class AiAcceptIn(BaseModel):
+    """Accept the analysis the rep just saw (optionally hand-edited). `record` is
+    the flat field dict the AI produced for the chosen `kind`; the router
+    re-validates every key against the real columns and never trusts this payload
+    blindly. `owner_email` routes a lead to a specific rep (manager only).
+    `target_rfq_id` lets a rep pin a supplier quote to a specific RFQ as a bid."""
+    kind: str = Field(min_length=1, max_length=24)          # lead | rfq | supplier_quote
+    record: dict = Field(default_factory=dict)
+    summary: str = Field(default="", max_length=400)
+    owner_email: str = Field(default="", max_length=254)
+    target_rfq_id: int | None = None
+    raw_text: str = Field(default="", max_length=20000)     # provenance for drafts
+

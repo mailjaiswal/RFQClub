@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useConsole } from "@/components/console/ConsoleApp";
 import { StatusPill, fmtDate, relTime } from "@/components/console/ui";
+import { LeadTools } from "@/components/console/LeadTools";
 import { useCached } from "@/lib/cache";
 import {
   assignLeads, dropRows, getLeads, getTeam, markQueuesStale, patchRows, prefetchLead,
@@ -188,6 +189,10 @@ function Queue() {
     revalidate();
   }
 
+  // A lead was just created/imported from the toolbar: drop the cached queues so
+  // the new rows (which land in "mine" or the chosen owner's book) paint now.
+  const refreshQueue = useCallback(() => { markQueuesStale(); revalidate(); }, [revalidate]);
+
   const activeView = VIEWS.find((v) => v.key === view && (!v.mgr || isManager)) ? view : "mine";
 
   // Hovering a row warms both halves of the next screen: the route payload (Next
@@ -280,6 +285,9 @@ function Queue() {
           <a key={v.key} className={`in-step${activeView === v.key ? " cur" : ""}`}
             onClick={() => setParam({ view: v.key })}>{v.label}</a>
         ))}
+        <div style={{ marginLeft: "auto" }}>
+          <LeadTools team={team} onChanged={refreshQueue} />
+        </div>
       </div>
 
       <div className="in-filterbar">

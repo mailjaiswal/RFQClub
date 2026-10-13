@@ -15,8 +15,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    String, Integer, Float, Boolean, DateTime, Text, JSON, ForeignKey,
-    UniqueConstraint, Index,
+    String, Integer, Float, Boolean, DateTime, Text, JSON, LargeBinary,
+    ForeignKey, UniqueConstraint, Index,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -450,3 +450,39 @@ class ImportBatch(Base):
     dry_run: Mapped[bool] = mapped_column(Boolean, default=False)
     run_by: Mapped[str] = mapped_column(String, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class UsefulAsset(Base):
+    """A reference file the inside-sales team keeps in the console ("Useful
+    assets"): call scripts, email templates, objection sheets, brochures.
+
+    The bytes live IN THE ROW, not on disk. The API is hosted on Render's free
+    tier, whose filesystem is ephemeral (wiped on every redeploy), so a file
+    written to a folder would vanish while its DB row survived - a download that
+    404s is worse than no upload button. `data` is a BYTEA on Postgres and a BLOB
+    on SQLite, so the same column works on both. Reference documents are small,
+    so we cap them (see sales_api.ASSET_MAX_BYTES) to keep the shared DB sane.
+
+    Access: every console member can list + download; the uploader OR a
+    manager/owner may delete (enforced in the router, not the schema)."""
+    __tablename__ = "useful_asset"
+    __table_args__ = (
+        Index("ix_useful_asset_category", "category"),
+        Index("ix_useful_asset_created_at", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(String, default="")
+    # A soft grouping label ("Call script", "Email template", "One-pager", ...) -
+    # free text so a new kind of reference needs no schema change.
+    category: Mapped[str] = mapped_column(String, default="General")
+    description: Mapped[str] = mapped_column(Text, default="")
+    filename: Mapped[str] = mapped_column(String, default="")
+    content_type: Mapped[str] = mapped_column(String, default="application/octet-stream")
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    uploaded_by: Mapped[int | None] = mapped_column(ForeignKey("user.id"), nullable=True)
+    uploaded_by_email: Mapped[str] = mapped_column(String, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)

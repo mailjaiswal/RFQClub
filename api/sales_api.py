@@ -15,8 +15,12 @@ in lead_models.py, keeping the two lifecycles separate.
 """
 from __future__ import annotations
 
+import base64
+import csv
+import io
 from datetime import date, datetime, timedelta, timezone
 
+import openpyxl
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 from pydantic import BaseModel
 from sqlalchemy import func, or_, select
@@ -29,8 +33,16 @@ import mailer
 import models
 import security
 from auth import require_sales, require_sales_manager
-from schemas import (ActivityIn, AssignIn, LeadStatusIn, NextStepIn, TaskIn,
+from schemas import (ActivityIn, AiAcceptIn, AiPreviewIn, AssetCreateIn, AssignIn,
+                     LeadCreateIn, LeadImportIn, LeadStatusIn, NextStepIn, TaskIn,
                      TeamCreateIn, TeamPasswordIn, TeamRoleIn, TeamStatusIn)
+
+# Reuse the EXACT dedupe / classification helpers the workbook importer uses, so a
+# rep-entered lead normalises and maps identically to a bulk-imported one. Importing
+# this module is side-effect free (its CLI is `__main__`-guarded) and it also makes
+# the pipeline taxonomy (`rc`) available without re-adding sys.path here.
+from import_leads import (best_channel, clean_text, is_decision_maker,
+                          norm_name, parse_address, rc)
 
 # The router-level gate: require a valid sales token for EVERY route below.
 router = APIRouter(prefix="/api/sales", tags=["sales"], dependencies=[Depends(require_sales)])
@@ -1265,3 +1277,798 @@ def set_contact_dnc(
     c.updated_at = lm._utcnow()
     session.commit()
     return {"contact_id": c.id, "do_not_call": c.do_not_call}
+
+
+# ===========================================================================
+# Rep-created leads + bulk import
+# ---------------------------------------------------------------------------
+# A rep can add a company the pipeline never harvested, straight from the queue.
+# Everything below reuses the workbook importer's helpers (norm_name /
+# is_decision_maker / best_channel / parse_address) so a hand-typed lead is
+# normalised, de-duplicated and classified EXACTLY like a bulk-imported one - the
+# console must never mint a second, subtly-different copy of a company.
+# ===========================================================================
+ASSET_MAX_BYTES = 8 * 1024 * 1024          # 8 MB cap on a reference file
+IMPORT_MAX_ROWS = 2000                       # rows per bulk upload
+CATEGORY_BY_LABEL = {c["label"].lower(): k for k, c in rc.CATEGORIES.items()}
+
+
+def _resolve_category(raw: str) -> str:
+    """A category cell may carry the key ('sheet_metal') or the label
+    ('Sheet Metal & Fabrication'). Returns "" for blank/unknown."""
+    s = clean_text(raw)
+    if not s:
+        return ""
+    if s in rc.CATEGORIES:
+        return s
+    return CATEGORY_BY_LABEL.get(s.lower(), "")
+
+
+def _parse_yn(raw) -> bool | None:
+    s = clean_text(raw).lower()
+    if s in ("y", "yes", "true", "1", "1.0"):
+        return True
+    if s in ("n", "no", "false", "0", "0.0"):
+        return False
+    return None
+
+
+def _resolve_owner_id(session, creator: models.User, owner_email: str, is_mgr: bool) -> tuple[int, str]:
+    """A manager/owner may route new leads to a specific rep via owner_email; a
+    plain rep always owns what they add (their owner_email is ignored)."""
+    target = clean_text(owner_email).lower()
+    if is_mgr and target:
+        ouid = session.scalar(
+            select(models.User.id).where(func.lower(models.User.email) == target))
+        if not ouid:
+            raise HTTPException(404, f"No inside-sales account with email {owner_email}")
+        return ouid, target
+    return creator.id, (creator.email or "").lower()
+
+
+def _create_lead_row(session, fld: dict, owner_id: int, owner_label: str,
+                     added_by: str) -> dict:
+    """Create-or-merge one company + primary contact + lead from a flat field dict.
+    Commits nothing itself - the caller commits. Raises nothing; returns a result
+    dict with `ok` False + `reason` when the row is unusable, so a bulk import can
+    collect per-row outcomes."""
+    name = clean_text(fld.get("company") or fld.get("name"))
+    nn = norm_name(name)
+    if not nn:
+        return {"ok": False, "company": name, "reason": "no company name"}
+
+    cat_raw = clean_text(fld.get("category"))
+    cat_key = _resolve_category(cat_raw)
+    # An unrecognised (but non-blank) category is rejected rather than silently
+    # dropped - a mislabelled sector misdirects the call script a rep will use.
+    if cat_raw and not cat_key:
+        return {"ok": False, "company": name,
+                "reason": f"unknown category '{cat_raw}' (see the Categories sheet)"}
+
+    track = clean_text(fld.get("track")).lower()
+    if track not in ("supplier", "buyer"):
+        track = rc.CATEGORIES.get(cat_key, {}).get("default_track", "supplier")
+
+    status = clean_text(fld.get("status")).lower()
+    if status not in lm.STATUSES:
+        status = lm.DEFAULT_STATUS
+
+    country = clean_text(fld.get("country")) or "India"
+    website = clean_text(fld.get("website"))
+    address = clean_text(fld.get("address"))
+    hub_city = clean_text(fld.get("city") or fld.get("hub_city"))
+    what = clean_text(fld.get("what_they_do") or fld.get("what_they_make"))
+    if address and not what:
+        what, _band = parse_address(address)
+
+    company = session.scalar(select(lm.Company).where(lm.Company.name_norm == nn))
+    merged = company is not None
+    if company is None:
+        company = lm.Company(
+            name=name, name_norm=nn,
+            legal_name=clean_text(fld.get("legal_name")),
+            website=website, gmb_link=clean_text(fld.get("gmb_link")),
+            linkedin_url=clean_text(fld.get("linkedin_url")),
+            country=country, hub_city=hub_city, address=address,
+            what_they_do=what, size_band=clean_text(fld.get("size_band")),
+            gst=clean_text(fld.get("gst")), cin=clean_text(fld.get("cin")),
+            category_primary=cat_key,
+            category_tags=[cat_key] if cat_key else [],
+            category_tier=rc.CATEGORIES.get(cat_key, {}).get("tier", 2),
+            # Honest provenance: a rep's self-reported sector is NOT research, so it
+            # carries no "Researched override" source and is never badged verified.
+            category_source="Rep entry",
+            category_confidence="self-reported",
+            source_system="console",
+            source_note=clean_text(fld.get("notes")),
+            enrichment_status="raw",
+        )
+        session.add(company)
+        session.flush()  # assign company.id for the contact/lead FK below
+    else:
+        # Merge: fill only blanks, never overwrite data a pipeline or a rep already
+        # established. The incoming note is appended, not clobbered.
+        incoming = {
+            "legal_name": clean_text(fld.get("legal_name")), "website": website,
+            "gmb_link": clean_text(fld.get("gmb_link")),
+            "linkedin_url": clean_text(fld.get("linkedin_url")),
+            "hub_city": hub_city, "address": address, "what_they_do": what,
+            "size_band": clean_text(fld.get("size_band")),
+            "gst": clean_text(fld.get("gst")), "cin": clean_text(fld.get("cin")),
+        }
+        if not company.country:
+            incoming["country"] = country
+        if cat_key and not company.category_primary:
+            incoming.update(category_primary=cat_key,
+                            category_source="Rep entry",
+                            category_confidence="self-reported")
+        for k, v in incoming.items():
+            if v and not getattr(company, k, ""):
+                setattr(company, k, v)
+        note = clean_text(fld.get("notes"))
+        if note:
+            company.source_note = (company.source_note + " | " if company.source_note else "") + note
+        session.flush()
+
+    # --- primary contact (added only if at least one channel/name is present) ---
+    con_name = clean_text(fld.get("contact_name") or fld.get("name_person"))
+    phone = clean_text(fld.get("phone_primary") or fld.get("phone"))
+    phone2 = clean_text(fld.get("phone_secondary") or fld.get("phone2"))
+    email = clean_text(fld.get("email"))
+    wa = clean_text(fld.get("whatsapp"))
+    contact_created = False
+    if any((con_name, phone, phone2, email, wa)):
+        desig = clean_text(fld.get("designation"))
+        dm = fld.get("decision_maker")
+        dm = _parse_yn(dm) if isinstance(dm, str) else dm
+        if dm is None:
+            dm = is_decision_maker(desig)
+        existing_con = session.scalar(
+            select(lm.Contact).where(
+                lm.Contact.company_id == company.id,
+                lm.Contact.full_name == con_name,
+                lm.Contact.phone_primary == phone))
+        if existing_con is None:
+            has_primary = session.scalar(
+                select(func.count()).select_from(lm.Contact)
+                .where(lm.Contact.company_id == company.id, lm.Contact.is_primary.is_(True)))
+            contact = lm.Contact(
+                company_id=company.id, full_name=con_name, designation=desig,
+                decision_maker=bool(dm), email=email, phone_primary=phone,
+                phone_secondary=phone2, whatsapp=wa,
+                preferred_channel=best_channel(phone, wa, email),
+                is_primary=not has_primary)
+            session.add(contact)
+            contact_created = True
+
+    # --- the lead itself (one per company+track) ---
+    lead = session.scalar(select(lm.Lead).where(
+        lm.Lead.company_id == company.id, lm.Lead.track == track))
+    lead_created = lead is None
+    if lead is None:
+        lead = lm.Lead(
+            company_id=company.id, track=track, status=status,
+            owner_id=owner_id, source="console",
+            source_note=f"added by {added_by}")
+        session.add(lead)
+        session.flush()
+        session.add(lm.LeadStatusHistory(
+            lead_id=lead.id, from_status="", to_status=status,
+            changed_by=None, changed_by_email=owner_label,
+            note="created via console"))
+    invalidate_summary_cache()
+    return {"ok": True, "merged": merged, "company": company.name,
+            "company_id": company.id, "lead_id": lead.id,
+            "lead_created": lead_created, "contact_created": contact_created}
+
+
+# The columns a rep fills in. `header` is what shows in row 1 of the template;
+# `key` is the field name the create logic reads. A pasted sheet can use EITHER
+# (parsing matches both), so the template round-trips however the rep edits it.
+IMPORT_COLUMNS = [
+    ("Company*", "company", True),
+    ("Category*", "category", True),
+    ("Legal name", "legal_name", False),
+    ("Track", "track", False),
+    ("City", "city", False),
+    ("Country", "country", False),
+    ("Address", "address", False),
+    ("Website", "website", False),
+    ("LinkedIn", "linkedin_url", False),
+    ("GST", "gst", False),
+    ("CIN", "cin", False),
+    ("Size band", "size_band", False),
+    ("What they make", "what_they_do", False),
+    ("Contact name", "contact_name", False),
+    ("Designation", "designation", False),
+    ("Email", "email", False),
+    ("Phone 1", "phone_primary", False),
+    ("Phone 2", "phone_secondary", False),
+    ("WhatsApp", "whatsapp", False),
+    ("Decision maker (Y/N)", "decision_maker", False),
+    ("Status", "status", False),
+    ("Owner email", "owner_email", False),
+    ("Notes", "notes", False),
+]
+TEMPLATE_HEADERS = [h for h, _, _ in IMPORT_COLUMNS]
+_TEMPLATE_SAMPLE = [
+    "Sharma Precision Works", "Sheet Metal & Fabrication", "", "supplier",
+    "Pune", "India", "Gala 12, MIDC Bhosari, Pune 411026", "https://example.in",
+    "", "", "", "50-100", "Laser cutting & press-brake parts", "Rakesh Sharma",
+    "Proprietor", "sales@example.in", "+91 90000 00000", "", "+91 90000 00000",
+    "Y", "uncontacted", "", "Entered from the sample row - overwrite it",
+]
+
+
+def _template_cell_map(row_cells: dict) -> dict:
+    """Map a spreadsheet/CSV row (header -> value) onto create-logic keys. Matches
+    readable header, the raw key, or the key with the '*' stripped."""
+    lookup = {}
+    for header, key, _req in IMPORT_COLUMNS:
+        norm = header.strip().lower().rstrip("*").strip()
+        lookup[norm] = key
+        lookup[key.strip().lower()] = key
+    out: dict[str, str] = {}
+    for raw_head, value in row_cells.items():
+        k = lookup.get(clean_text(raw_head).lower().rstrip("*").strip())
+        if k:
+            out[k] = value if isinstance(value, str) else ("" if value is None else str(value))
+    return out
+
+
+@router.get("/leads/template")
+def download_lead_template(
+    fmt: str = Query("csv", pattern="^(csv|xlsx)$"),
+    user: models.User = Depends(require_sales),
+):
+    """Blank (well, one sample row) import template in the format the rep asks for."""
+    stamp = f"{datetime.now(timezone.utc):%Y%m%d_%H%M}"
+    if fmt == "csv":
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        w.writerow(TEMPLATE_HEADERS)
+        w.writerow(_TEMPLATE_SAMPLE)
+        body = buf.getvalue().encode("utf-8-sig")  # BOM so Excel opens UTF-8 cleanly
+        return Response(content=body, media_type="text/csv; charset=utf-8",
+                        headers={"Content-Disposition": f'attachment; filename="rfqclub_lead_template_{stamp}.csv"'})
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Leads"
+    ws.append(TEMPLATE_HEADERS)
+    ws.append(_TEMPLATE_SAMPLE)
+    for i, cell in enumerate(ws[1], start=1):
+        cell.font = openpyxl.styles.Font(bold=True)
+        cell.fill = openpyxl.styles.PatternFill("solid", fgColor="EDE7DD")
+        try:
+            ws.column_dimensions[cell.column_letter].width = max(14, len(str(cell.value)) + 4)
+        except Exception:
+            pass
+    # A reference sheet so the rep can pick a valid category rather than guess.
+    ref = wb.create_sheet("Categories & Statuses")
+    ref.append(["Category key", "Category label"])
+    for k, c in rc.CATEGORIES.items():
+        ref.append([k, c["label"]])
+    ref.append([])
+    ref.append(["Status key", "Meaning"])
+    for s in lm.STATUSES:
+        ref.append([s, STATUS_LABELS.get(s, s)])
+    ref.append([])
+    ref.append(["Notes", "Company and Category are required. Category must be a key or label above. "
+                         "A row whose company already exists is merged, never duplicated."])
+    bio = io.BytesIO()
+    wb.save(bio)
+    return Response(content=bio.getvalue(),
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="rfqclub_lead_template_{stamp}.xlsx"'})
+
+
+@router.post("/leads/new", status_code=201)
+def create_lead(
+    payload: LeadCreateIn, session: Session = Depends(db.get_db),
+    user: models.User = Depends(require_sales),
+):
+    owner_id, owner_label = _resolve_owner_id(
+        session, user, payload.owner_email, _is_manager(user))
+    res = _create_lead_row(session, payload.model_dump(), owner_id, owner_label,
+                           added_by=(user.email or "").lower())
+    if not res.get("ok"):
+        session.rollback()
+        raise HTTPException(422, res.get("reason") or "Could not create the lead")
+    session.commit()
+    return res
+
+
+@router.post("/leads/import")
+def import_leads_file(
+    payload: LeadImportIn, session: Session = Depends(db.get_db),
+    user: models.User = Depends(require_sales),
+):
+    """Bulk add from a filled template (CSV/XLSX as base64) or an inline rows list.
+    Same merge semantics per row; each valid row commits independently so one bad
+    line never rolls back the good ones."""
+    is_mgr = _is_manager(user)
+    rows: list[dict] = []
+    if payload.data_base64:
+        try:
+            raw = base64.b64decode(payload.data_base64)
+        except Exception:
+            raise HTTPException(422, "data_base64 is not valid base64")
+        ext = (payload.fmt or "").strip().lower()
+        if not ext:
+            ext = "xlsx" if payload.filename.lower().endswith(".xlsx") else "csv"
+        if ext == "xlsx":
+            try:
+                wb = openpyxl.load_workbook(io.BytesIO(raw), read_only=True, data_only=True)
+            except Exception:
+                raise HTTPException(422, "Could not read that .xlsx file")
+            ws = wb["Leads"] if "Leads" in wb.sheetnames else wb.active
+            it = ws.iter_rows(values_only=True)
+            hdr = [clean_text(h) for h in next(it, ())]
+            for r in it:
+                if r is None or all(v in (None, "") for v in r):
+                    continue
+                cells = {hdr[i]: r[i] for i in range(min(len(hdr), len(r)))}
+                rows.append(_template_cell_map(cells))
+            wb.close()
+        else:
+            text = raw.decode("utf-8-sig", errors="replace")
+            reader = csv.DictReader(io.StringIO(text))
+            for r in reader:
+                if not any((v or "").strip() for v in r.values()):
+                    continue
+                rows.append(_template_cell_map(r))
+    elif payload.rows:
+        rows = [dict(r) for r in payload.rows]
+    else:
+        raise HTTPException(422, "Provide a file (data_base64) or a rows list")
+
+    if not rows:
+        raise HTTPException(422, "No data rows found in that file")
+    if len(rows) > IMPORT_MAX_ROWS:
+        raise HTTPException(422, f"Too many rows ({len(rows)}); split into batches of {IMPORT_MAX_ROWS}")
+
+    default_owner = payload.owner_email
+    created = merged = leads_created = contacts_created = 0
+    rejected: list[dict] = []
+    for idx, fld in enumerate(rows, start=1):
+        row_owner_email = clean_text(fld.get("owner_email")) or default_owner
+        try:
+            owner_id, owner_label = _resolve_owner_id(session, user, row_owner_email, is_mgr)
+            res = _create_lead_row(session, fld, owner_id, owner_label,
+                                   added_by=(user.email or "").lower())
+        except HTTPException as exc:  # e.g. unknown owner email on one row
+            session.rollback()
+            rejected.append({"row": idx, "company": clean_text(fld.get("company")),
+                             "reason": str(exc.detail)})
+            continue
+        if not res.get("ok"):
+            session.rollback()
+            rejected.append({"row": idx, "company": res.get("company", ""),
+                             "reason": res.get("reason", "rejected")})
+            continue
+        session.commit()
+        created += 0 if res["merged"] else 1
+        merged += 1 if res["merged"] else 0
+        leads_created += 1 if res["lead_created"] else 0
+        contacts_created += 1 if res["contact_created"] else 0
+
+    invalidate_summary_cache()
+    return {"rows_read": len(rows), "companies_created": created,
+            "companies_merged": merged, "leads_created": leads_created,
+            "contacts_created": contacts_created, "rejected": rejected,
+            "imported_by": (user.email or "").lower()}
+
+
+# ===========================================================================
+# Useful Assets - the shared reference library (call scripts, email templates,
+# one-pagers). Files are stored as bytes IN the row because the hosted API runs on
+# Render's free tier, whose disk is wiped on every redeploy; the DB is the only
+# durable home. Listing never streams the blob; download does.
+# ===========================================================================
+def _asset_out(a: lm.UsefulAsset, *, with_meta_only: bool = True) -> dict:
+    out = {
+        "id": a.id, "title": a.title, "category": a.category,
+        "description": a.description or "", "filename": a.filename,
+        "content_type": a.content_type, "size_bytes": a.size_bytes,
+        "uploaded_by_email": a.uploaded_by_email,
+        "created_at": _iso(a.created_at), "updated_at": _iso(a.updated_at),
+    }
+    return out
+
+
+@router.get("/assets")
+def list_assets(session: Session = Depends(db.get_db),
+                user: models.User = Depends(require_sales)):
+    rows = session.query(lm.UsefulAsset).order_by(
+        lm.UsefulAsset.category.asc(), lm.UsefulAsset.created_at.desc()).all()
+    items = []
+    for a in rows:
+        d = _asset_out(a)
+        # Tell the client whether THIS viewer may delete it, so the button only
+        # appears where the server will actually honour it.
+        d["can_delete"] = (
+            _is_manager(user) or (a.uploaded_by_email or "").lower() == (user.email or "").lower())
+        items.append(d)
+    return {"count": len(items), "items": items}
+
+
+@router.post("/assets", status_code=201)
+def upload_asset(
+    payload: AssetCreateIn, session: Session = Depends(db.get_db),
+    user: models.User = Depends(require_sales),
+):
+    try:
+        raw = base64.b64decode(payload.data_base64)
+    except Exception:
+        raise HTTPException(422, "data_base64 is not valid base64")
+    if not raw:
+        raise HTTPException(422, "The file is empty")
+    if len(raw) > ASSET_MAX_BYTES:
+        raise HTTPException(413, f"File is too large ({len(raw)} bytes; limit {ASSET_MAX_BYTES})")
+    a = lm.UsefulAsset(
+        title=clean_text(payload.title) or payload.filename,
+        category=clean_text(payload.category) or "General",
+        description=(payload.description or "").strip(),
+        filename=payload.filename.strip() or "file",
+        content_type=(payload.content_type or "application/octet-stream").strip(),
+        size_bytes=len(raw), data=raw,
+        uploaded_by=user.id, uploaded_by_email=(user.email or "").lower())
+    session.add(a)
+    session.commit()
+    session.refresh(a)
+    return _asset_out(a)
+
+
+@router.get("/assets/{asset_id}/download")
+def download_asset(
+    asset_id: int, session: Session = Depends(db.get_db),
+    user: models.User = Depends(require_sales),
+):
+    a = session.get(lm.UsefulAsset, asset_id)
+    if not a:
+        raise HTTPException(404, "Asset not found")
+    # RFC 5987 encoding so a filename with a space / unicode survives the header.
+    from urllib.parse import quote
+    disposition = (
+        f"attachment; filename*=UTF-8''{quote(a.filename)}"
+        if a.filename else "attachment")
+    return Response(content=a.data, media_type=a.content_type or "application/octet-stream",
+                    headers={"Content-Disposition": disposition})
+
+
+@router.delete("/assets/{asset_id}")
+def delete_asset(
+    asset_id: int, session: Session = Depends(db.get_db),
+    user: models.User = Depends(require_sales),
+):
+    a = session.get(lm.UsefulAsset, asset_id)
+    if not a:
+        raise HTTPException(404, "Asset not found")
+    is_owner = (a.uploaded_by_email or "").lower() == (user.email or "").lower()
+    if not (_is_manager(user) or is_owner):
+        raise HTTPException(403, "Only the person who uploaded this, or a manager, can delete it")
+    session.delete(a)
+    session.commit()
+    return {"ok": True, "deleted": asset_id}
+
+
+# ===========================================================================
+# AI "paste anything" ingestion
+# ---------------------------------------------------------------------------
+# A rep pastes ANY unstructured text (a WhatsApp reply, a forwarded email, a call
+# note, an enquiry, a supplier quotation). `ai_ingest` asks the model to decide
+# whether it is a LEAD, an RFQ, or a SUPPLIER QUOTE and to extract the structured
+# fields. The console shows that as a PREVIEW; nothing is written until the rep
+# confirms, at which point /leads/ai/accept routes it:
+#   lead           -> the CRM (Company + Contact + supplier/buyer-track Lead),
+#   rfq            -> the live board when complete, else a PENDING concierge draft,
+#   supplier_quote -> a Bid on the matching RFQ, else a supplier Lead.
+# The model's output is NEVER trusted: every key is re-validated against the real
+# columns here, so a hallucinated field is dropped, not written.
+# ===========================================================================
+_AI_KINDS = ("lead", "rfq", "supplier_quote")
+
+# An RFQ needs these before it is worth showing on the board; anything less is a
+# draft the concierge must finish, never a half-empty public listing.
+_RFQ_REQUIRED = ("title", "qty", "unit")
+
+
+def _rfq_fields_from_record(rec: dict) -> dict:
+    """Translate the AI's flat rfq record into the draft key shape the
+    marketplace workflow (draft_util / workflow.write_rfq) already speaks."""
+    import sectors
+    import draft_util
+    sector = clean_text(rec.get("sector_key")).lower()
+    if sector not in sectors.SECTORS:
+        sector = sectors.classify(rec.get("process", ""), rec.get("title", ""),
+                                  rec.get("material", ""))
+    low = _num_or_none(rec.get("budget_low"))
+    high = _num_or_none(rec.get("budget_high"))
+    if high is not None and low is None:
+        low, high = high, None
+    return draft_util.normalize_fields({
+        "title": clean_text(rec.get("title")),
+        "sector_key": sector,
+        "process": clean_text(rec.get("process")),
+        "material": clean_text(rec.get("material")),
+        "qty": _num_or_none(rec.get("qty")),
+        "unit": clean_text(rec.get("unit")),
+        "low": low,
+        "high": high,
+        "cur": clean_text(rec.get("currency")) or "₹",
+        "closes_in_days": _int_or_none(rec.get("closes_in_days")),
+        "description": clean_text(rec.get("description")),
+        "notes": clean_text(rec.get("notes")),
+        "hub_city": clean_text(rec.get("hub_city")),
+        "issuer_name": clean_text(rec.get("issuer_name")),
+    })
+
+
+def _rfq_readiness(fields: dict) -> tuple[bool, list[str]]:
+    """(publishable?, list of still-missing essentials)."""
+    missing: list[str] = []
+    if not str(fields.get("title") or "").strip():
+        missing.append("Title")
+    if fields.get("qty") in (None, ""):
+        missing.append("Quantity")
+    if not str(fields.get("unit") or "").strip():
+        missing.append("Unit (pcs/kg/sets)")
+    if not str(fields.get("process") or "").strip() and not str(fields.get("material") or "").strip():
+        missing.append("Process or material")
+    return (not missing), missing
+
+
+def _num_or_none(v):
+    if v is None or v == "":
+        return None
+    if isinstance(v, (int, float)):
+        return v
+    s = "".join(ch for ch in str(v) if (ch.isdigit() or ch in ".-"))
+    if not s or s in ("-", "."):
+        return None
+    try:
+        f = float(s)
+        return int(f) if f.is_integer() else f
+    except ValueError:
+        return None
+
+
+def _int_or_none(v):
+    n = _num_or_none(v)
+    return int(n) if n is not None else None
+
+
+def _resolve_rfq_ref(session, code: str = "", title: str = "") -> models.Rfq | None:
+    """Find the RFQ a quote refers to: a digits code is an id, else a normalized
+    title match against the published board. Returns None when nothing fits."""
+    import draft_util
+    digits = "".join(ch for ch in (code or "") if ch.isdigit())
+    if digits:
+        r = session.get(models.Rfq, int(digits))
+        if r:
+            return r
+    nt = draft_util.norm_title(title or "")
+    if nt:
+        for r in session.query(models.Rfq).filter(models.Rfq.status == "published").all():
+            if draft_util.norm_title(r.title) == nt:
+                return r
+    return None
+
+
+def _rfq_out(r: models.Rfq) -> dict:
+    import sectors
+    return {"id": r.id, "code": r.code, "title": r.title,
+            "sector_key": r.sector_key, "sector_label": sectors.label(r.sector_key),
+            "status": r.status}
+
+
+def _ai_enrich(session, analysis: dict) -> dict:
+    """Add the server's own read on the AI analysis so the preview is honest about
+    what WOULD happen: is this RFQ complete enough to publish, and does this quote
+    actually match a live RFQ?"""
+    import sectors
+    out = dict(analysis)
+    kind = out.get("kind")
+    rec = out.get("record") or {}
+    if kind == "rfq":
+        fields = _rfq_fields_from_record(rec)
+        ready, missing = _rfq_readiness(fields)
+        sk = fields.get("sector_key", "cnc")
+        out["rfq"] = {
+            "fields": fields,
+            "sector_label": sectors.label(sk),
+            "publish_ready": ready,
+            "would_missing": missing,
+        }
+    elif kind == "supplier_quote":
+        rfq = _resolve_rfq_ref(session, rec.get("rfq_code", ""), rec.get("rfq_title", ""))
+        price = _num_or_none(rec.get("unit_price"))
+        out["quote"] = {
+            "matched_rfq": _rfq_out(rfq) if rfq else None,
+            "has_price": price is not None and price > 0,
+            "will_file_as": "bid" if (rfq and price is not None and price > 0) else "supplier_lead",
+        }
+    elif kind == "lead":
+        cat = _resolve_category(rec.get("category", ""))
+        rec["category"] = cat or rec.get("category", "")
+        out["record"] = rec
+        out["lead"] = {
+            "category_key": cat,
+            "category_label": rc.CATEGORIES.get(cat, {}).get("label", "") if cat else "",
+            "default_track": rc.CATEGORIES.get(cat, {}).get("default_track", "supplier"),
+        }
+    return out
+
+
+@router.get("/leads/ai/status")
+def ai_ingest_status(user: models.User = Depends(require_sales)):
+    """So the modal can warn up-front if the engine isn't configured, rather than
+    failing only after the rep has typed a paste."""
+    import ai_ingest
+    engine = "gemini" if ai_ingest.gemini_key() else ("openai" if ai_ingest.openai_ready() else "")
+    return {"configured": ai_ingest.available(), "engine": engine}
+
+
+@router.post("/leads/ai/preview")
+def ai_ingest_preview(
+    payload: AiPreviewIn, session: Session = Depends(db.get_db),
+    user: models.User = Depends(require_sales),
+):
+    """Run the AI over the pasted text and return what it understood — NO write."""
+    import ai_ingest
+    text = (payload.text or "").strip()
+    if not text:
+        raise HTTPException(422, "Paste some text to analyse first.")
+    if not ai_ingest.available():
+        raise HTTPException(503,
+            "AI ingestion is not configured on this server. Set GEMINI_API_KEY "
+            "(or the LLM_* fallback) and restart — meanwhile use Add lead / Import.")
+    categories = [{"key": k, "label": c["label"]} for k, c in rc.CATEGORIES.items()]
+    sector_list = [{"key": k, "label": v["label"]} for k, v in _ai_sectors().items()]
+    try:
+        analysis = ai_ingest.analyze(text, categories, sector_list)
+    except Exception as exc:
+        raise HTTPException(502, f"The AI could not analyse that text ({str(exc)[:180]}). Try again.")
+    analysis = _ai_enrich(session, analysis)
+    analysis["source_text"] = text[:4000]
+    return {"ok": True, "analysis": analysis}
+
+
+def _ai_sectors() -> dict:
+    import sectors
+    return sectors.SECTORS
+
+
+@router.post("/leads/ai/accept")
+def ai_ingest_accept(
+    payload: AiAcceptIn, session: Session = Depends(db.get_db),
+    user: models.User = Depends(require_sales),
+):
+    """The rep confirmed the preview — now actually file it. Dispatched by kind."""
+    kind = (payload.kind or "").strip().lower()
+    rec = payload.record if isinstance(payload.record, dict) else {}
+    if kind not in _AI_KINDS:
+        raise HTTPException(422, f"Nothing to accept — unsupported kind '{payload.kind}'.")
+    if kind == "lead":
+        return _ai_accept_lead(session, rec, payload, user)
+    if kind == "rfq":
+        return _ai_accept_rfq(session, rec, payload, user)
+    return _ai_accept_quote(session, rec, payload, user)
+
+
+def _ai_accept_lead(session, rec: dict, payload: AiAcceptIn, user: models.User) -> dict:
+    owner_id, owner_label = _resolve_owner_id(
+        session, user, payload.owner_email, _is_manager(user))
+    res = _create_lead_row(session, rec, owner_id, owner_label,
+                           added_by=(user.email or "").lower())
+    if not res.get("ok"):
+        session.rollback()
+        raise HTTPException(422, res.get("reason") or "Could not create the lead")
+    session.commit()
+    verb = "merged into" if res.get("merged") else "created"
+    msg = (f"Lead {verb} {res.get('company')}"
+           + (", added a contact" if res.get("contact_created") else "")
+           + (", added to your queue" if res.get("lead_created") else "")
+           + ".")
+    return {"ok": True, "kind": "lead", "filed_as": "lead", "result": res,
+            "message": msg, "lead_id": res.get("lead_id")}
+
+
+def _ai_accept_rfq(session, rec: dict, payload: AiAcceptIn, user: models.User) -> dict:
+    import draft_util
+    import workflow
+    fields = _rfq_fields_from_record(rec)
+    ready, missing = _rfq_readiness(fields)
+    if not fields.get("title"):
+        session.rollback()
+        raise HTTPException(422, "This RFQ has no title the board can list — add one and accept again.")
+    if ready:
+        rfq = workflow.write_rfq(session, fields, publish=True, user_id=user.id)
+        session.commit()
+        session.refresh(rfq)
+        invalidate_summary_cache()
+        return {"ok": True, "kind": "rfq", "filed_as": "published",
+                "rfq": _rfq_out(rfq), "duplicate": False,
+                "message": f"Published {rfq.code} to the RFQ board — {rfq.title}."}
+    # Not complete: file as a concierge draft (never a half-empty board listing).
+    draft = draft_util.create_draft(
+        session, raw_text=payload.raw_text or payload.summary or "",
+        parsed=fields, source="console-ai", user_id=user.id)
+    invalidate_summary_cache()
+    return {"ok": True, "kind": "rfq", "filed_as": "draft", "draft_id": draft.id,
+            "missing": missing,
+            "message": ("Saved as a pending RFQ draft — still needs: "
+                        + ", ".join(missing) + ". An admin/rep can approve it to the board.")}
+
+
+def _ai_accept_quote(session, rec: dict, payload: AiAcceptIn, user: models.User) -> dict:
+    import sectors
+    price = _num_or_none(rec.get("unit_price"))
+    rfq = None
+    if payload.target_rfq_id:
+        rfq = session.get(models.Rfq, int(payload.target_rfq_id))
+    if rfq is None:
+        rfq = _resolve_rfq_ref(session, rec.get("rfq_code", ""), rec.get("rfq_title", ""))
+    supplier = clean_text(rec.get("supplier_name"))
+
+    if rfq is not None and price is not None and price > 0:
+        parts = [f"Quote: {supplier or 'a supplier'} @ {price} {clean_text(rec.get('currency')) or '₹'}/"
+                 f"{clean_text(rec.get('unit')) or 'unit'}"]
+        if clean_text(rec.get("item")):
+            parts.append(clean_text(rec.get("item")))
+        if clean_text(rec.get("payment_terms")):
+            parts.append("Terms: " + clean_text(rec.get("payment_terms")))
+        if clean_text(rec.get("notes")):
+            parts.append(clean_text(rec.get("notes")))
+        gst = _parse_yn(rec.get("gst_included"))
+        bid = models.Bid(
+            rfq_id=rfq.id, unit_price=float(price),
+            tooling=float(_num_or_none(rec.get("tooling")) or 0),
+            freight=float(_num_or_none(rec.get("freight")) or 0),
+            gst_included=True if gst is None else gst,
+            lead_weeks=_int_or_none(rec.get("lead_weeks")),
+            payment_terms=clean_text(rec.get("payment_terms")),
+            validity_days=_int_or_none(rec.get("validity_days")),
+            notes=" | ".join(parts), source="console-ai")
+        session.add(bid)
+        rfq.demand_bids = (rfq.demand_bids or 0) + 1
+        session.commit()
+        session.refresh(bid)
+        invalidate_summary_cache()
+        return {"ok": True, "kind": "supplier_quote", "filed_as": "bid",
+                "rfq": _rfq_out(rfq), "bid_id": bid.id,
+                "message": f"Filed a supplier quote of {price} as a bid against {rfq.code} ({rfq.title})."}
+
+    # No matching RFQ (or no price) -> save the supplier as a lead with the quote as a note.
+    if not supplier:
+        session.rollback()
+        raise HTTPException(422, "This quote names no supplier and matches no RFQ — add a name or an RFQ code.")
+    quote_note = payload.summary or rec.get("notes") or f"Supplier quote from {supplier}."
+    if price is not None:
+        quote_note += f" Priced {price} {clean_text(rec.get('currency')) or '₹'}/{clean_text(rec.get('unit')) or 'unit'}."
+    lead_rec = {
+        "company": supplier, "contact_name": clean_text(rec.get("contact_name")),
+        "designation": clean_text(rec.get("designation")), "email": clean_text(rec.get("email")),
+        "phone_primary": clean_text(rec.get("phone")), "city": clean_text(rec.get("city")),
+        "what_they_do": clean_text(rec.get("item")), "track": "supplier",
+        "notes": quote_note,
+    }
+    owner_id, owner_label = _resolve_owner_id(session, user, payload.owner_email, _is_manager(user))
+    res = _create_lead_row(session, lead_rec, owner_id, owner_label, added_by=(user.email or "").lower())
+    if not res.get("ok"):
+        session.rollback()
+        raise HTTPException(422, res.get("reason") or "Could not save the supplier")
+    if res.get("lead_id"):
+        session.add(lm.LeadActivity(
+            lead_id=res["lead_id"], kind="note", direction="inbound", outcome="",
+            summary=quote_note[:2000], created_by=user.id,
+            created_by_email=(user.email or "").lower()))
+    session.commit()
+    invalidate_summary_cache()
+    return {"ok": True, "kind": "supplier_quote", "filed_as": "supplier_lead",
+            "result": res, "lead_id": res.get("lead_id"),
+            "message": (f"No matching RFQ, so saved {res.get('company')} as a supplier "
+                        f"lead with the quote noted.")}
+
+

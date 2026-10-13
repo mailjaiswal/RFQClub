@@ -351,3 +351,167 @@ export function prefetchLead(id: number) {
   if (peek<LeadDetail>(detailKey(id)) !== undefined) return;
   refresh(detailKey(id), () => getLead(id)).catch(() => { /* best effort */ });
 }
+
+// ---------------------------------------------------------------------------
+// Rep-created leads + bulk import
+// ---------------------------------------------------------------------------
+export interface NewLeadInput {
+  company: string; category: string; legal_name?: string; track?: string;
+  city?: string; country?: string; address?: string; website?: string;
+  linkedin_url?: string; gmb_link?: string; gst?: string; cin?: string;
+  size_band?: string; what_they_do?: string; contact_name?: string;
+  designation?: string; email?: string; phone_primary?: string;
+  phone_secondary?: string; whatsapp?: string; decision_maker?: boolean | null;
+  status?: string; notes?: string; owner_email?: string;
+}
+export interface CreateLeadResult {
+  ok: boolean; merged: boolean; company: string; company_id: number;
+  lead_id: number; lead_created: boolean; contact_created: boolean;
+}
+export interface ImportRejected { row: number; company: string; reason: string; }
+export interface ImportResult {
+  rows_read: number; companies_created: number; companies_merged: number;
+  leads_created: number; contacts_created: number; rejected: ImportRejected[];
+  imported_by: string;
+}
+
+export const createLead = (body: NewLeadInput) =>
+  req<CreateLeadResult>("/api/sales/leads/new", { method: "POST", body: JSON.stringify(body) });
+
+export const importLeadsBase64 = (body: { filename: string; data_base64: string; fmt?: string; owner_email?: string }) =>
+  req<ImportResult>("/api/sales/leads/import", { method: "POST", body: JSON.stringify(body) });
+
+// ---- binary helpers (auth'd fetch -> save to disk) ----
+// <a download> can't carry the bearer token, so a protected file is fetched as a
+// blob and saved client-side; the server's Content-Disposition gives the filename.
+async function fetchBlob(path: string): Promise<{ blob: Blob; filename: string }> {
+  const auth = typeof window !== "undefined" ? getToken() : null;
+  const actAs = typeof window !== "undefined" ? localStorage.getItem("rfqclub_act_as") || "" : "";
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { ...(auth ? { Authorization: `Bearer ${auth}` } : {}), ...(actAs ? { "X-Act-As": actAs } : {}) },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    let d = `${res.status}`;
+    try { d = (await res.json()).detail || d; } catch { /* binary error may not be json */ }
+    throw new Error(d);
+  }
+  let filename = "";
+  const cd = res.headers.get("Content-Disposition") || "";
+  const m = /filename\*=UTF-8''([^;]+)/i.exec(cd) || /filename="?([^";]+)"?/i.exec(cd);
+  if (m) { try { filename = decodeURIComponent(m[1]); } catch { filename = m[1]; } }
+  return { blob: await res.blob(), filename };
+}
+
+/** Trigger a browser save for a fetched blob. */
+export function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename || "download";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+/** Download the blank lead-import template (csv or xlsx) the rep asked for. */
+export async function downloadLeadTemplate(fmt: "csv" | "xlsx"): Promise<void> {
+  const { blob, filename } = await fetchBlob(`/api/sales/leads/template?fmt=${fmt}`);
+  saveBlob(blob, filename || `rfqclub_lead_template.${fmt}`);
+}
+
+/** Read a File into base64 (no data: prefix) for the upload endpoints. */
+export function fileToBase64(file: File | Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => {
+      const out = String(fr.result || "");
+      resolve(out.slice(out.indexOf(",") + 1)); // strip "data:...;base64,"
+    };
+    fr.onerror = () => reject(fr.error || new Error("Could not read the file"));
+    fr.readAsDataURL(file);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Useful Assets - shared reference library (call scripts, email templates, ...)
+// ---------------------------------------------------------------------------
+export interface AssetMeta {
+  id: number; title: string; category: string; description: string;
+  filename: string; content_type: string; size_bytes: number;
+  uploaded_by_email: string; created_at: string | null; updated_at: string | null;
+  can_delete: boolean;
+}
+export interface AssetList { count: number; items: AssetMeta[]; }
+
+export const getAssets = () => req<AssetList>("/api/sales/assets");
+
+export const uploadAsset = (body: {
+  title: string; category?: string; description?: string;
+  filename: string; content_type?: string; data_base64: string;
+}) => req<AssetMeta>("/api/sales/assets", { method: "POST", body: JSON.stringify(body) });
+
+export async function downloadAsset(id: number, fallbackName = "asset"): Promise<void> {
+  const { blob, filename } = await fetchBlob(`/api/sales/assets/${id}/download`);
+  saveBlob(blob, filename || fallbackName);
+}
+
+export const deleteAsset = (id: number) =>
+  req<{ ok: boolean; deleted: number }>(`/api/sales/assets/${id}`, { method: "DELETE" });
+
+
+// ---------------------------------------------------------------------------
+// AI "paste anything" ingestion — preview what the model understood, then accept.
+// The preview never writes; accept routes the confirmed record to a lead / an RFQ
+// (published when complete, else a concierge draft) / a supplier quote (a bid on a
+// matching RFQ, else a supplier lead).
+// ---------------------------------------------------------------------------
+export type AiKind = "lead" | "rfq" | "supplier_quote" | "unknown";
+
+export interface AiRfqView {
+  fields: Record<string, unknown>;
+  sector_label: string;
+  publish_ready: boolean;
+  would_missing: string[];
+}
+export interface AiQuoteView {
+  matched_rfq: { id: number; code: string; title: string; sector_label: string; status: string } | null;
+  has_price: boolean;
+  will_file_as: "bid" | "supplier_lead";
+}
+export interface AiLeadView {
+  category_key: string;
+  category_label: string;
+  default_track: string;
+}
+export interface AiAnalysis {
+  kind: AiKind;
+  confidence: number;
+  summary: string;
+  record: Record<string, string | number | null>;
+  missing: string[];
+  notes: string;
+  model: string;
+  source_text?: string;
+  rfq?: AiRfqView;
+  quote?: AiQuoteView;
+  lead?: AiLeadView;
+}
+export interface AiAcceptResult {
+  ok: boolean; kind: string; filed_as: string; message: string;
+  result?: CreateLeadResult; lead_id?: number;
+  rfq?: { id: number; code: string; title: string; sector_key: string; sector_label: string; status: string };
+  duplicate?: boolean; draft_id?: number; missing?: string[]; bid_id?: number;
+}
+
+export const aiStatus = () =>
+  req<{ configured: boolean; engine: string }>("/api/sales/leads/ai/status");
+
+export const aiPreview = (text: string) =>
+  req<{ ok: boolean; analysis: AiAnalysis }>("/api/sales/leads/ai/preview",
+    { method: "POST", body: JSON.stringify({ text }) });
+
+export const aiAccept = (body: {
+  kind: string; record: Record<string, string | number | null>;
+  summary?: string; owner_email?: string; target_rfq_id?: number | null; raw_text?: string;
+}) => req<AiAcceptResult>("/api/sales/leads/ai/accept", { method: "POST", body: JSON.stringify(body) });
+
+

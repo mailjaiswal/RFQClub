@@ -322,6 +322,7 @@ function Shell({ children, teamList }: { children: React.ReactNode; teamList: Te
   const isLeads = pathname.startsWith("/console/leads");
   const isTeam = pathname.startsWith("/console/team");
   const isReports = pathname.startsWith("/console/reports");
+  const isAssets = pathname.startsWith("/console/assets");
   const linkActive = (href: string, v?: string) => {
     if (href === "/console") return pathname === "/console";
     if (!isLeads) return false;
@@ -356,6 +357,9 @@ function Shell({ children, teamList }: { children: React.ReactNode; teamList: Te
 
           <div className="sect">Marketplace</div>
           <Link className="in-navlink" href="/board">↗ RFQClub board</Link>
+
+          <div className="sect">Reference</div>
+          <Link className={`in-navlink${isAssets ? " on" : ""}`} href="/console/assets">🗂 Useful assets</Link>
         </aside>
 
         <div className="in-main">

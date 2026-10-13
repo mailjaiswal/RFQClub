@@ -25,12 +25,13 @@ CORS_ORIGINS = [o.strip() for o in os.getenv(
     "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001",
 ).split(",") if o.strip()]
 # Broad, deployment-proof origin allowlist so browser mutations work without
-# hand-editing env on every host: any Vercel/Render app + local dev. We use
-# Bearer tokens (not cookies), so no allow_credentials and this stays safe for
-# the demo. Override/extend via CORS_ORIGIN_REGEX if you lock it down later.
+# hand-editing env on every host: any Vercel/Render app + swaniki.com custom
+# domains + local dev. We use Bearer tokens (not cookies), so no
+# allow_credentials and this stays safe for the demo. Override/extend via
+# CORS_ORIGIN_REGEX if you lock it down later.
 CORS_ORIGIN_REGEX = os.getenv(
     "CORS_ORIGIN_REGEX",
-    r"^(https://[\w.-]+\.vercel\.app|https://[\w.-]+\.onrender\.com|http://localhost:\d+|http://127\.0\.0\.1:\d+)$",
+    r"^(https://[\w.-]+\.vercel\.app|https://[\w.-]+\.onrender\.com|https://([\w-]+\.)?swaniki\.com|http://localhost:\d+|http://127\.0\.0\.1:\d+)$",
 ).strip()
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
@@ -126,6 +127,12 @@ LLM_ENABLED = os.getenv("LLM_ENABLED", "false").lower() in ("1", "true", "yes")
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "").strip()
 LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
+
+# AI ingestion (console "paste anything" box): Gemini is the primary engine
+# (same free-tier model family the Swaniki CRM uses); the LLM_* OpenAI-style
+# config above stays as a fallback provider. Unset key => the feature returns a
+# clear 503 instead of failing silently, so it is obvious what to configure.
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 
 # Absolute path to the source-of-truth workbook (seed + BnS sync).
 SOURCE_XLSX = os.getenv(

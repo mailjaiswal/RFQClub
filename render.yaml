@@ -22,10 +22,15 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_ID # public OAuth client ID (not a secret) for "Continue with Google"
         value: 553353885205-gpjdn704gn0nbj95klij2d8dfopc0i6u.apps.googleusercontent.com
-      - key: CORS_ORIGINS # once Vercel deploys, e.g. https://<proj>.vercel.app
-        value: http://localhost:3001
+      - key: CORS_ORIGINS # explicit origins; extend CORS_ORIGIN_REGEX for wildcards
+        value: http://localhost:3001,https://rfqclub.swaniki.com,https://swaniki.com,https://www.swaniki.com
+      # Broad allowlist so the custom swaniki.com domain (and any future
+      # Vercel/Render preview URL) can call the API cross-origin without a
+      # config edit for every host. Keep this in sync with api/config.py.
+      - key: CORS_ORIGIN_REGEX
+        value: '^(https://[\w.-]+\.vercel\.app|https://[\w.-]+\.onrender\.com|https://([\w-]+\.)?swaniki\.com|http://localhost:\d+|http://127\.0\.0\.1:\d+)$'
       - key: WEB_BASE_URL # origin used to build password-reset links sent by email
-        value: https://rfqclub-web.vercel.app
+        value: https://rfqclub.swaniki.com
       # Email delivery is optional: with no key set, sign-in codes and reset
       # links are shown on-screen instead (OTP_MODE=dev). Add a RESEND_API_KEY
       # (plus EMAIL_FROM on your verified domain) in the dashboard to send for real.
@@ -57,4 +62,18 @@ services:
       - key: SALES_EMAILS
         sync: false
       - key: SALES_MANAGER_EMAILS
+        sync: false
+      # AI ingestion (the console "paste anything" box). Set the key in the
+      # dashboard; with none present the feature returns a clear 503 instead of
+      # failing silently. Gemini is primary; the LLM_* OpenAI vars below are an
+      # optional fallback provider.
+      - key: GEMINI_API_KEY # https://aistudio.google.com/apikey
+        sync: false
+      - key: LLM_ENABLED
+        sync: false
+      - key: LLM_PROVIDER
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_MODEL
         sync: false
