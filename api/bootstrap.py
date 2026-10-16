@@ -4,6 +4,11 @@ The FastAPI startup event calls ensure_seeded() — if the rfq table is empty
 (e.g. a fresh Neon branch), the demo dataset is rebuilt from the committed
 JSON snapshot, with the same demo suppliers + blinded bids as
 `seed_rfqs.py --demo-bids`. Neon persists afterwards, so this runs once.
+
+It also calls ensure_categories(): the `category` table used to be filled only
+by manually running `seed_categories.py`, which meant a hosted DB that nobody
+re-seeded silently served an empty category list — the console's "Add a lead"
+dropdown showed no options. The taxonomy now mirrors itself on every boot.
 """
 from __future__ import annotations
 
@@ -43,6 +48,34 @@ def ensure_seeded(session=None) -> bool:
         # simply finds the DB already seeded.
         s.rollback()
         print("[bootstrap] seed skipped (concurrent boot)")
+        return False
+    finally:
+        if own:
+            s.close()
+
+
+def ensure_categories(session=None) -> bool:
+    """Mirror the pipeline taxonomy (`rfq_categories.py`) into the `category`
+    table on every boot, via the same idempotent sync the CLI uses.
+
+    Guarded so a broken checkout can never take the API down: `seed_categories`
+    raises SystemExit at import time when the registry file is missing, and the
+    sync itself only touches reference rows. Returns True when anything was
+    created or updated."""
+    own = session is None
+    s = session or db.SessionLocal()
+    try:
+        import seed_categories
+
+        res = seed_categories.sync(s)
+        touched = bool(res["created"] or res["updated"] or res["retired"])
+        if res["created"]:
+            print(f"[bootstrap] seeded {len(res['created'])} categories: "
+                  + ", ".join(res["created"])[:120])
+        return touched
+    except (SystemExit, Exception) as exc:  # noqa: BLE001 - boot must never fail on seed
+        s.rollback()
+        print(f"[bootstrap] category sync skipped: {str(exc)[:160]}")
         return False
     finally:
         if own:

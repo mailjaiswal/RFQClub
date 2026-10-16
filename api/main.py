@@ -57,6 +57,10 @@ def _startup():
     # Seed the first inside-sales manager so the /console area is reachable
     # (idempotent; never overwrites an existing account). See bootstrap.py.
     bootstrap.ensure_sales_admin()
+    # Mirror the pipeline taxonomy into the `category` table so the console's
+    # category dropdowns and the import's category validation have data to
+    # serve. Idempotent and guarded — a missing registry file never blocks boot.
+    bootstrap.ensure_categories()
 
 
 # ---------- serialization ----------
@@ -203,10 +207,14 @@ def health():
 @app.post("/api/admin/seed")
 def admin_seed(key: str = Query("")):
     """Idempotent seed trigger for deploy smoke checks — runs the same
-    empty-table bootstrap as startup. Guarded by the AUTH_SECRET admin key."""
+    empty-table bootstrap as startup (demo RFQs + category taxonomy), so a
+    hosted DB can be repaired without waiting on a redeploy.
+    Guarded by the AUTH_SECRET admin key."""
     if not key or key != config.AUTH_SECRET:
         raise HTTPException(status_code=403, detail="bad admin key")
-    return {"ok": True, "seeded": bootstrap.ensure_seeded()}
+    cats_synced = bootstrap.ensure_categories()
+    return {"ok": True, "seeded": bootstrap.ensure_seeded(),
+            "categories_synced": cats_synced}
 
 
 @app.post("/api/admin/purge-users")

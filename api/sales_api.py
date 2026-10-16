@@ -306,6 +306,12 @@ def sales_meta(
         .where(lm.Category.is_active.is_(True))
         .order_by(lm.Category.sort_order, lm.Category.label)
     ).all()
+    # Never serve an empty picker: a hosted DB whose `category` table was not
+    # seeded (startup now mirrors it, but an old boot may predate that) would
+    # leave "Add a lead" with no category options. The registry is the source
+    # of truth the seed mirrors from, so fall straight back to it in memory.
+    if not cats:
+        cats = [(k, c["label"]) for k, c in rc.CATEGORIES.items()]
     return {
         "statuses": [{"key": s, "label": STATUS_LABELS.get(s, s)} for s in lm.STATUSES],
         "funnel_order": FUNNEL_ORDER,
